@@ -23,6 +23,10 @@ class RegistroAuditoria(models.Model):
         EXPORTACAO = "exportacao", "Exportação"
         CRIACAO = "criacao", "Criação"
         ALTERACAO = "alteracao", "Alteração"
+        PROCESSAMENTO = "processamento", "Processamento"
+        ERRO_PROCESSAMENTO = "erro_processamento", "Erro de processamento"
+        REPROCESSAMENTO = "reprocessamento", "Reprocessamento"
+        VALIDACAO_HUMANA = "validacao_humana", "Validação humana"
 
     data_hora = models.DateTimeField("data e hora", auto_now_add=True, db_index=True)
     usuario = models.ForeignKey(

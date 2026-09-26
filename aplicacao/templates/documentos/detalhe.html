@@ -1,0 +1,163 @@
+{% extends "base_autenticado.html" %}
+{% load static %}
+{% block titulo %}{{ documento.nome_original }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' documento.prestacao_contas_id %}?aba=documentos">{{ documento.prestacao_contas }}</a>
+    / {{ documento.nome_original }}
+</p>
+<div class="d-flex justify-content-between flex-wrap gap-2">
+    <div>
+        <h1 class="h3">{{ documento.nome_original }}</h1>
+        {% if documento.demonstracao %}<p><span class="estado estado-aguardando">Dados de demonstração</span></p>{% endif %}
+        <p id="status-documento" data-acompanhar="{% if acompanhar %}1{% else %}0{% endif %}" data-url="{% url 'documentos:status' documento.pk %}">
+            {{ documento.get_status_processamento_display }} · {{ documento.get_etapa_display }}
+        </p>
+        {% if documento.erro_processamento %}<p class="text-danger">{{ documento.erro_processamento }}</p>{% endif %}
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-7">
+        <article class="cartao visor-pdf">
+            <div class="d-flex flex-wrap gap-2 mb-2">
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-anterior">Anterior</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-proxima">Próxima</button>
+                <label class="small" for="pdf-pagina">Página</label>
+                <input class="form-control form-control-sm" id="pdf-pagina" type="number" min="1" value="1" style="width:5rem">
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-ir">Ir</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-menos">−</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-mais">+</button>
+            </div>
+            <canvas id="pdf-canvas"></canvas>
+        </article>
+        <article class="cartao mt-3">
+            <h2>Texto da página</h2>
+            <p class="small text-secondary" id="texto-meta"></p>
+            <pre id="texto-pagina" class="mb-0 texto-extraido"></pre>
+        </article>
+    </div>
+    <div class="col-lg-5">
+        <article class="cartao">
+            <h2>Informações</h2>
+            <p>Tipo: {{ documento.get_tipo_documento_display }}</p>
+            <p>Subtipo: {{ documento.subtipo_documento|default:"Não informado" }}</p>
+            <p>Sugestão atual: {{ documento.get_tipo_sugerido_display|default:"Não classificado" }}</p>
+            <p>Classificação original: {{ documento.get_classificacao_original_display|default:"Ainda não processado" }}</p>
+            <p>Confiança: {% if documento.confianca_classificacao != None %}{{ documento.confianca_classificacao }}{% else %}—{% endif %}</p>
+            <p>Método: {{ documento.get_metodo_classificacao_display }}</p>
+            <p>Extração predominante: {{ documento.get_metodo_predominante_display }}</p>
+            <p>Páginas: {{ documento.quantidade_paginas|default:"—" }}</p>
+            <p>SHA-256: <span class="small">{{ documento.hash_sha256 }}</span></p>
+            <p class="mb-0">Validação: {% if documento.classificacao_validada %}{{ documento.validado_por|default:"usuário" }} em {{ documento.validado_em|date:"d/m/Y H:i" }}{% else %}Pendente{% endif %}</p>
+        </article>
+        <article class="cartao mt-3">
+            <h2>Candidatos extraídos</h2>
+            <p class="small text-secondary">Estes valores não são fatos validados.</p>
+            {% for dado in dados %}
+                <p><strong>{{ dado.get_tipo_display }}:</strong> {{ dado.valor }}<br><span class="small">página {{ dado.pagina.numero_pagina|default:"—" }} · {{ dado.metodo }} · “{{ dado.trecho }}”</span></p>
+            {% empty %}<p class="mb-0">Nenhum candidato.</p>{% endfor %}
+        </article>
+        {% if pode_alterar %}
+            <form class="cartao mt-3" method="post" action="{% url 'documentos:validar' documento.pk %}">
+                {% csrf_token %}
+                <h2>Validação humana</h2>
+                {% include "prestacoes_contas/_campos.html" with form=form_validacao %}
+                <button class="btn btn-primary btn-sm" type="submit">Confirmar classificação</button>
+            </form>
+            <form class="cartao mt-3" method="post" action="{% url 'documentos:reprocessar' documento.pk %}">
+                {% csrf_token %}
+                <h2>Reprocessar</h2>
+                {% include "prestacoes_contas/_campos.html" with form=form_reprocessamento %}
+                <button class="btn btn-outline-primary btn-sm" type="submit">Reprocessar</button>
+            </form>
+            <form class="mt-3" method="post" action="{% url 'documentos:arquivar' documento.pk %}">
+                {% csrf_token %}
+                <button class="btn btn-outline-secondary btn-sm" type="submit">Arquivar</button>
+            </form>
+        {% endif %}
+        {% if pode_excluir %}
+            <form class="cartao mt-3" method="post" action="{% url 'documentos:excluir' documento.pk %}">
+                {% csrf_token %}
+                <h2>Exclusão física</h2>
+                <p class="small">Digite EXCLUIR para remover o arquivo. Esta ação é administrativa.</p>
+                <input class="form-control mb-2" name="confirmacao" placeholder="EXCLUIR">
+                <button class="btn btn-outline-danger btn-sm" type="submit">Excluir arquivo</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}"></script>
+<script>
+const arquivoPdf = "{% url 'documentos:arquivo' documento.pk %}";
+const textoBase = "{% url 'documentos:texto_pagina' documento.pk 1 %}".replace(/\/1\/$/, "/");
+pdfjsLib.GlobalWorkerOptions.workerSrc = "{% static 'vendor/pdfjs/pdf.worker.min.js' %}";
+let pdfDoc = null;
+let paginaAtual = 1;
+let escala = 1.1;
+const canvas = document.getElementById("pdf-canvas");
+const contexto = canvas.getContext("2d");
+
+function desenhar(numero) {
+    pdfDoc.getPage(numero).then(function (pagina) {
+        const viewport = pagina.getViewport({ scale: escala });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        pagina.render({ canvasContext: contexto, viewport: viewport });
+        document.getElementById("pdf-pagina").value = numero;
+        carregarTexto(numero);
+    });
+}
+
+function carregarTexto(numero) {
+    fetch(textoBase + numero + "/", { credentials: "same-origin" })
+        .then(function (resposta) { return resposta.ok ? resposta.json() : null; })
+        .then(function (dados) {
+            const destino = document.getElementById("texto-pagina");
+            const meta = document.getElementById("texto-meta");
+            if (!dados) {
+                destino.textContent = "Texto ainda não disponível.";
+                meta.textContent = "";
+                return;
+            }
+            destino.textContent = dados.texto || "Sem texto nesta página.";
+            meta.textContent = dados.metodo + " · " + dados.qualidade + (dados.necessitou_ocr ? " · OCR necessário" : " · sem OCR");
+        });
+}
+
+pdfjsLib.getDocument({ url: arquivoPdf, withCredentials: true }).promise.then(function (pdf) {
+    pdfDoc = pdf;
+    desenhar(1);
+});
+
+document.getElementById("pdf-anterior").addEventListener("click", function () {
+    if (pdfDoc && paginaAtual > 1) desenhar(--paginaAtual);
+});
+document.getElementById("pdf-proxima").addEventListener("click", function () {
+    if (pdfDoc && paginaAtual < pdfDoc.numPages) desenhar(++paginaAtual);
+});
+document.getElementById("pdf-ir").addEventListener("click", function () {
+    const destino = parseInt(document.getElementById("pdf-pagina").value, 10);
+    if (pdfDoc && destino >= 1 && destino <= pdfDoc.numPages) {
+        paginaAtual = destino;
+        desenhar(destino);
+    }
+});
+document.getElementById("pdf-mais").addEventListener("click", function () { escala = Math.min(escala + 0.2, 3); if (pdfDoc) desenhar(paginaAtual); });
+document.getElementById("pdf-menos").addEventListener("click", function () { escala = Math.max(escala - 0.2, 0.6); if (pdfDoc) desenhar(paginaAtual); });
+
+const statusEl = document.getElementById("status-documento");
+if (statusEl.dataset.acompanhar === "1") {
+    const temporizador = setInterval(function () {
+        fetch(statusEl.dataset.url, { credentials: "same-origin" })
+            .then(function (resposta) { return resposta.json(); })
+            .then(function (dados) {
+                statusEl.textContent = dados.status_rotulo + " · " + dados.etapa_rotulo;
+                if (!dados.acompanhar) {
+                    clearInterval(temporizador);
+                    window.location.reload();
+                }
+            });
+    }, 3000);
+}
+</script>
+{% endblock %}

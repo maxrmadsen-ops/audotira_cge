@@ -8,7 +8,7 @@ O caso `2022TR000929` será apenas o primeiro caso de teste, em onda posterior. 
 
 ## Onda atual
 
-Onda 1 — modelo canônico da prestação de contas, sobre a fundação containerizada da Onda 0.
+Onda 2 — gestão e inteligência documental, sobre o modelo canônico da Onda 1.
 
 ## Execução
 

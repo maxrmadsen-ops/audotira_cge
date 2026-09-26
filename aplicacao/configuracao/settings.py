@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "aplicacao.auditoria.apps.AuditoriaConfig",
     "aplicacao.entidades.apps.EntidadesConfig",
     "aplicacao.prestacoes_contas.apps.PrestacoesContasConfig",
+    "aplicacao.documentos.apps.DocumentosConfig",
     "aplicacao.painel.apps.PainelConfig",
 ]
 
@@ -130,6 +131,14 @@ STATICFILES_DIRS = [BASE_DIR / "aplicacao" / "static"]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 ARQUIVOS_RAIZ = BASE_DIR / "arquivos"
+DOCUMENTOS_RAIZ = ARQUIVOS_RAIZ / "documentos"
+DOCUMENTO_TAMANHO_MAXIMO_BYTES = int(os.environ.get("DOCUMENTO_TAMANHO_MAXIMO_BYTES", str(20 * 1024 * 1024)))
+DOCUMENTO_EXTENSOES_PERMITIDAS = ["pdf"]
+OCR_MINIMO_CARACTERES = int(os.environ.get("OCR_MINIMO_CARACTERES", "40"))
+OCR_MINIMO_PALAVRAS = int(os.environ.get("OCR_MINIMO_PALAVRAS", "8"))
+OCR_LIMIAR_LEGIBILIDADE = float(os.environ.get("OCR_LIMIAR_LEGIBILIDADE", "0.6"))
+OCR_IDIOMA = os.environ.get("OCR_IDIOMA", "por")
+CLASSIFICACAO_CONFIANCA_MINIMA = os.environ.get("CLASSIFICACAO_CONFIANCA_MINIMA", "0.55")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

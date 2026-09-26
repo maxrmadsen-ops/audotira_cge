@@ -33,12 +33,25 @@ htmlcov/
 .coverage
 coverage.xml
 
-# Django
+# Django, uploads e bancos locais
 staticfiles/
 media/
+uploads/
 arquivos/
 *.log
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.dump
 local_settings.py
+
+# Cache e temporários
+.cache/
+*.cache
+tmp/
+temp/
+*.tmp
 
 # Docker e volumes locais
 postgres-data/

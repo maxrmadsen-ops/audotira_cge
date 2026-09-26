@@ -1,5 +1,5 @@
 # documentos
 
-Reservado para a Onda 2 — gestão e inteligência documental.
+Upload, armazenamento protegido, extração, OCR condicional, classificação heurística e validação humana.
 
-Sem modelos e sem lógica nesta onda.
+PDFs sintéticos de teste são gerados em memória. Documentos reais não entram no Git.

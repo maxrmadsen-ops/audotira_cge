@@ -1,5 +1,9 @@
 # Changelog
 
+## Onda 2 — 2026-09-26
+
+Gestão e inteligência documental sem LLM: upload protegido, SHA-256, extração nativa, OCR local apenas quando a página não tem texto utilizável, classificação heurística, validação humana e metadados candidatos rastreáveis.
+
 ## Onda 1 — 2026-09-26
 
 Modelo canônico da prestação de contas, separando o pactuado do executado.

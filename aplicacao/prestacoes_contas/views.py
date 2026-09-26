@@ -37,7 +37,7 @@ ABAS = (
     ("achados", "Achados"),
     ("pre-analise", "Pré-Análise"),
 )
-ABAS_PREPARADAS = {"documentos", "regras", "achados", "pre-analise"}
+ABAS_PREPARADAS = {"regras", "achados", "pre-analise"}
 PERFIS_ALTERACAO = (
     Usuario.Perfil.ADMINISTRADOR,
     Usuario.Perfil.AUDITOR,
@@ -156,7 +156,7 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
 
     def _contexto(self, request, prestacao, aba):
         plano = prestacao.planos.first()
-        return {
+        contexto = {
             "prestacao": prestacao,
             "aba": aba,
             "abas": ABAS,
@@ -179,6 +179,11 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             "form_devolucao": FormularioDevolucao(prestacao=prestacao),
             "form_funcionario": FormularioFuncionario(),
         }
+        if aba == "documentos":
+            from aplicacao.documentos.views import contexto_aba
+
+            contexto.update(contexto_aba(request, prestacao))
+        return contexto
 
 
 class InclusaoNaPrestacaoView(PerfilExigidoMixin, View):

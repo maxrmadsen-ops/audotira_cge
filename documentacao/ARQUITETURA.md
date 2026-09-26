@@ -1,4 +1,4 @@
-# Arquitetura — Onda 1
+# Arquitetura — Onda 2
 
 A raiz do repositório é o workspace local. O remoto chama-se `audotira_cge`.
 
@@ -15,7 +15,9 @@ aplicacao/
 docker/ nginx/ scripts/ documentacao/ dados_exemplo/ testes/
 ```
 
-`entidades` e `prestacoes_contas` estão ativos. Os demais pacotes continuam reservados.
+`entidades`, `prestacoes_contas` e `documentos` estão ativos. Os demais pacotes continuam reservados.
+
+O pipeline documental está descrito em [Inteligência documental](INTELIGENCIA_DOCUMENTAL.md).
 
 ## Modelo de domínio
 

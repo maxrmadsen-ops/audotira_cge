@@ -1,0 +1,41 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Documentos · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início / Documentos</p>
+<h1 class="h3">Documentos</h1>
+<div class="row g-3 my-2">
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Total</h2><p class="mb-0 fs-4">{{ indicadores_documentos.total }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Páginas</h2><p class="mb-0 fs-4">{{ indicadores_documentos.paginas }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Processados</h2><p class="mb-0 fs-4">{{ indicadores_documentos.processados }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Aguardando validação</h2><p class="mb-0 fs-4">{{ indicadores_documentos.aguardando_validacao }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Com OCR</h2><p class="mb-0 fs-4">{{ indicadores_documentos.com_ocr }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Com erro</h2><p class="mb-0 fs-4">{{ indicadores_documentos.com_erro }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Não classificados</h2><p class="mb-0 fs-4">{{ indicadores_documentos.nao_classificados }}</p></article></div>
+</div>
+<form class="row g-2 mb-3" method="get">
+    <div class="col-md-4"><input class="form-control" name="q" value="{{ filtros_documentos.q }}" placeholder="Nome ou subtipo"></div>
+    <div class="col-md-3">
+        <select class="form-select" name="tipo"><option value="">Todos os tipos</option>{% for valor, rotulo in tipos_documento %}<option value="{{ valor }}" {% if filtros_documentos.tipo == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" name="status"><option value="">Todos os status</option>{% for valor, rotulo in status_documento %}<option value="{{ valor }}" {% if filtros_documentos.status == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-outline-primary w-100" type="submit">Filtrar</button></div>
+</form>
+<div class="table-responsive cartao p-0">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>Nome</th><th>Prestação</th><th>Tipo</th><th>Status</th><th>Páginas</th></tr></thead>
+        <tbody>
+            {% for documento in documentos %}
+                <tr>
+                    <td><a href="{% url 'documentos:detalhe' documento.pk %}">{{ documento.nome_original }}</a></td>
+                    <td><a href="{% url 'prestacoes_contas:detalhe' documento.prestacao_contas_id %}?aba=documentos">{{ documento.prestacao_contas }}</a></td>
+                    <td>{{ documento.get_tipo_documento_display }}</td>
+                    <td>{{ documento.get_status_processamento_display }}</td>
+                    <td>{{ documento.quantidade_paginas|default:"—" }}</td>
+                </tr>
+            {% empty %}<tr><td colspan="5">Nenhum documento.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

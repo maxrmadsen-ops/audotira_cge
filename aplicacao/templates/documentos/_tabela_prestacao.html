@@ -1,0 +1,85 @@
+{% load static %}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Total</h2><p class="mb-0 fs-4">{{ indicadores_documentos.total }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Páginas</h2><p class="mb-0 fs-4">{{ indicadores_documentos.paginas }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Processados</h2><p class="mb-0 fs-4">{{ indicadores_documentos.processados }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Aguardando validação</h2><p class="mb-0 fs-4">{{ indicadores_documentos.aguardando_validacao }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Com OCR</h2><p class="mb-0 fs-4">{{ indicadores_documentos.com_ocr }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Com erro</h2><p class="mb-0 fs-4">{{ indicadores_documentos.com_erro }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Não classificados</h2><p class="mb-0 fs-4">{{ indicadores_documentos.nao_classificados }}</p></article></div>
+</div>
+{% if pode_alterar %}
+    <form class="cartao mb-3" method="post" enctype="multipart/form-data" action="{% url 'documentos:enviar' prestacao.pk %}">
+        {% csrf_token %}
+        <h2>Enviar PDFs</h2>
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label class="form-label" for="arquivos">Arquivos</label>
+                <input class="form-control" id="arquivos" name="arquivos" type="file" accept="application/pdf,.pdf" multiple required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="prestacao_parcial">Prestação parcial</label>
+                <select class="form-select" id="prestacao_parcial" name="prestacao_parcial">
+                    <option value="">Não associada</option>
+                    {% for parcial in prestacao.parciais.all %}
+                        <option value="{{ parcial.pk }}">{{ parcial }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="submit">Enviar</button>
+            </div>
+        </div>
+        <p class="small text-secondary mb-0 mt-2">O processamento ocorre em segundo plano. PDF com texto utilizável não passa por OCR.</p>
+    </form>
+{% endif %}
+<form class="row g-2 mb-3" method="get">
+    <input type="hidden" name="aba" value="documentos">
+    <div class="col-md-4"><input class="form-control" name="q" value="{{ filtros_documentos.q }}" placeholder="Nome ou subtipo"></div>
+    <div class="col-md-3">
+        <select class="form-select" name="tipo">
+            <option value="">Todos os tipos</option>
+            {% for valor, rotulo in tipos_documento %}
+                <option value="{{ valor }}" {% if filtros_documentos.tipo == valor %}selected{% endif %}>{{ rotulo }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" name="status">
+            <option value="">Todos os status</option>
+            {% for valor, rotulo in status_documento %}
+                <option value="{{ valor }}" {% if filtros_documentos.status == valor %}selected{% endif %}>{{ rotulo }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-outline-primary w-100" type="submit">Filtrar</button></div>
+</form>
+<div class="table-responsive cartao p-0">
+    <table class="table tabela-cge mb-0">
+        <thead>
+            <tr>
+                <th>Nome</th><th>Tipo</th><th>Subtipo</th><th>Parcial</th><th>Páginas</th><th>Status</th><th>Extração</th><th>Validação</th><th>Data</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for documento in documentos %}
+                <tr>
+                    <td>
+                        <a href="{% url 'documentos:detalhe' documento.pk %}">{{ documento.nome_original }}</a>
+                        {% if documento.demonstracao %}<span class="estado estado-aguardando ms-1">Dados de demonstração</span>{% endif %}
+                    </td>
+                    <td>{{ documento.get_tipo_documento_display }}</td>
+                    <td>{{ documento.subtipo_documento|default:"—" }}</td>
+                    <td>{{ documento.prestacao_parcial|default:"—" }}</td>
+                    <td>{{ documento.quantidade_paginas|default:"—" }}</td>
+                    <td>{{ documento.get_status_processamento_display }} · {{ documento.get_etapa_display }}</td>
+                    <td>{{ documento.get_metodo_predominante_display }}</td>
+                    <td>{% if documento.classificacao_validada %}Validada{% else %}Pendente{% endif %}</td>
+                    <td>{% if documento.data_documento %}{{ documento.data_documento|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="9">Nenhum documento enviado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

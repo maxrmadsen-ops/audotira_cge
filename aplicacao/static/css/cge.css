@@ -157,6 +157,9 @@ body {
 .login-formulario { display: flex; align-items: center; justify-content: center; padding: 2rem; }
 .login-caixa { width: min(420px, 100%); }
 
+.visor-pdf canvas { max-width: 100%; height: auto; background: #fff; }
+.texto-extraido { white-space: pre-wrap; background: #f8fafc; padding: 0.75rem; border-radius: 0.5rem; }
+
 .rodape-app {
     color: var(--cge-muted);
     font-size: 0.82rem;

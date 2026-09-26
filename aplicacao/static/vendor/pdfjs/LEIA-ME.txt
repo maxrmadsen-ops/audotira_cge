@@ -1,0 +1,4 @@
+PDF.js 3.11.174
+Mozilla
+Licença Apache 2.0
+Arquivos locais para o visualizador funcionar sem CDN.
