@@ -1,0 +1,52 @@
+# Segredos e credenciais
+.env
+.env.*
+!.env.example
+Chave auditoria_cge.txt
+Chave*
+*.pem
+*.key
+*.pfx
+*.p12
+credentials.json
+credenciais.json
+segredos/
+dados_sensiveis/
+
+# Documentos reais e Ground Truth
+*.pdf
+ground_truth/
+folhas_pagamento/
+documentos_bancarios/
+prestacoes_reais/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Django
+staticfiles/
+media/
+arquivos/
+*.log
+local_settings.py
+
+# Docker e volumes locais
+postgres-data/
+redis-data/
+
+# Ferramentas e sistema
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

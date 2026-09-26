@@ -1,0 +1,172 @@
+name: cge
+
+services:
+  cge_banco:
+    image: pgvector/pgvector:pg16
+    container_name: cge_banco
+    hostname: cge_banco
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - cge_postgres_dados:/var/lib/postgresql/data
+    networks:
+      - cge_rede
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  cge_redis:
+    image: redis:7-alpine
+    container_name: cge_redis
+    hostname: cge_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - cge_redis_dados:/data
+    networks:
+      - cge_rede
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+  cge_web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cge_aplicacao:onda0
+    container_name: cge_web
+    hostname: cge_web
+    env_file:
+      - .env
+    volumes:
+      - cge_static:/app/staticfiles
+      - cge_arquivos:/app/arquivos
+      - cge_midia:/app/media
+    networks:
+      - cge_rede
+    depends_on:
+      cge_banco:
+        condition: service_healthy
+      cge_redis:
+        condition: service_healthy
+    expose:
+      - "8000"
+    command: ["/entrada_web.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/saude/viva/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    restart: unless-stopped
+
+  cge_worker:
+    image: cge_aplicacao:onda0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cge_worker
+    hostname: cge_worker
+    env_file:
+      - .env
+    volumes:
+      - cge_arquivos:/app/arquivos
+    networks:
+      - cge_rede
+    depends_on:
+      cge_banco:
+        condition: service_healthy
+      cge_redis:
+        condition: service_healthy
+    command: ["celery", "-A", "aplicacao.configuracao", "worker", "--loglevel=info", "--concurrency=2"]
+    healthcheck:
+      test: ["CMD", "python", "/app/docker/verificar_worker.py"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 50s
+    restart: unless-stopped
+
+  cge_agendador:
+    image: cge_aplicacao:onda0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cge_agendador
+    hostname: cge_agendador
+    env_file:
+      - .env
+    volumes:
+      - cge_celery_agenda:/app/celery
+    networks:
+      - cge_rede
+    depends_on:
+      cge_redis:
+        condition: service_healthy
+    command:
+      [
+        "celery",
+        "-A",
+        "aplicacao.configuracao",
+        "beat",
+        "--loglevel=info",
+        "--schedule=/app/celery/agenda",
+        "--pidfile=/app/celery/beat.pid",
+      ]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /app/celery/beat.pid"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    restart: unless-stopped
+
+  cge_nginx:
+    image: nginx:1.27-alpine
+    container_name: cge_nginx
+    hostname: cge_nginx
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - cge_static:/var/www/static:ro
+    networks:
+      - cge_rede
+    depends_on:
+      cge_web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/saude/viva/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  cge_rede:
+    name: cge_rede
+    driver: bridge
+
+volumes:
+  cge_postgres_dados:
+    name: cge_postgres_dados
+  cge_redis_dados:
+    name: cge_redis_dados
+  cge_static:
+    name: cge_static
+  cge_arquivos:
+    name: cge_arquivos
+  cge_midia:
+    name: cge_midia
+  cge_celery_agenda:
+    name: cge_celery_agenda

@@ -1,0 +1,109 @@
+"""Verificações reais da fundação. Integrações ainda não implementadas não são simuladas."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from django.conf import settings
+from django.db import connection
+
+logger = logging.getLogger("cge.auditoria")
+
+
+@dataclass
+class ComponenteSaude:
+    nome: str
+    estado: str
+    detalhe: str
+
+    def para_exibicao(self) -> dict:
+        return asdict(self)
+
+
+def _componente(nome: str, estado: str, detalhe: str) -> ComponenteSaude:
+    return ComponenteSaude(nome=nome, estado=estado, detalhe=detalhe)
+
+
+def verificar_aplicacao() -> ComponenteSaude:
+    return _componente("Aplicação Django", "Operacional", "O processo web respondeu.")
+
+
+def verificar_postgresql() -> ComponenteSaude:
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            cursor.execute("SELECT extversion FROM pg_extension WHERE extname = %s", ["vector"])
+            versao = cursor.fetchone()
+        if not versao:
+            return _componente("PostgreSQL", "Indisponível", "Conexão ativa, extensão pgvector ausente.")
+        return _componente("PostgreSQL", "Operacional", f"Conexão ativa. pgvector {versao[0]}.")
+    except Exception:
+        logger.exception("Falha ao verificar PostgreSQL")
+        return _componente("PostgreSQL", "Indisponível", "Não foi possível consultar o banco.")
+
+
+def verificar_redis() -> ComponenteSaude:
+    try:
+        import redis
+
+        cliente = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
+        cliente.ping()
+        return _componente("Redis", "Operacional", "Broker respondeu ao ping.")
+    except Exception:
+        logger.exception("Falha ao verificar Redis")
+        return _componente("Redis", "Indisponível", "Não foi possível contactar o Redis.")
+
+
+def verificar_celery() -> ComponenteSaude:
+    try:
+        from aplicacao.configuracao.celery import app
+
+        respostas = app.control.ping(timeout=3.0) or []
+        if not respostas:
+            return _componente("Celery Worker", "Indisponível", "Nenhum worker respondeu.")
+        return _componente("Celery Worker", "Operacional", f"{len(respostas)} worker respondeu.")
+    except Exception:
+        logger.exception("Falha ao verificar Celery")
+        return _componente("Celery Worker", "Indisponível", "Não foi possível consultar o worker.")
+
+
+def verificar_armazenamento() -> ComponenteSaude:
+    try:
+        raiz = Path(settings.ARQUIVOS_RAIZ)
+        raiz.mkdir(parents=True, exist_ok=True)
+        alvo = raiz / ".verificacao_saude"
+        alvo.write_text("ok", encoding="utf-8")
+        alvo.unlink()
+        return _componente("Armazenamento", "Operacional", "Volume de arquivos aceita leitura e escrita.")
+    except Exception:
+        logger.exception("Falha ao verificar armazenamento")
+        return _componente("Armazenamento", "Indisponível", "Não foi possível gravar no volume de arquivos.")
+
+
+def verificar_provedores_nao_configurados() -> list[ComponenteSaude]:
+    return [
+        _componente(
+            "OpenAI",
+            "Não configurado",
+            "Integração prevista para a Onda 5. Nenhuma chamada foi realizada.",
+        ),
+        _componente(
+            "Anthropic",
+            "Não configurado",
+            "Integração prevista para a Onda 5. Nenhuma chamada foi realizada.",
+        ),
+    ]
+
+
+def coletar_saude() -> list[ComponenteSaude]:
+    return [
+        verificar_aplicacao(),
+        verificar_postgresql(),
+        verificar_redis(),
+        verificar_celery(),
+        verificar_armazenamento(),
+        *verificar_provedores_nao_configurados(),
+    ]

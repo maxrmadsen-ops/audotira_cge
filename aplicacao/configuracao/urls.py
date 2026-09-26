@@ -1,0 +1,12 @@
+from django.contrib import admin
+from django.urls import include, path
+
+admin.site.site_header = "CGE — Administração técnica"
+admin.site.site_title = "CGE"
+admin.site.index_title = "Fundação da solução"
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("", include("aplicacao.painel.urls")),
+    path("auditoria/", include("aplicacao.auditoria.urls")),
+]

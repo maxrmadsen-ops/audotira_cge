@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titulo %}{{ nome_aplicacao }}{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/cge.css' %}">
+</head>
+<body>
+    {% block corpo %}{% endblock %}
+    <script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

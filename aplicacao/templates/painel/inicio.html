@@ -1,0 +1,18 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Painel · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início</p>
+<h1 class="h3">Painel</h1>
+<p class="text-secondary">Os indicadores abaixo serão calculados quando houver prestações, regras e análises. Nesta onda não há dados de negócio.</p>
+<div class="row g-3 mt-1">
+    {% for indicador in indicadores %}
+        <div class="col-12 col-md-6 col-xl-3">
+            <article class="cartao">
+                <h2>{{ indicador }}</h2>
+                <p class="mb-2"><span class="estado estado-aguardando">Aguardando próximas ondas</span></p>
+                <p class="mb-0 text-secondary small">Sem dados</p>
+            </article>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

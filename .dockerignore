@@ -1,0 +1,26 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+Chave auditoria_cge.txt
+Chave*
+*.pem
+*.key
+segredos/
+dados_sensiveis/
+ground_truth/
+*.pdf
+__pycache__
+*.py[cod]
+.venv
+venv
+staticfiles
+media
+arquivos
+*.log
+.idea
+.vscode
+htmlcov
+.pytest_cache
+.mypy_cache

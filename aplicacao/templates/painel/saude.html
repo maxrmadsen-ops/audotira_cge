@@ -1,0 +1,38 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Saúde do Sistema · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início / Administração / Saúde do Sistema</p>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h1 class="h3 mb-0">Saúde do Sistema</h1>
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'painel:saude' %}">Verificar novamente</a>
+</div>
+<p class="text-secondary mt-2">Estados exibidos com texto. Provedores de IA ainda não fazem parte desta onda.</p>
+<div class="table-responsive cartao p-0 mt-3">
+    <table class="table tabela-cge mb-0">
+        <thead>
+            <tr>
+                <th>Componente</th>
+                <th>Estado</th>
+                <th>Detalhe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for componente in componentes %}
+                <tr>
+                    <td>{{ componente.nome }}</td>
+                    <td>
+                        {% if componente.estado == "Operacional" %}
+                            <span class="estado estado-operacional">Operacional</span>
+                        {% elif componente.estado == "Indisponível" %}
+                            <span class="estado estado-indisponivel">Indisponível</span>
+                        {% else %}
+                            <span class="estado estado-nao-configurado">Não configurado</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ componente.detalhe }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ modulo_rotulo }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início / {{ modulo_rotulo }}</p>
+<h1 class="h3">{{ modulo_rotulo }}</h1>
+<div class="cartao mt-3">
+    <p class="mb-2"><span class="estado estado-aguardando">Em preparação</span></p>
+    <p class="mb-0">Este módulo ainda não está disponível. A implementação está prevista para a {{ modulo_onda }}.</p>
+</div>
+{% endblock %}

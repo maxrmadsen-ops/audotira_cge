@@ -1,0 +1,37 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Administração · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início / Administração</p>
+<h1 class="h3">Administração</h1>
+<p class="text-secondary">Áreas disponíveis nesta onda e estruturas reservadas para as ondas de governança.</p>
+<div class="row g-3">
+    <div class="col-md-6">
+        <article class="cartao">
+            <h2>Saúde do Sistema</h2>
+            <p>Verificação de aplicação, banco, Redis e worker.</p>
+            <a class="btn btn-primary btn-sm" href="{% url 'painel:saude' %}">Abrir</a>
+        </article>
+    </div>
+    <div class="col-md-6">
+        <article class="cartao">
+            <h2>Registros de auditoria</h2>
+            <p>Trilha de login, saída e falhas de autenticação.</p>
+            <a class="btn btn-primary btn-sm" href="{% url 'auditoria:registros' %}">Abrir</a>
+        </article>
+    </div>
+    <div class="col-md-6">
+        <article class="cartao">
+            <h2>Administração técnica</h2>
+            <p>Usuários e registros pelo Django Admin, até a interface administrativa da Onda 9.</p>
+            <a class="btn btn-outline-primary btn-sm" href="/admin/">Abrir</a>
+        </article>
+    </div>
+    <div class="col-md-6">
+        <article class="cartao">
+            <h2>Provedores, modelos, regras, normas e prompts</h2>
+            <p class="mb-2"><span class="estado estado-aguardando">Em preparação</span></p>
+            <p class="mb-0">Cadastros administrativos entram na Onda 9. Nenhum dado foi simulado.</p>
+        </article>
+    </div>
+</div>
+{% endblock %}
