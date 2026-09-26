@@ -1,5 +1,13 @@
 # Changelog
 
+## Onda 1 — 2026-09-26
+
+Modelo canônico da prestação de contas, separando o pactuado do executado.
+
+Inclui entidades, instrumento, plano de trabalho, prestações parciais, execução financeira, linha do tempo, cadastro autenticado, API de consulta e cenário sintético `DEMO-2024-001`.
+
+Não inclui documentos, OCR, normas, regras, IA, evidências, achados, pré-análise, Ground Truth nem FinOps.
+
 ## Onda 0 — 2026-09-26
 
 Fundação containerizada: Django, PostgreSQL com pgvector, Redis, Celery worker, Celery Beat, Gunicorn e Nginx.

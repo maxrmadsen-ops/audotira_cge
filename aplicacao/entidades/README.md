@@ -1,5 +1,5 @@
-# entidades
+# Entidades, pessoas e vínculos
 
-Reservado para a Onda 1 — entidades, pessoas, funcionários e fornecedores.
+Organizações, pessoas físicas, funcionários e fornecedores do modelo canônico.
 
-Sem modelos e sem lógica nesta onda.
+A prestação de contas referencia estas entidades. Não há upload documental neste módulo.

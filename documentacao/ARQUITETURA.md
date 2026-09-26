@@ -1,4 +1,4 @@
-# Arquitetura — Onda 0
+# Arquitetura — Onda 1
 
 A raiz do repositório é o workspace local. O remoto chama-se `audotira_cge`.
 
@@ -15,7 +15,13 @@ aplicacao/
 docker/ nginx/ scripts/ documentacao/ dados_exemplo/ testes/
 ```
 
-Os pacotes além de `configuracao`, `usuarios`, `auditoria` e `painel` estão reservados. Ainda não têm modelos nem regras de negócio.
+`entidades` e `prestacoes_contas` estão ativos. Os demais pacotes continuam reservados.
+
+## Modelo de domínio
+
+A prestação aponta para concedente e beneficiário como `Entidade`. O instrumento guarda número, tipo, vigência e valor. Plano, itens e metas representam o previsto. Despesas, documentos fiscais, pagamentos, movimentações, contrapartidas e devoluções representam o executado, com relações muitos-para-muitos onde um lançamento pode ter vários documentos ou pagamentos.
+
+Valores monetários usam `Decimal` com 16 dígitos e 2 casas. Campos ausentes permanecem nulos. A trilha de auditoria registra usuário, ação, entidade e identificador, sem o conteúdo dos campos.
 
 ## Containers
 

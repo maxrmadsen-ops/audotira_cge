@@ -1,0 +1,20 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ titulo_pagina }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'prestacoes_contas:lista' %}">Prestações de Contas</a> / {{ titulo_pagina }}</p>
+<h1 class="h3">{{ titulo_pagina }}</h1>
+<form class="cartao mt-3" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="row g-3">
+        {% for campo in form %}
+            <div class="col-md-6">
+                <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+                {{ campo }}
+                {% if campo.errors %}<div class="text-danger small">{{ campo.errors|striptags }}</div>{% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    <button class="btn btn-primary mt-3" type="submit">Salvar</button>
+</form>
+{% endblock %}

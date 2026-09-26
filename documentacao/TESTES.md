@@ -7,7 +7,9 @@ docker compose exec -T cge_web python manage.py test
 docker compose exec -T cge_web python manage.py check
 ```
 
-Cobertura desta onda:
+A Onda 1 acrescenta testes de entidades, prestação, instrumento, plano, itens, parciais, despesa, documento fiscal, pagamento, movimentação, meta, contrapartida, devolução, `Decimal`, ordenação, permissões, dados incompletos, linha do tempo, auditoria e cenário sintético. Os testes da Onda 0 permanecem na suíte.
+
+Cobertura da fundação:
 
 - perfis e permissões de execução, validação e administração
 - login, falha de login e trilha sem senha

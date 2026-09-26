@@ -1,0 +1,9 @@
+<div class="row g-2 mb-2">
+    {% for campo in form %}
+        <div class="col-md-6">
+            <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+            {{ campo }}
+            {% if campo.errors %}<div class="text-danger small">{{ campo.errors|striptags }}</div>{% endif %}
+        </div>
+    {% endfor %}
+</div>

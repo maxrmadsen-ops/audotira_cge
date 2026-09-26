@@ -1,0 +1,74 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Prestações de Contas · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início / Prestações de Contas</p>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h1 class="h3 mb-0">Prestações de Contas</h1>
+    {% if pode_alterar %}
+        <a class="btn btn-primary" href="{% url 'prestacoes_contas:nova' %}">Nova prestação</a>
+    {% endif %}
+</div>
+<form class="row g-2 my-3" method="get">
+    <div class="col-md-4">
+        <label class="form-label" for="q">Busca</label>
+        <input class="form-control" id="q" name="q" value="{{ filtros.q }}" placeholder="Processo, objeto ou entidade">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label" for="situacao">Situação</label>
+        <select class="form-select" id="situacao" name="situacao">
+            <option value="">Todas</option>
+            {% for valor, rotulo in situacoes %}
+                <option value="{{ valor }}" {% if filtros.situacao == valor %}selected{% endif %}>{{ rotulo }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label" for="fase">Fase</label>
+        <select class="form-select" id="fase" name="fase">
+            <option value="">Todas</option>
+            {% for valor, rotulo in fases %}
+                <option value="{{ valor }}" {% if filtros.fase == valor %}selected{% endif %}>{{ rotulo }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-outline-primary w-100" type="submit">Filtrar</button>
+    </div>
+</form>
+<div class="table-responsive cartao p-0">
+    <table class="table tabela-cge mb-0">
+        <thead>
+            <tr>
+                <th>Processo</th>
+                <th>Concedente</th>
+                <th>Beneficiário</th>
+                <th>Situação</th>
+                <th>Fase</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for prestacao in prestacoes %}
+                <tr>
+                    <td>
+                        <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+                        {% if prestacao.demonstracao %}<span class="estado estado-aguardando ms-1">Dados de demonstração</span>{% endif %}
+                    </td>
+                    <td>{{ prestacao.concedente|default:"Não informado" }}</td>
+                    <td>{{ prestacao.beneficiario|default:"Não informado" }}</td>
+                    <td>{{ prestacao.get_situacao_display }}</td>
+                    <td>{{ prestacao.get_fase_display }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5">Nenhuma prestação cadastrada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if is_paginated %}
+    <nav class="mt-3" aria-label="Paginação">
+        {% if page_obj.has_previous %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page_obj.previous_page_number }}&q={{ filtros.q }}&situacao={{ filtros.situacao }}&fase={{ filtros.fase }}">Anterior</a>{% endif %}
+        <span class="mx-2">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page_obj.next_page_number }}&q={{ filtros.q }}&situacao={{ filtros.situacao }}&fase={{ filtros.fase }}">Próxima</a>{% endif %}
+    </nav>
+{% endif %}
+{% endblock %}

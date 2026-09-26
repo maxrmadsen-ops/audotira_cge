@@ -42,7 +42,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: cge_aplicacao:onda0
+    image: cge_aplicacao:onda1
     container_name: cge_web
     hostname: cge_web
     env_file:
@@ -70,7 +70,7 @@ services:
     restart: unless-stopped
 
   cge_worker:
-    image: cge_aplicacao:onda0
+    image: cge_aplicacao:onda1
     build:
       context: .
       dockerfile: Dockerfile
@@ -97,7 +97,7 @@ services:
     restart: unless-stopped
 
   cge_agendador:
-    image: cge_aplicacao:onda0
+    image: cge_aplicacao:onda1
     build:
       context: .
       dockerfile: Dockerfile

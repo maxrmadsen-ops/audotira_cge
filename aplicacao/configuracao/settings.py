@@ -56,6 +56,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "aplicacao.usuarios.apps.UsuariosConfig",
     "aplicacao.auditoria.apps.AuditoriaConfig",
+    "aplicacao.entidades.apps.EntidadesConfig",
+    "aplicacao.prestacoes_contas.apps.PrestacoesContasConfig",
     "aplicacao.painel.apps.PainelConfig",
 ]
 

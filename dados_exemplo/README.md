@@ -1,5 +1,5 @@
 # Dados de exemplo
 
-Nenhum dado de negócio nesta onda.
+O comando `carregar_cenario_demonstracao` cria o processo fictício `DEMO-2024-001`, marcado como dado de demonstração.
 
-Dados sintéticos mínimos entram com o modelo de domínio. Resultados do caso real `2022TR000929` só podem surgir do processamento dos documentos reais, que não são versionados.
+Resultados do caso real `2022TR000929` só podem surgir do processamento dos documentos reais, que não são versionados.

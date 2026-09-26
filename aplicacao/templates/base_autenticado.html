@@ -26,6 +26,11 @@
         {% endfor %}
     </nav>
     <main class="conteudo">
+        {% if messages %}
+            {% for mensagem in messages %}
+                <div class="alert {% if mensagem.tags == 'error' %}alert-danger{% else %}alert-{{ mensagem.tags|default:'info' }}{% endif %}" role="status">{{ mensagem }}</div>
+            {% endfor %}
+        {% endif %}
         {% block conteudo %}{% endblock %}
         <p class="rodape-app">{{ nome_aplicacao }} · versão {{ versao_aplicacao }} · Onda {{ onda_atual }}. A inteligência artificial não aprova nem reprova prestações de contas.</p>
     </main>

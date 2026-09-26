@@ -3,7 +3,7 @@ from django.db import models
 
 
 class RegistroAuditoria(models.Model):
-    """Trilha dos eventos relevantes. Onda 0 registra autenticação."""
+    """Trilha dos eventos relevantes: autenticação e mutações do domínio."""
 
     class Evento(models.TextChoices):
         LOGIN = "login", "Login"
@@ -21,6 +21,8 @@ class RegistroAuditoria(models.Model):
         REVISAO_HUMANA = "revisao_humana", "Revisão humana"
         GERACAO_PRE_ANALISE = "geracao_pre_analise", "Geração de pré-análise"
         EXPORTACAO = "exportacao", "Exportação"
+        CRIACAO = "criacao", "Criação"
+        ALTERACAO = "alteracao", "Alteração"
 
     data_hora = models.DateTimeField("data e hora", auto_now_add=True, db_index=True)
     usuario = models.ForeignKey(

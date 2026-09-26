@@ -1,0 +1,134 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ prestacao.numero_processo }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'prestacoes_contas:lista' %}">Prestações de Contas</a> / {{ prestacao.numero_processo }}</p>
+<div class="d-flex justify-content-between flex-wrap gap-2 align-items-start">
+    <div>
+        <h1 class="h3">{{ prestacao.numero_processo }}</h1>
+        {% if prestacao.demonstracao %}<p><span class="estado estado-aguardando">Dados de demonstração</span></p>{% endif %}
+    </div>
+    {% if pode_alterar %}
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'prestacoes_contas:editar' prestacao.pk %}">Editar</a>
+    {% endif %}
+</div>
+<ul class="nav nav-pills my-3 flex-wrap">
+    {% for codigo, rotulo in abas %}
+        <li class="nav-item">
+            <a class="nav-link {% if aba == codigo %}active{% endif %}" href="?aba={{ codigo }}">{{ rotulo }}</a>
+        </li>
+    {% endfor %}
+</ul>
+
+{% if aba == "geral" %}
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <article class="cartao">
+                <h2>Identificação</h2>
+                <p>Concedente: {{ prestacao.concedente|default:"Não informado" }}</p>
+                <p>Beneficiário: {{ prestacao.beneficiario|default:"Não informado" }}</p>
+                <p>Instrumento: {{ prestacao.numero_instrumento|default:"Não informado" }} {% if prestacao.tipo_instrumento %}· {{ prestacao.tipo_instrumento }}{% endif %}</p>
+                <p>Objeto: {{ prestacao.objeto|default:"Não informado" }}</p>
+                <p class="mb-0">Situação: {{ prestacao.get_situacao_display }} · Fase: {{ prestacao.get_fase_display }}</p>
+            </article>
+        </div>
+        <div class="col-lg-5">
+            <article class="cartao">
+                <h2>Previsto × executado</h2>
+                <p>Previsto: {% if prestacao.valor_previsto != None %}R$ {{ prestacao.valor_previsto }}{% else %}Não informado{% endif %}</p>
+                <p>Executado: {% if prestacao.valor_executado != None %}R$ {{ prestacao.valor_executado }}{% else %}Não informado{% endif %}</p>
+                <p class="mb-0">Diferença: {% if prestacao.diferenca_previsto_executado != None %}R$ {{ prestacao.diferenca_previsto_executado }}{% else %}Não calculável{% endif %}</p>
+            </article>
+        </div>
+    </div>
+{% elif aba == "linha-do-tempo" %}
+    <ol class="list-group">
+        {% for marco in linha_do_tempo %}
+            <li class="list-group-item">
+                <strong>{{ marco.tipo }}</strong> — {{ marco.titulo }}
+                <div class="small text-secondary">{% if marco.data %}{{ marco.data|date:"d/m/Y" }}{% else %}Data não informada{% endif %} {% if marco.detalhe %}· {{ marco.detalhe }}{% endif %}</div>
+            </li>
+        {% empty %}
+            <li class="list-group-item">Nenhum marco registrado.</li>
+        {% endfor %}
+    </ol>
+    {% if pode_alterar %}
+        <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_parcial' prestacao.pk %}">
+            {% csrf_token %}
+            <h2>Incluir prestação parcial ou final</h2>
+            {% include "prestacoes_contas/_campos.html" with form=form_parcial %}
+            <button class="btn btn-primary btn-sm" type="submit">Incluir</button>
+        </form>
+    {% endif %}
+{% elif aba == "plano" %}
+    {% if plano %}
+        <article class="cartao mb-3">
+            <h2>{{ plano.titulo }}</h2>
+            <p class="mb-0">Versão {{ plano.versao }} · Previsto nos itens: {% if plano.valor_previsto != None %}R$ {{ plano.valor_previsto }}{% else %}Não informado{% endif %}</p>
+        </article>
+        <div class="table-responsive cartao p-0 mb-3">
+            <table class="table tabela-cge mb-0">
+                <thead><tr><th>Item</th><th>Natureza</th><th>Previsto</th><th>Realizado</th></tr></thead>
+                <tbody>
+                    {% for item in plano.itens.all %}
+                        <tr>
+                            <td>{{ item.descricao }}</td>
+                            <td>{{ item.get_natureza_display }}</td>
+                            <td>{% if item.valor_previsto != None %}R$ {{ item.valor_previsto }}{% else %}—{% endif %}</td>
+                            <td>{% if item.valor_realizado != None %}R$ {{ item.valor_realizado }}{% else %}—{% endif %}</td>
+                        </tr>
+                    {% empty %}<tr><td colspan="4">Nenhum item previsto.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <ul>{% for meta in plano.metas.all %}<li>{{ meta.descricao }}</li>{% empty %}<li>Nenhuma meta.</li>{% endfor %}</ul>
+    {% else %}
+        <p>Nenhum plano de trabalho registrado.</p>
+    {% endif %}
+    {% if pode_alterar %}
+        <form class="cartao mb-3" method="post" action="{% url 'prestacoes_contas:incluir_plano' prestacao.pk %}">{% csrf_token %}<h2>Novo plano</h2>{% include "prestacoes_contas/_campos.html" with form=form_plano %}<button class="btn btn-primary btn-sm" type="submit">Incluir plano</button></form>
+        <form class="cartao mb-3" method="post" action="{% url 'prestacoes_contas:incluir_item' prestacao.pk %}">{% csrf_token %}<h2>Item previsto</h2>{% include "prestacoes_contas/_campos.html" with form=form_item %}<button class="btn btn-primary btn-sm" type="submit">Incluir item</button></form>
+        <form class="cartao" method="post" action="{% url 'prestacoes_contas:incluir_meta' prestacao.pk %}">{% csrf_token %}<h2>Meta</h2>{% include "prestacoes_contas/_campos.html" with form=form_meta %}<button class="btn btn-primary btn-sm" type="submit">Incluir meta</button></form>
+    {% endif %}
+{% elif aba == "financeiro" %}
+    <div class="row g-3">
+        <div class="col-lg-6"><article class="cartao"><h2>Despesas</h2>{% for despesa in prestacao.despesas.all %}<p>{{ despesa.descricao|default:"Sem descrição" }} — {% if despesa.valor != None %}R$ {{ despesa.valor }}{% else %}valor não informado{% endif %}</p>{% empty %}<p>Nenhuma despesa.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Documentos fiscais</h2>{% for documento in prestacao.documentos_fiscais.all %}<p>{{ documento }}</p>{% empty %}<p>Nenhum documento fiscal.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Pagamentos</h2>{% for pagamento in prestacao.pagamentos.all %}<p>{{ pagamento }} {% if pagamento.valor != None %}— R$ {{ pagamento.valor }}{% endif %}</p>{% empty %}<p>Nenhum pagamento.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Movimentações</h2>{% for movimento in prestacao.movimentacoes.all %}<p>{{ movimento }}</p>{% empty %}<p>Nenhuma movimentação.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Contrapartidas</h2>{% for item in prestacao.contrapartidas.all %}<p>{{ item }}</p>{% empty %}<p>Nenhuma contrapartida.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Devoluções</h2>{% for item in prestacao.devolucoes.all %}<p>{{ item }}</p>{% empty %}<p>Nenhuma devolução.</p>{% endfor %}</article></div>
+    </div>
+    {% if pode_alterar %}
+        <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_despesa' prestacao.pk %}">{% csrf_token %}<h2>Despesa</h2>{% include "prestacoes_contas/_campos.html" with form=form_despesa %}<button class="btn btn-primary btn-sm" type="submit">Incluir</button></form>
+        <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_documento' prestacao.pk %}">{% csrf_token %}<h2>Documento fiscal</h2>{% include "prestacoes_contas/_campos.html" with form=form_documento %}<button class="btn btn-primary btn-sm" type="submit">Incluir</button></form>
+        <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_pagamento' prestacao.pk %}">{% csrf_token %}<h2>Pagamento</h2>{% include "prestacoes_contas/_campos.html" with form=form_pagamento %}<button class="btn btn-primary btn-sm" type="submit">Incluir</button></form>
+        <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_movimentacao' prestacao.pk %}">{% csrf_token %}<h2>Movimentação bancária</h2>{% include "prestacoes_contas/_campos.html" with form=form_movimentacao %}<button class="btn btn-primary btn-sm" type="submit">Incluir</button></form>
+        <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_contrapartida' prestacao.pk %}">{% csrf_token %}<h2>Contrapartida</h2>{% include "prestacoes_contas/_campos.html" with form=form_contrapartida %}<button class="btn btn-primary btn-sm" type="submit">Incluir</button></form>
+        <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_devolucao' prestacao.pk %}">{% csrf_token %}<h2>Devolução</h2>{% include "prestacoes_contas/_campos.html" with form=form_devolucao %}<button class="btn btn-primary btn-sm" type="submit">Incluir</button></form>
+    {% endif %}
+{% elif aba == "folha" %}
+    <div class="table-responsive cartao p-0">
+        <table class="table tabela-cge mb-0">
+            <thead><tr><th>Pessoa</th><th>Cargo</th><th>Situação</th><th>Remuneração base</th></tr></thead>
+            <tbody>
+                {% for funcionario in funcionarios %}
+                    <tr>
+                        <td>{{ funcionario.pessoa }}</td>
+                        <td>{{ funcionario.cargo|default:"—" }}</td>
+                        <td>{{ funcionario.get_situacao_display }}</td>
+                        <td>{% if funcionario.remuneracao_base != None %}R$ {{ funcionario.remuneracao_base }}{% else %}—{% endif %}</td>
+                    </tr>
+                {% empty %}<tr><td colspan="4">{% if prestacao.beneficiario %}Nenhum funcionário do beneficiário.{% else %}Beneficiário não informado.{% endif %}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if pode_alterar and prestacao.beneficiario %}
+        <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_funcionario' prestacao.pk %}">{% csrf_token %}<h2>Novo vínculo</h2>{% include "prestacoes_contas/_campos.html" with form=form_funcionario %}<button class="btn btn-primary btn-sm" type="submit">Incluir</button></form>
+    {% endif %}
+{% else %}
+    <article class="cartao">
+        <p class="mb-2"><span class="estado estado-aguardando">Em preparação</span></p>
+        <p class="mb-0">Esta aba será preenchida em onda posterior. Nenhum resultado foi simulado.</p>
+    </article>
+{% endif %}
+{% endblock %}
