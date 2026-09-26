@@ -1,5 +1,9 @@
 # Changelog
 
+## Onda 3 — 2026-09-26
+
+Base normativa e RAG rastreável. A vigência e a aplicabilidade escolhem as normas antes da busca lexical, vetorial ou híbrida. Embeddings de teste usam um provedor simulado, sem chamada de rede. Não há motor de regras nem modelo generativo.
+
 ## Onda 2 — 2026-09-26
 
 Gestão e inteligência documental sem LLM: upload protegido, SHA-256, extração nativa, OCR local apenas quando a página não tem texto utilizável, classificação heurística, validação humana e metadados candidatos rastreáveis.

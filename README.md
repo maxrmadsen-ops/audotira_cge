@@ -8,7 +8,7 @@ O caso `2022TR000929` será apenas o primeiro caso de teste, em onda posterior. 
 
 ## Onda atual
 
-Onda 2 — gestão e inteligência documental, sobre o modelo canônico da Onda 1.
+Onda 3 — base normativa, vigência e recuperação rastreável, sobre a inteligência documental da Onda 2.
 
 ## Execução
 

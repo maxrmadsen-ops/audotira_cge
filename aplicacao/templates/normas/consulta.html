@@ -1,0 +1,45 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Consulta normativa · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'normas:pesquisa' %}">Pesquisa normativa</a> / Resultado</p>
+<h1 class="h3">Resultado da consulta</h1>
+<p>{{ consulta.texto }}</p>
+<p class="text-secondary">Data de referência: {{ consulta.data_referencia|date:"d/m/Y" }}. A seleção das normas ocorreu antes da busca semântica.</p>
+<div class="row g-3">
+    <div class="col-md-6">
+        <h2 class="h5">Normas consideradas</h2>
+        <ul>
+            {% for item in elegiveis %}
+                <li><a href="{% url 'normas:detalhe' item.id %}">{{ item.numero }}/{{ item.ano }} — {{ item.titulo }}</a><div class="small">{{ item.motivo }}</div></li>
+            {% empty %}<li>Nenhuma norma elegível.</li>{% endfor %}
+        </ul>
+    </div>
+    <div class="col-md-6">
+        <h2 class="h5">Normas descartadas</h2>
+        <ul>
+            {% for item in descartadas %}
+                <li>{{ item.numero }}/{{ item.ano }} — {{ item.titulo }}<div class="small">{{ item.motivo }}</div></li>
+            {% empty %}<li>Nenhuma norma descartada.</li>{% endfor %}
+        </ul>
+    </div>
+</div>
+<h2 class="h5 mt-3">Trechos recuperados</h2>
+<div class="table-responsive cartao p-0">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>Norma</th><th>Dispositivo</th><th>Página</th><th>Vigência</th><th>Scores</th><th>Método</th><th>Trecho</th></tr></thead>
+        <tbody>
+            {% for item in resultados %}
+                <tr>
+                    <td><a href="{% url 'normas:detalhe' item.trecho.norma_id %}">{{ item.trecho.norma.numero }}/{{ item.trecho.norma.ano }}</a><div class="small">{{ item.trecho.norma.titulo }}</div></td>
+                    <td>{% if item.trecho.artigo %}Art. {{ item.trecho.artigo }}{% else %}—{% endif %} {% if item.trecho.paragrafo %}§ {{ item.trecho.paragrafo }}{% endif %}</td>
+                    <td>{{ item.trecho.pagina_inicio|default:"—" }}</td>
+                    <td>{{ item.trecho.norma.inicio_vigencia|date:"d/m/Y" }} — {{ item.trecho.norma.fim_vigencia|date:"d/m/Y"|default:"em aberto" }}</td>
+                    <td class="small">L {{ item.score_lexical|default:"—" }} · V {{ item.score_vetorial|default:"—" }} · F {{ item.score_final|floatformat:3 }}</td>
+                    <td>{{ item.get_metodo_display }}</td>
+                    <td>{{ item.trecho.texto|truncatechars:220 }} <a href="{% url 'normas:arquivo' item.trecho.norma_id %}">Fonte</a></td>
+                </tr>
+            {% empty %}<tr><td colspan="7">Nenhum trecho recuperado.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Pesquisa normativa · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'normas:lista' %}">Normas</a> / Pesquisa</p>
+<h1 class="h3">Pesquisa normativa</h1>
+<p class="text-secondary">Esta tela não decide a prestação. Ela mostra quais normas a vigência admitiu e quais trechos foram recuperados.</p>
+<form method="post" class="cartao" novalidate>
+    {% csrf_token %}
+    {% for campo in form %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+            {{ campo }}
+            {% if campo.errors %}<div class="text-danger small">{{ campo.errors|striptags }}</div>{% endif %}
+        </div>
+    {% endfor %}
+    <button class="btn btn-primary" type="submit">Pesquisar</button>
+</form>
+{% endblock %}

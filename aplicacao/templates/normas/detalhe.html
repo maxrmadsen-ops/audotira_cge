@@ -1,0 +1,83 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ norma }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'normas:lista' %}">Normas</a> / {{ norma }}</p>
+<div class="d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1 class="h3">{{ norma.titulo }}</h1>
+        <p class="text-secondary mb-1">{{ norma.get_tipo_norma_display }} {{ norma.numero }}/{{ norma.ano }} · versão {{ norma.versao }} · {{ norma.get_situacao_display }}</p>
+        <p class="mb-0">Vigência: {{ norma.inicio_vigencia|date:"d/m/Y"|default:"—" }} até {{ norma.fim_vigencia|date:"d/m/Y"|default:"em aberto" }}</p>
+    </div>
+    {% if pode_alterar %}
+        <a class="btn btn-outline-primary" href="{% url 'normas:editar' norma.pk %}">Editar metadados</a>
+    {% endif %}
+</div>
+<div class="row g-3 my-2">
+    <div class="col-md-4"><article class="cartao"><h2 class="h6">Processamento</h2><p class="mb-0">{{ norma.get_status_processamento_display }}</p>{% if norma.erro_processamento %}<p class="text-danger small mb-0">{{ norma.erro_processamento }}</p>{% endif %}</article></div>
+    <div class="col-md-4"><article class="cartao"><h2 class="h6">Hash SHA-256</h2><p class="mb-0 small text-break">{{ norma.hash_sha256|default:"—" }}</p></article></div>
+    <div class="col-md-4"><article class="cartao"><h2 class="h6">Órgão e esfera</h2><p class="mb-0">{{ norma.orgao_emissor|default:"—" }} · {{ norma.get_esfera_display|default:"—" }}</p></article></div>
+</div>
+{% if norma.ementa %}<p>{{ norma.ementa }}</p>{% endif %}
+{% if norma.arquivo %}<p><a href="{% url 'normas:arquivo' norma.pk %}">Abrir fonte</a></p>{% endif %}
+{% if pode_alterar %}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <form method="post" action="{% url 'normas:reprocessar' norma.pk %}">{% csrf_token %}<button class="btn btn-outline-primary" type="submit">Reprocessar</button></form>
+    <form method="post" action="{% url 'normas:desativar' norma.pk %}">{% csrf_token %}<button class="btn btn-outline-danger" type="submit">Desativar</button></form>
+</div>
+<form class="cartao mb-3" method="post" action="{% url 'normas:nova_versao' norma.pk %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <h2 class="h6">Nova versão da fonte</h2>
+    <p class="small text-secondary">A versão atual permanece armazenada. O arquivo novo não a substitui.</p>
+    <input class="form-control mb-2" type="file" name="arquivo" accept="application/pdf" required>
+    <button class="btn btn-primary" type="submit">Registrar versão</button>
+</form>
+{% endif %}
+<h2 class="h5">Versões</h2>
+<ul>
+    {% for versao in versoes %}
+        <li><a href="{% url 'normas:detalhe' versao.pk %}">Versão {{ versao.versao }}</a> · {{ versao.hash_sha256|truncatechars:18 }} · {% if versao.desativada_em %}desativada{% else %}ativa{% endif %}</li>
+    {% endfor %}
+</ul>
+<h2 class="h5">Aplicabilidade</h2>
+<ul>
+    {% for item in norma.aplicabilidades.all %}
+        <li>{{ item.tipo_instrumento|default:"qualquer instrumento" }} · {{ item.orgao|default:"qualquer órgão" }} · {{ item.categoria|default:"sem categoria" }}</li>
+    {% empty %}<li>Sem restrição cadastrada. A vigência continua obrigatória.</li>{% endfor %}
+</ul>
+{% if pode_alterar %}
+<form class="row g-2 mb-3" method="post" action="{% url 'normas:aplicabilidade' norma.pk %}">
+    {% csrf_token %}
+    {% for campo in formulario_aplicabilidade %}<div class="col-md-4"><label class="form-label">{{ campo.label }}</label>{{ campo }}</div>{% endfor %}
+    <div class="col-12"><button class="btn btn-outline-primary" type="submit">Adicionar aplicabilidade</button></div>
+</form>
+{% endif %}
+<h2 class="h5">Relacionamentos</h2>
+<p class="small text-secondary">O relacionamento é informativo. Ele não revoga nem altera a vigência sozinho.</p>
+<ul>
+    {% for item in norma.relacionamentos_origem.all %}<li>{{ item.get_tipo_display }} <a href="{% url 'normas:detalhe' item.destino_id %}">{{ item.destino }}</a></li>{% empty %}<li>Nenhum relacionamento de origem.</li>{% endfor %}
+</ul>
+{% if pode_alterar %}
+<form class="row g-2 mb-3" method="post" action="{% url 'normas:relacionamento' norma.pk %}">
+    {% csrf_token %}
+    {% for campo in formulario_relacionamento %}<div class="col-md-4"><label class="form-label">{{ campo.label }}</label>{{ campo }}</div>{% endfor %}
+    <div class="col-12"><button class="btn btn-outline-primary" type="submit">Relacionar</button></div>
+</form>
+{% endif %}
+<h2 class="h5">Trechos indexados</h2>
+<div class="table-responsive cartao p-0">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>Ordem</th><th>Dispositivo</th><th>Página</th><th>Método</th><th>Trecho</th></tr></thead>
+        <tbody>
+            {% for trecho in norma.trechos.all %}
+                <tr>
+                    <td>{{ trecho.ordem }}</td>
+                    <td>{% if trecho.artigo %}Art. {{ trecho.artigo }}{% else %}—{% endif %} {% if trecho.paragrafo %}§ {{ trecho.paragrafo }}{% endif %} {% if trecho.inciso %}{{ trecho.inciso }}{% endif %} {% if trecho.alinea %}{{ trecho.alinea }}){% endif %}</td>
+                    <td>{{ trecho.pagina_inicio|default:"—" }}</td>
+                    <td>{{ trecho.get_metodo_segmentacao_display }}</td>
+                    <td>{{ trecho.texto|truncatechars:180 }}</td>
+                </tr>
+            {% empty %}<tr><td colspan="4">Nenhum trecho indexado.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

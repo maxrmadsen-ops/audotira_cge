@@ -54,11 +54,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "django.contrib.postgres",
     "aplicacao.usuarios.apps.UsuariosConfig",
     "aplicacao.auditoria.apps.AuditoriaConfig",
     "aplicacao.entidades.apps.EntidadesConfig",
     "aplicacao.prestacoes_contas.apps.PrestacoesContasConfig",
     "aplicacao.documentos.apps.DocumentosConfig",
+    "aplicacao.normas.apps.NormasConfig",
     "aplicacao.painel.apps.PainelConfig",
 ]
 
@@ -139,6 +141,15 @@ OCR_MINIMO_PALAVRAS = int(os.environ.get("OCR_MINIMO_PALAVRAS", "8"))
 OCR_LIMIAR_LEGIBILIDADE = float(os.environ.get("OCR_LIMIAR_LEGIBILIDADE", "0.6"))
 OCR_IDIOMA = os.environ.get("OCR_IDIOMA", "por")
 CLASSIFICACAO_CONFIANCA_MINIMA = os.environ.get("CLASSIFICACAO_CONFIANCA_MINIMA", "0.55")
+NORMAS_RAIZ = ARQUIVOS_RAIZ / "normas"
+EMBEDDING_PROVEDOR = _ambiente("EMBEDDING_PROVEDOR", "simulado")
+EMBEDDING_MODELO = _ambiente("EMBEDDING_MODELO", "simulado-deterministico")
+EMBEDDING_DIMENSAO = int(os.environ.get("EMBEDDING_DIMENSAO", "32"))
+NORMATIVO_PESO_LEXICAL = float(os.environ.get("NORMATIVO_PESO_LEXICAL", "0.45"))
+NORMATIVO_PESO_VETORIAL = float(os.environ.get("NORMATIVO_PESO_VETORIAL", "0.55"))
+NORMATIVO_LIMITE_RESULTADOS = int(os.environ.get("NORMATIVO_LIMITE_RESULTADOS", "8"))
+NORMATIVO_CHUNK_MAXIMO = int(os.environ.get("NORMATIVO_CHUNK_MAXIMO", "1200"))
+NORMATIVO_CHUNK_SOBREPOSICAO = int(os.environ.get("NORMATIVO_CHUNK_SOBREPOSICAO", "200"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

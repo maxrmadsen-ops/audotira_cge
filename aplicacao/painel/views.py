@@ -38,6 +38,9 @@ class InicioView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto["indicadores"] = INDICADORES_FUTUROS
+        from aplicacao.normas.indicadores import indicadores_normativos
+
+        contexto["indicadores_normativos"] = indicadores_normativos()
         return contexto
 
 

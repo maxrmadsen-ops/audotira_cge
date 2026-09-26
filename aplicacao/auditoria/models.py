@@ -27,6 +27,7 @@ class RegistroAuditoria(models.Model):
         ERRO_PROCESSAMENTO = "erro_processamento", "Erro de processamento"
         REPROCESSAMENTO = "reprocessamento", "Reprocessamento"
         VALIDACAO_HUMANA = "validacao_humana", "Validação humana"
+        CONSULTA_NORMATIVA = "consulta_normativa", "Consulta normativa"
 
     data_hora = models.DateTimeField("data e hora", auto_now_add=True, db_index=True)
     usuario = models.ForeignKey(

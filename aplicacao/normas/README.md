@@ -1,5 +1,5 @@
 # normas
 
-Reservado para a Onda 3 — base normativa, vigência e RAG.
+Base normativa da Onda 3: vigência, aplicabilidade, segmentação, embeddings e recuperação híbrida.
 
-Sem modelos e sem lógica nesta onda.
+`ResolvedorNormativo` escolhe as normas antes de `RecuperadorNormativo` consultar trechos. O provedor de embeddings configurável nesta onda é o simulado. Não há regra de análise nem modelo generativo.

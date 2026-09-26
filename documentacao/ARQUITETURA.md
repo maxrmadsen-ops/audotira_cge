@@ -1,4 +1,4 @@
-# Arquitetura — Onda 2
+# Arquitetura — Onda 3
 
 A raiz do repositório é o workspace local. O remoto chama-se `audotira_cge`.
 
@@ -8,16 +8,19 @@ aplicacao/
   usuarios/         autenticação e perfis
   auditoria/        trilha de eventos
   painel/           interface, saúde e navegação
-  prestacoes_contas/ documentos/ entidades/ extracao/
-  normas/ regras/ analises/ evidencias/ achados/
+  prestacoes_contas/ documentos/ entidades/
+  normas/           base normativa, vigência e RAG
+  regras/ analises/ evidencias/ achados/
   pareceres/ revisao_humana/ avaliacao/
   inteligencia_artificial/ finops/ administracao/
 docker/ nginx/ scripts/ documentacao/ dados_exemplo/ testes/
 ```
 
-`entidades`, `prestacoes_contas` e `documentos` estão ativos. Os demais pacotes continuam reservados.
+`entidades`, `prestacoes_contas`, `documentos` e `normas` estão ativos. Os demais pacotes continuam reservados.
 
-O pipeline documental está descrito em [Inteligência documental](INTELIGENCIA_DOCUMENTAL.md).
+O pipeline documental está descrito em [Inteligência documental](INTELIGENCIA_DOCUMENTAL.md). A base de conhecimento está em [Base normativa](BASE_NORMATIVA.md) e [RAG normativo](RAG_NORMATIVO.md).
+
+Norma e trecho normativo não são documentos da prestação nem regras de análise. A regra que verificará se um dever ocorreu fica para a Onda 4.
 
 ## Modelo de domínio
 

@@ -1,0 +1,49 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Normas · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início / Normas</p>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Normas</h1>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="{% url 'normas:pesquisa' %}">Pesquisa normativa</a>
+        {% if pode_alterar %}<a class="btn btn-primary" href="{% url 'normas:criar' %}">Cadastrar</a>{% endif %}
+    </div>
+</div>
+<p class="text-secondary">A base normativa é independente dos documentos da prestação. A vigência é resolvida antes da busca.</p>
+<form class="row g-2 mb-3" method="get">
+    <div class="col-md-2">
+        <select class="form-select" name="tipo"><option value="">Tipo</option>{% for valor, rotulo in tipos_norma %}<option value="{{ valor }}" {% if filtros.tipo == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2"><input class="form-control" name="numero" value="{{ filtros.numero }}" placeholder="Número"></div>
+    <div class="col-md-1"><input class="form-control" name="ano" value="{{ filtros.ano }}" placeholder="Ano"></div>
+    <div class="col-md-2"><input class="form-control" name="orgao" value="{{ filtros.orgao }}" placeholder="Órgão"></div>
+    <div class="col-md-2">
+        <select class="form-select" name="situacao"><option value="">Situação</option>{% for valor, rotulo in situacoes %}<option value="{{ valor }}" {% if filtros.situacao == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="vigencia">
+            <option value="">Vigência</option>
+            <option value="vigente" {% if filtros.vigencia == "vigente" %}selected{% endif %}>Em aberto ou não encerrada</option>
+            <option value="encerrada" {% if filtros.vigencia == "encerrada" %}selected{% endif %}>Encerrada</option>
+        </select>
+    </div>
+    <div class="col-md-1"><button class="btn btn-outline-primary w-100" type="submit">Filtrar</button></div>
+</form>
+<div class="table-responsive cartao p-0">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>Norma</th><th>Título</th><th>Órgão</th><th>Vigência</th><th>Situação</th><th>Processamento</th></tr></thead>
+        <tbody>
+            {% for norma in normas %}
+                <tr>
+                    <td><a href="{% url 'normas:detalhe' norma.pk %}">{{ norma.get_tipo_norma_display }} {{ norma.numero }}/{{ norma.ano }}</a><div class="small text-secondary">versão {{ norma.versao }}</div></td>
+                    <td>{{ norma.titulo }}</td>
+                    <td>{{ norma.orgao_emissor|default:"—" }}</td>
+                    <td>{{ norma.inicio_vigencia|date:"d/m/Y"|default:"—" }} — {{ norma.fim_vigencia|date:"d/m/Y"|default:"em aberto" }}</td>
+                    <td>{{ norma.get_situacao_display }}</td>
+                    <td>{{ norma.get_status_processamento_display }}</td>
+                </tr>
+            {% empty %}<tr><td colspan="6">Nenhuma norma cadastrada.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

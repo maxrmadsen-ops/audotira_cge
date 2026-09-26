@@ -3,7 +3,17 @@
 {% block conteudo %}
 <p class="trilho">Início</p>
 <h1 class="h3">Painel</h1>
-<p class="text-secondary">O cadastro da prestação de contas já está disponível. Os indicadores abaixo serão calculados quando houver regras e análises.</p>
+<p class="text-secondary">O cadastro da prestação de contas e a base normativa já estão disponíveis. Os indicadores de análise abaixo serão calculados quando houver regras e análises.</p>
+<div class="row g-3 mt-1">
+    {% for nome, valor in indicadores_normativos.items %}
+        <div class="col-6 col-md-4 col-xl">
+            <article class="cartao">
+                <h2 class="h6">{{ nome }}</h2>
+                <p class="mb-0 fs-4">{{ valor }}</p>
+            </article>
+        </div>
+    {% endfor %}
+</div>
 <div class="row g-3 mt-1">
     {% for indicador in indicadores %}
         <div class="col-12 col-md-6 col-xl-3">

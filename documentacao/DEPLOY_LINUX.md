@@ -18,13 +18,13 @@ permanecem intocados.
 1. No servidor, execute somente a inspeção:
 
    ```bash
-   bash scripts/inspecionar_servidor.sh 8080
+   bash scripts/inspecionar_servidor.sh 8003
    ```
 
-2. Confirme que a porta escolhida está livre. Se `8080` estiver ocupada, use
-   outra em `NGINX_HTTP_PORT` e repita a inspeção com essa porta.
-3. Confirme o diretório de instalação, por exemplo `/opt/auditoria_cge`.
-   Não reutilize o diretório de outro projeto.
+2. A porta HTTP desta aplicação no Linux é `8003`. As portas `8001`, `8002` e
+   `8443` pertencem a outros projetos e constam em `/max/portas.txt`.
+3. O diretório de instalação é `/max/auditoria_cge`.
+   Não reutilize `/max/sales_opps` nem `/max/analise_juridica`.
 4. O arquivo `Chave auditoria_cge.txt` e o `.env` do notebook não vão para o
    servidor. As chaves de modelo de linguagem ainda não são usadas.
 
@@ -33,10 +33,10 @@ permanecem intocados.
 No servidor, como usuário autorizado a usar Docker:
 
 ```bash
-sudo mkdir -p /opt/auditoria_cge
-sudo chown "$USER":"$USER" /opt/auditoria_cge
-git clone https://github.com/maxrmadsen-ops/audotira_cge.git /opt/auditoria_cge
-cd /opt/auditoria_cge
+sudo mkdir -p /max/auditoria_cge
+sudo chown "$USER":"$USER" /max/auditoria_cge
+git clone https://github.com/maxrmadsen-ops/audotira_cge.git /max/auditoria_cge
+cd /max/auditoria_cge
 git checkout onda-2-concluida
 cp .env.example .env
 ```
@@ -48,7 +48,7 @@ Edite o `.env` somente no servidor:
 - `DB_PASSWORD` nova;
 - senhas novas para administrador, auditor, analista e consulta;
 - `ALLOWED_HOSTS`, `DOMINIO` e `CSRF_TRUSTED_ORIGINS` com o endereço real de acesso;
-- `NGINX_HTTP_PORT` com a porta livre confirmada na inspeção.
+- `NGINX_HTTP_PORT=8003`.
 
 O projeto Compose já se chama `cge`. Mantenha esse nome. Não altere o nome de
 outro stack no Portainer e não execute `docker compose down` fora deste
@@ -71,7 +71,7 @@ não remova e não altere stacks, containers, redes ou volumes dos outros
 ambientes.
 
 Se o stack for criado pela interface, aponte-o exclusivamente para
-`/opt/auditoria_cge/docker-compose.yml` e para o `.env` desse diretório.
+`/max/auditoria_cge/docker-compose.yml` e para o `.env` desse diretório.
 O nome do stack deve ser `cge`.
 
 ## Acesso remoto

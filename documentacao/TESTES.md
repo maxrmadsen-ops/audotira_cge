@@ -7,6 +7,8 @@ docker compose exec -T cge_web python manage.py test
 docker compose exec -T cge_web python manage.py check
 ```
 
+A Onda 3 acrescenta testes de norma, trecho, vigência aberta e encerrada, relacionamento sem efeito automático, aplicabilidade, data histórica, segmentação, chunking, hash, embedding simulado, pgvector, busca lexical, vetorial e híbrida, filtro antes da busca vetorial, resolução, recuperação, rastreabilidade, permissões, auditoria, reprocessamento, PDF sintético, ausência de resultado e preservação de versão. Os testes das ondas anteriores permanecem na suíte.
+
 A Onda 2 acrescenta testes de upload, MIME, tamanho, SHA-256, duplicidade, permissões, armazenamento, extração nativa, OCR, falha parcial, classificação, correção humana, metadados, Celery, reprocessamento, auditoria e visualização protegida. Os testes das ondas anteriores permanecem na suíte.
 
 A Onda 1 acrescenta testes de entidades, prestação, instrumento, plano, itens, parciais, despesa, documento fiscal, pagamento, movimentação, meta, contrapartida, devolução, `Decimal`, ordenação, permissões, dados incompletos, linha do tempo, auditoria e cenário sintético. Os testes da Onda 0 permanecem na suíte.
