@@ -8,7 +8,7 @@ O caso `2022TR000929` será apenas o primeiro caso de teste, em onda posterior. 
 
 ## Onda atual
 
-Onda 9 — Painel 360°, observabilidade e FinOps. A central analítica mostra a jornada já gravada, da prestação à comparação IA × técnico. O FinOps fica em menu próprio e só calcula custo com preço vigente. A referência técnica continua fora da geração. A integração com provedores nasce desligada. A IA não aprova nem reprova a prestação.
+Onda 10 — release `1.0.0-rc1` preparada no notebook. O deploy Linux e a carga de processo real aguardam autorização. A central analítica e o FinOps permanecem como na Onda 9. A integração com provedores nasce desligada. A IA não aprova nem reprova a prestação.
 
 ## Execução
 

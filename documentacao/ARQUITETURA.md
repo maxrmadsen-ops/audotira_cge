@@ -1,6 +1,6 @@
-# Arquitetura — Onda 9
+# Arquitetura — Onda 10
 
-A raiz do repositório é o workspace local. O remoto chama-se `audotira_cge`.
+A raiz do repositório é o workspace local. O remoto chama-se `audotira_cge`. O notebook desenvolve. O servidor Linux só recebe o que estiver versionado, e somente depois do checkpoint de pré-deploy.
 
 ```text
 aplicacao/

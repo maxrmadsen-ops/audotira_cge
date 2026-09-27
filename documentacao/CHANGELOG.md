@@ -1,5 +1,9 @@
 # Changelog
 
+## Onda 10 — 2026-09-27
+
+Preparação da release `1.0.0-rc1` no notebook. A imagem proposta é `cge_aplicacao:onda10-rc1`. Cookie Secure e proxy reverso passam a depender de `COOKIES_SEGUROS` e `BEHIND_PROXY`, para o HTTP de homologação não quebrar o login. A saúde passa a informar a versão e se há migration pendente. O deploy Linux, o PDF da pré-análise, a normalização de proveniência da Onda 7, os preços comerciais e a carga de processo real continuam fora desta etapa.
+
 ## Onda 9 — 2026-09-27
 
 Painel 360°, observabilidade e FinOps. A central analítica lê prestações, documentos, normas, regras, evidências, achados, pré-análises, revisões, avaliação e usos de IA já gravados. O FinOps calcula custo na leitura, com o preço vigente de `PrecoModeloInteligenciaArtificial`. Sem preço, o custo fica não disponível. Ground Truth não entra na análise. Não há nota geral da IA, score de prioridade nem conclusão administrativa.

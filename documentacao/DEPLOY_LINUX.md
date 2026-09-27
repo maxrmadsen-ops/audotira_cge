@@ -1,89 +1,55 @@
 # Deploy no servidor Linux
 
-Este documento descreve a instalação futura da aplicação já publicada no GitHub.
-Nenhuma etapa abaixo deve ser executada sem autorização explícita.
+Este documento é o plano. Nenhuma etapa abaixo deve ser executada sem autorização explícita do checkpoint 10.1. O notebook não implanta o servidor.
 
 ## Caminho
 
 ```text
-NOTEBOOK/CURSOR → GITHUB → SERVIDOR LINUX → DOCKER COMPOSE → PORTAINER → ACESSO REMOTO
+NOTEBOOK → GITHUB → RELEASE VERSIONADA → SERVIDOR LINUX → DOCKER COMPOSE
 ```
 
-O servidor já executa Docker, Portainer e outros projetos. O deploy da CGE entra
-em um diretório, uma rede, volumes e uma porta próprios. Os demais ambientes
-permanecem intocados.
+Não desenvolver no servidor. O diretório previsto continua `/max/auditoria_cge`. A porta HTTP prevista continua `8003`. Não usar `8001`, `8002` nem `8443`. Não alterar `/max/portas.txt`, Portainer dos outros stacks, nem outro diretório em `/max`.
 
-## Antes de instalar
+## O que conferir no servidor, quando autorizado
 
-1. No servidor, execute somente a inspeção:
+Sistema, disco, memória, Docker Engine, plugin Compose, a porta 8003 livre e permissão de escrita em `/max/auditoria_cge`. Não há domínio nem certificado definidos. O acesso inicial, se autorizado, é HTTP na rede permitida: `http://<servidor>:8003/`. HTTPS fica para quando existirem nome e certificado; não inventar nenhum dos dois.
 
-   ```bash
-   bash scripts/inspecionar_servidor.sh 8003
-   ```
-
-2. A porta HTTP desta aplicação no Linux é `8003`. As portas `8001`, `8002` e
-   `8443` pertencem a outros projetos e constam em `/max/portas.txt`.
-3. O diretório de instalação é `/max/auditoria_cge`.
-   Não reutilize `/max/sales_opps` nem `/max/analise_juridica`.
-4. O arquivo `Chave auditoria_cge.txt` e o `.env` do notebook não vão para o
-   servidor. As chaves de modelo de linguagem ainda não são usadas.
-
-## Instalação isolada
-
-No servidor, como usuário autorizado a usar Docker:
+## Instalação, quando autorizada
 
 ```bash
 sudo mkdir -p /max/auditoria_cge
 sudo chown "$USER":"$USER" /max/auditoria_cge
 git clone https://github.com/maxrmadsen-ops/audotira_cge.git /max/auditoria_cge
 cd /max/auditoria_cge
-git checkout onda-2-concluida
+git checkout <commit autorizado da release>
 cp .env.example .env
 ```
 
-Edite o `.env` somente no servidor:
+Editar o `.env` só no servidor:
 
-- `DEBUG=False`;
-- `SECRET_KEY` nova, diferente da do notebook;
-- `DB_PASSWORD` nova;
-- senhas novas para administrador, auditor, analista e consulta;
-- `ALLOWED_HOSTS`, `DOMINIO` e `CSRF_TRUSTED_ORIGINS` com o endereço real de acesso;
-- `NGINX_HTTP_PORT=8003`.
+- `DEBUG=False`
+- `SECRET_KEY` nova
+- `DB_PASSWORD` nova
+- senhas novas dos quatro perfis
+- `ALLOWED_HOSTS` e `CSRF_TRUSTED_ORIGINS` com o endereço real, incluindo a porta
+- `NGINX_HTTP_PORT=8003`
+- `BEHIND_PROXY=true`
+- `COOKIES_SEGUROS=false` até existir HTTPS
+- `IA_INTEGRACAO=desligada`
 
-O projeto Compose já se chama `cge`. Mantenha esse nome. Não altere o nome de
-outro stack no Portainer e não execute `docker compose down` fora deste
-diretório.
-
-Suba apenas este projeto:
+Subir sem apagar volume:
 
 ```bash
 docker compose up -d --build
 docker compose ps
 ```
 
-PostgreSQL e Redis permanecem sem porta publicada no host. O Nginx publica
-somente `NGINX_HTTP_PORT`.
-
-## Portainer
-
-O Portainer já em execução deve apenas enxergar o projeto `cge`. Não recrie,
-não remova e não altere stacks, containers, redes ou volumes dos outros
-ambientes.
-
-Se o stack for criado pela interface, aponte-o exclusivamente para
-`/max/auditoria_cge/docker-compose.yml` e para o `.env` desse diretório.
-O nome do stack deve ser `cge`.
-
-## Acesso remoto
-
-O acesso inicial é `http://<servidor>:<NGINX_HTTP_PORT>/`. O certificado e o
-endurecimento completo continuam previstos para a Onda 10. Até lá, não exponha
-a aplicação além da rede autorizada.
+A imagem esperada é `cge_aplicacao:onda10-rc1`. PostgreSQL e Redis permanecem sem porta publicada. Se já existir stack `cge` com dados, fazer o backup descrito em `BACKUP_RESTORE.md` antes de recriar containers. Não executar `docker compose down -v`.
 
 ## O que não fazer
 
 - Não copiar `.env`, banco, `media/`, `arquivos/` ou documentos do notebook.
-- Não publicar as portas 5432 e 6379.
-- Não usar `docker system prune`, `docker volume prune` ou `docker compose down`
-  sem limitar o comando a este projeto e sem autorização.
-- Não fazer force push e não reaproveitar a senha ou a `SECRET_KEY` de desenvolvimento.
+- Não publicar 5432 nem 6379.
+- Não carregar processo real neste deploy.
+- Não chamar OpenAI ou Anthropic sem autorização separada.
+- Não fazer force push e não reaproveitar segredo de desenvolvimento.

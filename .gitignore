@@ -13,6 +13,9 @@ credenciais.json
 segredos/
 dados_sensiveis/
 
+# Backups locais. Nunca versionar dump nem segredo.
+backups/
+
 # Documentos reais e Ground Truth
 Insumos Piloto/
 *.pdf

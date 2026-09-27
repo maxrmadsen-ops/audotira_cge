@@ -27,7 +27,9 @@ def _componente(nome: str, estado: str, detalhe: str) -> ComponenteSaude:
 
 
 def verificar_aplicacao() -> ComponenteSaude:
-    return _componente("Aplicação Django", "Operacional", "O processo web respondeu.")
+    from aplicacao.configuracao.versao import ONDA_ATUAL, VERSAO_APLICACAO
+
+    return _componente("Aplicação Django", "Operacional", f"Versão {VERSAO_APLICACAO}, onda {ONDA_ATUAL}.")
 
 
 def verificar_postgresql() -> ComponenteSaude:
@@ -133,9 +135,24 @@ def verificar_fila() -> ComponenteSaude:
         return _componente("Fila Celery", "Não verificado", "Não foi possível ler a fila local.")
 
 
+def verificar_migrations() -> ComponenteSaude:
+    try:
+        from django.db.migrations.executor import MigrationExecutor
+
+        executor = MigrationExecutor(connection)
+        plano = executor.migration_plan(executor.loader.graph.leaf_nodes())
+    except Exception:
+        logger.exception("Falha ao verificar migrations")
+        return _componente("Migrations", "Não disponível", "Não foi possível ler o plano de migrations.")
+    if plano:
+        return _componente("Migrations", "Pendente", f"{len(plano)} migration(ões) ainda não aplicada(s).")
+    return _componente("Migrations", "Operacional", "Nenhuma migration pendente.")
+
+
 def coletar_saude() -> list[ComponenteSaude]:
     return [
         verificar_aplicacao(),
+        verificar_migrations(),
         verificar_postgresql(),
         verificar_redis(),
         verificar_celery(),

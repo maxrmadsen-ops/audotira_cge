@@ -193,16 +193,30 @@ REST_FRAMEWORK = {
     ],
 }
 
+def cookies_seguros_habilitados() -> bool:
+    """Cookie Secure só com declaração explícita. HTTP de homologação não pode exigi-lo."""
+    return _ambiente_bool("COOKIES_SEGUROS", False)
+
+
+def proxy_reverso_habilitado() -> bool:
+    return _ambiente_bool("BEHIND_PROXY", False)
+
+
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 
-if not DEBUG:
+if cookies_seguros_habilitados():
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+if proxy_reverso_habilitado():
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
 
 LOGGING = {
     "version": 1,
