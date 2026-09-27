@@ -1,0 +1,39 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Catálogo de IA · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Administração / Inteligência artificial</p>
+<h1 class="h3">Modelos, prompts, preços e limites</h1>
+<p>Nenhum preço comercial está fixado no código. Uma versão de prompt já utilizada não é reescrita.</p>
+<h2 class="h5">Roteamento</h2>
+<form method="post" action="{% url 'ia:roteamento' %}" class="cartao mb-3">
+    {% csrf_token %}
+    <div class="row g-2">
+        <div class="col-md-5">
+            <label class="form-label">Modelo principal</label>
+            <select class="form-select" name="modelo_principal">
+                {% for modelo in modelos %}
+                    <option value="{{ modelo.pk }}" {% if roteamento and roteamento.modelo_principal_id == modelo.pk %}selected{% endif %}>{{ modelo.nome_exibicao }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label">Modelo de fallback</label>
+            <select class="form-select" name="modelo_fallback">
+                <option value="">Sem fallback</option>
+                {% for modelo in modelos %}
+                    <option value="{{ modelo.pk }}" {% if roteamento and roteamento.modelo_fallback_id == modelo.pk %}selected{% endif %}>{{ modelo.nome_exibicao }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary" type="submit">Salvar</button></div>
+    </div>
+</form>
+<h2 class="h5">Modelos</h2>
+<ul>{% for modelo in modelos %}<li>{{ modelo.get_provedor_display }} · {{ modelo.nome_exibicao }} · {{ modelo.identificador_modelo }} · {% if modelo.ativo %}ativo{% else %}inativo{% endif %}</li>{% endfor %}</ul>
+<h2 class="h5">Prompts</h2>
+<ul>{% for prompt in prompts %}<li>{{ prompt.codigo }} — {% for versao in prompt.versoes.all %}v{{ versao.versao }}{% if versao.utilizada %} utilizada{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</li>{% endfor %}</ul>
+<h2 class="h5">Preços</h2>
+<ul>{% for preco in precos %}<li>{{ preco.modelo.nome_exibicao }} · {{ preco.vigencia_inicio }} · {{ preco.moeda }} {{ preco.preco_entrada }}/{{ preco.preco_saida }}</li>{% empty %}<li>Nenhum preço cadastrado.</li>{% endfor %}</ul>
+<h2 class="h5">Limites</h2>
+<ul>{% for limite in limites %}<li>{{ limite.get_escopo_display }} · {{ limite.max_caracteres_contexto }} caracteres · {{ limite.max_tentativas }} tentativas</li>{% endfor %}</ul>
+{% endblock %}

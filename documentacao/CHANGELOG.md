@@ -1,5 +1,11 @@
 # Changelog
 
+## Onda 5 — 2026-09-27
+
+Camada de IA com provedores OpenAI e Anthropic isolados em adaptadores, provedor simulado para a suíte, agentes por regra que requer IA, prompts versionados, preços administráveis, registro de tokens, latência e custo estimado, validação de schema e de fontes, fallback auditado e laboratório que não altera a execução oficial. A integração do motor nasce desligada. Nenhuma chamada paga entra na suíte.
+
+Não inclui achado definitivo, pré-análise final, Ground Truth, comparação IA × técnico nem o painel FinOps.
+
 ## Onda 4 — 2026-09-26
 
 Catálogo e motor das 89 regras da matriz técnica. Executores determinísticos usam `Decimal`. Regras semânticas ficam pendentes de IA. Ausência de dado não vira divergência. O teste cego exclui relatório com análise técnica prévia. A síntese da rodada não conclui a prestação.

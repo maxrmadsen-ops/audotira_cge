@@ -13,5 +13,11 @@
 - O PDF normativo fica em `arquivos/normas`, separado dos documentos da prestação. O download também passa por view autenticada.
 - Texto extraído de norma é dado indexável. Frases dentro do PDF não são executadas como instrução.
 - A consulta normativa registra filtros, normas elegíveis e scores, sem segredo e sem o arquivo.
+- Chaves de OpenAI e Anthropic ficam só no `.env`. Não entram no banco, no log, no prompt versionado nem na tela de saúde.
+- O log de IA grava identificador de uso, provedor, modelo, status, tokens e latência. Não grava chave, cabeçalho Authorization nem prompt completo.
+- Documento excluído no teste cego não entra no contexto enviado ao provedor.
+- Ground Truth, parecer anterior e resposta esperada são descartados antes da chamada.
+- Texto de documento é dado, não instrução.
+- A resposta da IA permanece pendente de validação humana. O laboratório não grava a execução oficial da regra.
 
 O `.env.example` contém somente placeholders. Senhas e chaves efetivas ficam no `.env`.

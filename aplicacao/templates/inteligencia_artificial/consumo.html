@@ -1,0 +1,20 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Consumo de IA · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Administração / Consumo</p>
+<h1 class="h3">Consumo instrumental</h1>
+<p>O painel FinOps continua na Onda 9. Aqui só há a coleta.</p>
+<article class="cartao mb-3">
+    <p class="mb-0">Hoje: {{ resumo.hoje.chamadas }} chamadas · {{ resumo.hoje.tokens }} tokens · custo {{ resumo.hoje.custo }}</p>
+</article>
+<h2 class="h5">Por provedor</h2>
+<ul>{% for item in resumo.por_provedor %}<li>{{ item.provedor }} · {{ item.chamadas }} · {{ item.tokens }} tokens · {{ item.custo }}</li>{% empty %}<li>Sem uso.</li>{% endfor %}</ul>
+<h2 class="h5">Por modelo</h2>
+<ul>{% for item in resumo.por_modelo %}<li>{{ item.identificador_modelo }} · {{ item.chamadas }} · {{ item.tokens }}</li>{% endfor %}</ul>
+<h2 class="h5">Por agente</h2>
+<ul>{% for item in resumo.por_agente %}<li>{{ item.agente }} · {{ item.chamadas }}</li>{% endfor %}</ul>
+<h2 class="h5">Por prestação</h2>
+<ul>{% for item in resumo.por_prestacao %}<li>{{ item.prestacao_contas_id }} · {{ item.chamadas }}</li>{% empty %}<li>Sem prestação vinculada.</li>{% endfor %}</ul>
+<h2 class="h5">Por regra</h2>
+<ul>{% for item in resumo.por_regra %}<li>{{ item.regra__codigo }} · {{ item.chamadas }}</li>{% empty %}<li>Sem regra vinculada.</li>{% endfor %}</ul>
+{% endblock %}

@@ -28,9 +28,12 @@
     </div>
     <div class="col-md-6">
         <article class="cartao">
-            <h2>Provedores, modelos, regras, normas e prompts</h2>
-            <p class="mb-2"><span class="estado estado-aguardando">Em preparação</span></p>
-            <p class="mb-0">Cadastros administrativos entram na Onda 9. Nenhum dado foi simulado.</p>
+            <h2>Provedores, modelos e prompts</h2>
+            <p>Cadastro administrativo da IA. A chave não é armazenada nem exibida.</p>
+            <a class="btn btn-primary btn-sm" href="{% url 'ia:provedores' %}">Provedores</a>
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'ia:catalogo' %}">Modelos e prompts</a>
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'ia:consumo' %}">Consumo</a>
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'ia:laboratorio' %}">Laboratório</a>
         </article>
     </div>
 </div>

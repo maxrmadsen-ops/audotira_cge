@@ -1,0 +1,13 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Provedores de IA · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Administração / Provedores</p>
+<h1 class="h3">Provedores</h1>
+<p>As chaves ficam somente no ambiente local. Esta tela não mostra a chave e não faz chamada.</p>
+<article class="cartao mb-3">
+    <p>OpenAI: {% if openai_habilitado and openai_tem_chave %}habilitado{% else %}não configurado{% endif %}</p>
+    <p>Anthropic: {% if anthropic_habilitado and anthropic_tem_chave %}habilitado{% else %}não configurado{% endif %}</p>
+    <p class="mb-0">Integração do motor: {{ integracao }}</p>
+</article>
+<p><a href="{% url 'ia:catalogo' %}">Modelos, prompts, preços e limites</a></p>
+{% endblock %}

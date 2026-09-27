@@ -1,5 +1,5 @@
 # inteligencia_artificial
 
-Reservado para a Onda 5 — abstração multiprovedor. Sem SDK nesta onda.
+Abstração multiprovedor da Onda 5. Os adaptadores conhecem o contrato HTTP de OpenAI e Anthropic. O restante da aplicação fala com o gerenciador e com o provedor simulado.
 
-Sem modelos e sem lógica nesta onda.
+Credenciais só no `.env`. A suíte não faz chamada externa.

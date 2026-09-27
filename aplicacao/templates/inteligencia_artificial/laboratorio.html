@@ -1,0 +1,50 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Laboratório de IA · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Laboratório de IA</p>
+<h1 class="h3">Laboratório de IA</h1>
+<p>A comparação usa o provedor simulado e não altera a execução oficial da regra. Não há chamada paga nesta tela.</p>
+<form method="post" class="cartao mb-3">
+    {% csrf_token %}
+    <div class="row g-2">
+        <div class="col-md-4">
+            <label class="form-label">Prestação</label>
+            <select class="form-select" name="prestacao" required>
+                {% for prestacao in prestacoes %}<option value="{{ prestacao.pk }}">{{ prestacao.numero_processo }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Regra</label>
+            <select class="form-select" name="regra" required>
+                {% for regra in regras %}<option value="{{ regra.codigo }}">{{ regra.codigo }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Modelo A</label>
+            <select class="form-select" name="modelo_a">{% for modelo in modelos %}<option value="{{ modelo.pk }}">{{ modelo.nome_exibicao }}</option>{% endfor %}</select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Modelo B</label>
+            <select class="form-select" name="modelo_b">{% for modelo in modelos %}<option value="{{ modelo.pk }}">{{ modelo.nome_exibicao }}</option>{% endfor %}</select>
+        </div>
+    </div>
+    <button class="btn btn-primary mt-3" type="submit">Comparar</button>
+</form>
+{% if comparacao %}
+    <p>Execução oficial inalterada: {% if oficial_inalterado %}sim{% else %}não{% endif %}.</p>
+    <div class="row g-3">
+        {% for coluna in comparacao %}
+            <div class="col-md-6">
+                <article class="cartao">
+                    <h2 class="h5">{{ coluna.modelo.nome_exibicao }}</h2>
+                    <p>Resultado: {{ coluna.chamada.resposta.resultado }}</p>
+                    <p>Justificativa: {{ coluna.chamada.resposta.justificativa_resumida }}</p>
+                    <p>Fontes: {{ coluna.chamada.resposta.fontes_utilizadas }}</p>
+                    <p>Limitações: {{ coluna.chamada.resposta.limitacoes }}</p>
+                    <p class="mb-0">Tokens {{ coluna.chamada.usos.0.tokens_total }} · latência {{ coluna.chamada.usos.0.duracao_ms }} ms · custo {{ coluna.chamada.usos.0.custo_estimado_total|default:"não calculado" }}</p>
+                </article>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}

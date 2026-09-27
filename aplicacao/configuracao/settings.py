@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "aplicacao.documentos.apps.DocumentosConfig",
     "aplicacao.normas.apps.NormasConfig",
     "aplicacao.regras.apps.RegrasConfig",
+    "aplicacao.inteligencia_artificial.apps.InteligenciaArtificialConfig",
     "aplicacao.painel.apps.PainelConfig",
 ]
 
@@ -151,6 +152,13 @@ NORMATIVO_PESO_VETORIAL = float(os.environ.get("NORMATIVO_PESO_VETORIAL", "0.55"
 NORMATIVO_LIMITE_RESULTADOS = int(os.environ.get("NORMATIVO_LIMITE_RESULTADOS", "8"))
 NORMATIVO_CHUNK_MAXIMO = int(os.environ.get("NORMATIVO_CHUNK_MAXIMO", "1200"))
 NORMATIVO_CHUNK_SOBREPOSICAO = int(os.environ.get("NORMATIVO_CHUNK_SOBREPOSICAO", "200"))
+OPENAI_API_KEY = _ambiente("OPENAI_API_KEY")
+ANTHROPIC_API_KEY = _ambiente("ANTHROPIC_API_KEY")
+OPENAI_HABILITADO = _ambiente_bool("OPENAI_HABILITADO", False)
+ANTHROPIC_HABILITADO = _ambiente_bool("ANTHROPIC_HABILITADO", False)
+IA_INTEGRACAO = _ambiente("IA_INTEGRACAO", "desligada") or "desligada"
+IA_MAX_TENTATIVAS = int(os.environ.get("IA_MAX_TENTATIVAS", "2"))
+IA_MAX_CARACTERES_CONTEXTO = int(os.environ.get("IA_MAX_CARACTERES_CONTEXTO", "12000"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -171,6 +179,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "test":
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
     DATABASES["default"]["CONN_MAX_AGE"] = 0
+    IA_INTEGRACAO = "desligada"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -217,6 +226,11 @@ LOGGING = {
             "propagate": False,
         },
         "cge.auditoria": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "cge.ia": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,

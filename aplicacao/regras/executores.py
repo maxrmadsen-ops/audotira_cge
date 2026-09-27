@@ -600,15 +600,22 @@ class ExecutorSemantico(ExecutorRegraBase):
     nome = "semantico"
 
     def executar(self, regra, contexto) -> ResultadoExecutor:
+        from django.conf import settings
+
         refs = contexto.referencias_documentos(contexto.documentos, "contexto_semantico")
-        return _resultado(
-            RESULTADO_SEMANTICO,
-            "A execução semântica fica para a onda seguinte. Nenhum resultado conclusivo foi produzido por heurística.",
-            referencias=refs,
-            encaminhamento=Encaminhamento.REQUER_IA,
-            status=StatusTecnico.NAO_EXECUTADA,
-            entradas={"fontes_autorizadas": [documento.id for documento in contexto.documentos]},
-        )
+        entradas = {"fontes_autorizadas": [documento.id for documento in contexto.documentos]}
+        if getattr(settings, "IA_INTEGRACAO", "desligada") == "desligada":
+            return _resultado(
+                RESULTADO_SEMANTICO,
+                "A execução semântica fica para a onda seguinte. Nenhum resultado conclusivo foi produzido por heurística.",
+                referencias=refs,
+                encaminhamento=Encaminhamento.REQUER_IA,
+                status=StatusTecnico.NAO_EXECUTADA,
+                entradas=entradas,
+            )
+        from aplicacao.inteligencia_artificial.integracao import executar_semantica
+
+        return executar_semantica(regra, contexto, refs, entradas)
 
 
 class ExecutorAnalista(ExecutorRegraBase):

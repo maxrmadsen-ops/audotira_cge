@@ -8,7 +8,7 @@ O caso `2022TR000929` será apenas o primeiro caso de teste, em onda posterior. 
 
 ## Onda atual
 
-Onda 4 — catálogo e motor das 89 regras da CGE, sobre a base normativa da Onda 3. A análise aponta fatos e cálculos. A conclusão permanece com o analista.
+Onda 5 — IA multi-LLM e agentes governados, sobre o motor da Onda 4. A integração nasce desligada. O laboratório compara modelos simulados e não altera a execução oficial.
 
 ## Execução
 

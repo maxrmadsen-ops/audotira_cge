@@ -95,6 +95,7 @@ class MotorRegras:
         analise.save()
         try:
             contexto = ContextoExecucao.montar(analise.prestacao_contas, analise.modo_teste_cego)
+            contexto.analise = analise
             analise.documentos_excluidos = contexto.excluidos
             analise.etapa = EtapaAnalise.VERIFICANDO_APLICABILIDADE
             analise.save(update_fields=["documentos_excluidos", "etapa"])
@@ -174,6 +175,11 @@ class MotorRegras:
                 resultado=valor,
                 unidade=(item.get("unidade") or "")[:20],
             )
+        usos = (resultado.entradas or {}).get("usos") or []
+        if usos:
+            from aplicacao.inteligencia_artificial.integracao import vincular_usos
+
+            vincular_usos(execucao, usos)
 
     def _totalizar(self, analise: ExecucaoAnalise) -> None:
         execucoes = analise.execucoes.all()

@@ -7,6 +7,8 @@ docker compose exec -T cge_web python manage.py test
 docker compose exec -T cge_web python manage.py check
 ```
 
+A Onda 5 acrescenta testes de provedor simulado, OpenAI e Anthropic mockados, fallback, schema, fonte válida e fonte inventada, prompt versionado, preço por vigência, tokens, custo, latência, idempotência, reexecução, teste cego, prompt injection, Ground Truth, minimização, retorno ao motor e laboratório sem alterar a execução oficial. A suíte não chama provedor pago. `python manage.py testar_provedores_ia` fica de fora da suíte.
+
 A Onda 4 acrescenta testes das 89 regras, das 19 categorias, dos campos originais, da carga idempotente, da versão imutável da execução, de diferença em `Decimal`, de ausência que não vira divergência, de vigência da despesa, de identidade por CNPJ, de parentesco não inferido, de regra semântica sem conclusão, de eficácia fora da V1, do teste cego, da vigência normativa, da falha isolada, da dependência de contrapartida, da interface e da vedação de conclusão administrativa. Os testes das ondas anteriores permanecem na suíte.
 
 A Onda 3 acrescenta testes de norma, trecho, vigência aberta e encerrada, relacionamento sem efeito automático, aplicabilidade, data histórica, segmentação, chunking, hash, embedding simulado, pgvector, busca lexical, vetorial e híbrida, filtro antes da busca vetorial, resolução, recuperação, rastreabilidade, permissões, auditoria, reprocessamento, PDF sintético, ausência de resultado e preservação de versão. Os testes das ondas anteriores permanecem na suíte.

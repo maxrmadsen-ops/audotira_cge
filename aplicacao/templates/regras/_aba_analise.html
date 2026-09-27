@@ -25,12 +25,17 @@
         <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=requer_analista">Requer analista</a>
         <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=nao_aplicavel">Não aplicável</a>
         <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=erro">Erro</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=executada_ia">Executada por IA</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=ia_inconclusiva">IA inconclusiva</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=erro_ia">Erro IA</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=fallback">Fallback utilizado</a>
     </div>
     {% for grupo in grupos_analise %}
         <h2 class="h5 mt-4">{{ grupo.categoria }}</h2>
         {% for item in grupo.itens %}
             <article class="cartao mb-3">
                 <p class="mb-1"><a href="{% url 'regras:detalhe' item.regra.codigo %}">{{ item.regra.codigo }}</a> · {{ item.snapshot.titulo }}</p>
+                <p class="mb-1"><span class="estado estado-aguardando">{{ item.regra.get_tipo_execucao_display }}</span></p>
                 <p class="mb-1">Resultado funcional: <strong>{{ item.resultado_funcional|default:"—" }}</strong></p>
                 <p class="mb-1">Status técnico: {{ item.get_status_tecnico_display }} · encaminhamento {{ item.get_encaminhamento_display }}</p>
                 <p class="mb-1">Execução da regra versão {{ item.snapshot.versao }} · {{ item.regra.executor }}</p>
@@ -54,6 +59,32 @@
                     </ul>
                 {% endif %}
                 <p class="mb-0 small text-secondary">Regra → entradas → fontes → cálculo → norma → resultado → limitação → ação para o analista.</p>
+                {% if item.entradas.ia %}
+                    <div class="mt-2">
+                        <p class="mb-1">Agente {{ item.entradas.ia.agente }} · provedor {{ item.entradas.ia.provedor }} · modelo {{ item.entradas.ia.modelo }} · prompt {{ item.entradas.ia.versao_prompt }}</p>
+                        <p class="mb-1">Justificativa: {{ item.entradas.ia.justificativa }}</p>
+                        <p class="mb-1">Fundamento: {{ item.entradas.ia.fundamentos }}</p>
+                        <p class="mb-1">Limitações da IA: {{ item.entradas.ia.limitacoes }}</p>
+                        <p class="mb-1">Revisão humana: obrigatória</p>
+                        <p class="mb-1">Tokens {{ item.entradas.ia.tokens_entrada }} / {{ item.entradas.ia.tokens_saida }} · latência {{ item.entradas.ia.latencia_ms }} ms · custo estimado {{ item.entradas.ia.custo_estimado_total|default:"não calculado" }}</p>
+                        {% if item.entradas.ia.fallback_utilizado %}<p class="mb-1">Fallback utilizado.</p>{% endif %}
+                        {% if item.entradas.ia.fontes_rejeitadas %}<p class="mb-1">Fontes rejeitadas: {{ item.entradas.ia.fontes_rejeitadas }}</p>{% endif %}
+                    </div>
+                {% endif %}
+                {% if pode_executar and item.regra.capacidade == "requer_ia" %}
+                    <form class="mt-2" method="post" action="{% url 'regras:reexecutar' prestacao.pk item.regra.codigo %}">
+                        {% csrf_token %}
+                        {% if pode_escolher_modelo and modelos_ia %}
+                            <select class="form-select form-select-sm d-inline-block w-auto" name="modelo">
+                                <option value="">Modelo configurado</option>
+                                {% for modelo in modelos_ia %}
+                                    <option value="{{ modelo.pk }}">{{ modelo.nome_exibicao }}</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-primary" type="submit">Reexecutar regra semântica</button>
+                    </form>
+                {% endif %}
             </article>
         {% endfor %}
     {% empty %}

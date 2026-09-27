@@ -85,17 +85,32 @@ def verificar_armazenamento() -> ComponenteSaude:
 
 def verificar_provedores_nao_configurados() -> list[ComponenteSaude]:
     return [
-        _componente(
-            "OpenAI",
-            "Não configurado",
-            "Integração prevista para a Onda 5. Nenhuma chamada foi realizada.",
-        ),
-        _componente(
-            "Anthropic",
-            "Não configurado",
-            "Integração prevista para a Onda 5. Nenhuma chamada foi realizada.",
-        ),
+        _estado_provedor("OpenAI", "openai", settings.OPENAI_HABILITADO, settings.OPENAI_API_KEY),
+        _estado_provedor("Anthropic", "anthropic", settings.ANTHROPIC_HABILITADO, settings.ANTHROPIC_API_KEY),
     ]
+
+
+def _estado_provedor(nome: str, codigo: str, habilitado: bool, chave: str) -> ComponenteSaude:
+    if not chave or not habilitado:
+        if chave and not habilitado:
+            detalhe = "Há chave no ambiente, mas o provedor está desabilitado. Nenhuma chamada foi realizada."
+        else:
+            detalhe = "Nenhuma chave utilizável. Nenhuma chamada foi realizada."
+        return _componente(nome, "Não configurado", detalhe)
+    try:
+        from aplicacao.inteligencia_artificial.models import EventoOperacionalProvedor
+
+        ultimo = EventoOperacionalProvedor.objects.filter(provedor=codigo).first()
+    except Exception:
+        logger.exception("Falha ao ler o último erro operacional de IA")
+        ultimo = None
+    if ultimo is not None:
+        return _componente(
+            nome,
+            "Indisponível",
+            f"Último erro operacional: {ultimo.erro_normalizado}. Nenhuma chamada de saúde foi realizada.",
+        )
+    return _componente(nome, "Configurado", "Provedor habilitado. Nenhuma chamada de saúde foi realizada.")
 
 
 def coletar_saude() -> list[ComponenteSaude]:
