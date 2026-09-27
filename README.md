@@ -8,7 +8,7 @@ O caso `2022TR000929` será apenas o primeiro caso de teste, em onda posterior. 
 
 ## Onda atual
 
-Onda 6 — evidências e achados rastreáveis, sobre a IA da Onda 5. A integração com provedores nasce desligada. Achado automático nasce potencial e só muda de estado por revisão humana.
+Onda 7 — pré-análise técnica assistida por IA, sobre as evidências e os achados da Onda 6. A integração com provedores nasce desligada. A IA redige fatos já apurados; o auditor revisa, congela e decide.
 
 ## Execução
 

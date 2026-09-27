@@ -1,0 +1,103 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ pre.codigo }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'pareceres:lista' %}">Pré-análises</a> / {{ pre.codigo }}</p>
+<h1 class="h3">{{ pre.titulo }}</h1>
+<p class="text-secondary">Pré-análise técnica assistida por inteligência artificial. A decisão permanece com o auditor.</p>
+<div class="row g-3 mt-1">
+    <div class="col-6 col-md-3"><article class="cartao"><h2 class="h6">Prestação</h2><p class="mb-0">{{ pre.prestacao_contas.numero_processo }}</p></article></div>
+    <div class="col-6 col-md-3"><article class="cartao"><h2 class="h6">Versão</h2><p class="mb-0">{{ pre.versao }} · {{ pre.get_status_display }}</p></article></div>
+    <div class="col-6 col-md-3"><article class="cartao"><h2 class="h6">Regras consideradas</h2><p class="mb-0">{{ quantidade_regras }}</p></article></div>
+    <div class="col-6 col-md-3"><article class="cartao"><h2 class="h6">Achados</h2><p class="mb-0">{{ quantidade_achados }}</p></article></div>
+    <div class="col-6 col-md-3"><article class="cartao"><h2 class="h6">Afirmações</h2><p class="mb-0">{{ quantidade_afirmacoes }}</p></article></div>
+    <div class="col-6 col-md-3"><article class="cartao"><h2 class="h6">Limitações</h2><p class="mb-0">{{ quantidade_limitacoes }}</p></article></div>
+    <div class="col-6 col-md-3"><article class="cartao"><h2 class="h6">Gerada em</h2><p class="mb-0">{{ pre.gerada_em|default:"—" }}</p></article></div>
+    <div class="col-6 col-md-3"><article class="cartao"><h2 class="h6">Responsável</h2><p class="mb-0">{{ pre.solicitada_por|default:"—" }}</p></article></div>
+</div>
+<p class="mt-3 mb-1">Modelo: {{ pre.modelo_inteligencia_artificial|default:"redação determinística" }}{% if pre.provedor %} · {{ pre.provedor }}{% endif %}</p>
+<p class="text-secondary">Encaminhamento: {{ pre.get_encaminhamento_display }}{% if pre.hash_conteudo %} · Hash {{ pre.hash_conteudo }}{% endif %}</p>
+<nav class="d-flex flex-wrap gap-2 my-3">
+    <a href="#resumo">Resumo</a>
+    {% for secao in pre.secoes.all %}
+        <a href="#secao-{{ secao.tipo }}">{{ secao.titulo }}</a>
+    {% endfor %}
+</nav>
+<div class="d-flex flex-wrap gap-2 mb-3">
+    {% if pode_gerar %}
+        <form method="post" action="{% url 'pareceres:gerar' pre.prestacao_contas_id %}">{% csrf_token %}<button class="btn btn-outline-primary btn-sm" type="submit">Gerar nova versão</button></form>
+    {% endif %}
+    {% if pode_congelar %}
+        <form method="post">{% csrf_token %}<input type="hidden" name="acao" value="congelar"><button class="btn btn-primary btn-sm" type="submit">Congelar</button></form>
+    {% endif %}
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'pareceres:exportar' pre.pk %}">Exportar HTML</a>
+</div>
+<article class="cartao" id="resumo">
+    <h2 class="h5">Resumo</h2>
+    <p>{{ pre.resumo_executivo }}</p>
+</article>
+{% for secao in pre.secoes.all %}
+    <article class="cartao mt-3" id="secao-{{ secao.tipo }}">
+        <h2 class="h5">{{ secao.titulo }}</h2>
+        {% for afirmacao in secao.afirmacoes.all %}
+            {% if afirmacao.exibir_oficial %}
+                <div class="border-top pt-3 mt-3">
+                    <p class="mb-1"><span class="estado estado-aguardando">{{ afirmacao.get_origem_conteudo_display }}</span> <span class="text-secondary">{{ afirmacao.get_status_validacao_display }}</span></p>
+                    <p>{{ afirmacao.texto_atual }}</p>
+                    {% if afirmacao.texto_original_ia and afirmacao.alterada_por_humano %}
+                        <p class="text-secondary">Texto original da IA preservado: {{ afirmacao.texto_original_ia }}</p>
+                    {% endif %}
+                    <details>
+                        <summary>Ver {{ afirmacao.fontes.count }} fonte{{ afirmacao.fontes.count|pluralize:"s" }}</summary>
+                        <ul class="mt-2">
+                            {% for fonte in afirmacao.fontes.all %}
+                                <li>
+                                    {{ fonte.codigo_fonte }}
+                                    {% if fonte.achado_id %} · <a href="{% url 'achados:detalhe' fonte.achado_id %}">abrir achado</a>{% endif %}
+                                    {% if fonte.documento_id %} · <a href="{% url 'documentos:detalhe' fonte.documento_id %}{% if fonte.pagina %}?pagina={{ fonte.pagina }}{% endif %}">abrir evidência</a>{% endif %}
+                                    {% if fonte.pagina %} · página {{ fonte.pagina }}{% endif %}
+                                    {% if fonte.norma_id %} · norma{% endif %}
+                                    {% if fonte.regra_id %} · regra{% endif %}
+                                    {% if fonte.calculo_id %} · cálculo{% endif %}
+                                </li>
+                            {% empty %}<li>Nenhuma fonte vinculada.</li>{% endfor %}
+                        </ul>
+                    </details>
+                    {% if pode_revisar %}
+                        <form class="row g-2 mt-2" method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="afirmacao" value="{{ afirmacao.pk }}">
+                            <input type="hidden" name="versao_registro" value="{{ pre.versao_registro }}">
+                            <div class="col-12"><textarea class="form-control" name="texto" rows="2">{{ afirmacao.texto_atual }}</textarea></div>
+                            <div class="col-md-6"><input class="form-control" name="justificativa" placeholder="Justificativa opcional"></div>
+                            <div class="col-12 d-flex gap-2">
+                                <button class="btn btn-outline-primary btn-sm" name="acao" value="aceitar" type="submit">Aceitar</button>
+                                <button class="btn btn-outline-primary btn-sm" name="acao" value="ajustar" type="submit">Ajustar</button>
+                                <button class="btn btn-outline-secondary btn-sm" name="acao" value="rejeitar" type="submit">Rejeitar</button>
+                            </div>
+                        </form>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    </article>
+{% endfor %}
+{% if pode_revisar or pode_congelar %}
+    {% if rejeitadas %}
+        <article class="cartao mt-3">
+            <h2 class="h5">Auditoria da redação automática</h2>
+            <p class="text-secondary">Estes textos não integram a versão oficial. Foram preservados porque a validação de proveniência os rejeitou.</p>
+            {% for afirmacao in rejeitadas %}
+                <p>{{ afirmacao.texto_atual }} <span class="text-secondary">{{ afirmacao.motivo_rejeicao }}</span></p>
+            {% endfor %}
+        </article>
+    {% endif %}
+{% endif %}
+<article class="cartao mt-3">
+    <h2 class="h6">Versões</h2>
+    <ul class="mb-0">
+        {% for item in versoes %}
+            <li><a href="{% url 'pareceres:detalhe' item.pk %}">v{{ item.versao }}</a> · {{ item.get_status_display }}{% if item.hash_conteudo %} · {{ item.hash_conteudo|truncatechars:18 }}{% endif %}</li>
+        {% endfor %}
+    </ul>
+</article>
+{% endblock %}

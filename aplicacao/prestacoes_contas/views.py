@@ -37,7 +37,7 @@ ABAS = (
     ("achados", "Achados"),
     ("pre-analise", "Pré-Análise"),
 )
-ABAS_PREPARADAS = {"pre-analise"}
+ABAS_PREPARADAS = set()
 PERFIS_ALTERACAO = (
     Usuario.Perfil.ADMINISTRADOR,
     Usuario.Perfil.AUDITOR,
@@ -192,6 +192,10 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             from aplicacao.achados.metricas import da_prestacao
 
             contexto["fluxos"] = da_prestacao(prestacao)
+        if aba == "pre-analise":
+            from aplicacao.pareceres.views import contexto_aba
+
+            contexto.update(contexto_aba(prestacao))
         return contexto
 
 

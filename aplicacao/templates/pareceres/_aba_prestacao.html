@@ -1,0 +1,28 @@
+{% if pode_alterar %}
+<form method="post" action="{% url 'pareceres:gerar' prestacao.pk %}" class="mb-3">{% csrf_token %}
+    <button class="btn btn-primary" type="submit">Gerar Pré-Análise</button>
+</form>
+{% endif %}
+{% if pre_analise_atual %}
+<article class="cartao mb-3">
+    <p class="mb-1"><a href="{% url 'pareceres:detalhe' pre_analise_atual.pk %}">{{ pre_analise_atual.codigo }}</a> · versão {{ pre_analise_atual.versao }} · {{ pre_analise_atual.get_status_display }}</p>
+    <p class="mb-0 text-secondary">{{ pre_analise_atual.resumo_executivo }}</p>
+</article>
+{% else %}
+<p class="text-secondary">Nenhuma versão foi gerada para esta prestação.</p>
+{% endif %}
+<div class="table-responsive cartao p-0">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>Versão</th><th>Status</th><th>Gerada em</th><th>Responsável</th></tr></thead>
+        <tbody>
+            {% for item in pre_analises %}
+                <tr>
+                    <td><a href="{% url 'pareceres:detalhe' item.pk %}">v{{ item.versao }}</a></td>
+                    <td>{{ item.get_status_display }}</td>
+                    <td>{{ item.gerada_em|default:"—" }}</td>
+                    <td>{{ item.solicitada_por|default:"—" }}</td>
+                </tr>
+            {% empty %}<tr><td colspan="4">Sem versões anteriores.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>

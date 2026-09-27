@@ -1,3 +1,3 @@
-VERSAO_APLICACAO = "0.7.0"
-ONDA_ATUAL = 6
+VERSAO_APLICACAO = "0.8.0"
+ONDA_ATUAL = 7
 NOME_APLICACAO = "CGE — Análise Inteligente de Prestação de Contas"

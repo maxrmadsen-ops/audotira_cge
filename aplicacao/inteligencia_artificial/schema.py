@@ -20,6 +20,14 @@ class SchemaInvalido(Exception):
         super().__init__(motivo)
 
 
+class RespostaIncompleta(Exception):
+    codigo = "resposta_incompleta"
+
+    def __init__(self, diagnostico: list[str] | None = None):
+        self.diagnostico = list(diagnostico or ["resposta_vazia"])[:12]
+        super().__init__(self.codigo)
+
+
 def validar_schema(payload) -> dict:
     if not isinstance(payload, dict):
         raise SchemaInvalido("A resposta não é um objeto.")

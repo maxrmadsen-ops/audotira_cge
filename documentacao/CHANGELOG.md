@@ -1,5 +1,9 @@
 # Changelog
 
+## Onda 7 — 2026-09-27
+
+Pré-análise técnica assistida por IA, versionada e rastreável. A redação usa fatos já apurados e segue a cadeia LLM, validação estrutural, completude, proveniência, guardrails, revisão humana e congelamento. Resposta vazia não é sucesso. Congelamento gera hash SHA-256. A exportação é HTML. PDF, comparação com gabarito, normalização de código ou valor citado pelo modelo e o painel FinOps ficam para as ondas seguintes.
+
 ## Onda 6 — 2026-09-27
 
 Evidências e achados potenciais rastreáveis. O resultado da regra não vira achado sozinho. A consolidação usa âncora estruturada, a materialidade é Decimal, e a confirmação é humana. A IA permanece desligada por padrão e não escolhe norma nem confirma achado.

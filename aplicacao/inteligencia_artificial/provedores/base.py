@@ -7,8 +7,9 @@ _SEGREDO = re.compile(r"(sk-[A-Za-z0-9_\-]{6,}|Bearer\s+\S+)", re.IGNORECASE)
 
 
 class ErroProvedor(Exception):
-    def __init__(self, codigo: str, mensagem: str = ""):
+    def __init__(self, codigo: str, mensagem: str = "", telemetria: dict | None = None):
         self.codigo = codigo
+        self.telemetria = telemetria or {}
         super().__init__(mensagem or codigo)
 
 

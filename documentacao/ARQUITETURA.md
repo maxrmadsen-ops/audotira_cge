@@ -1,4 +1,4 @@
-# Arquitetura — Onda 6
+# Arquitetura — Onda 7
 
 A raiz do repositório é o workspace local. O remoto chama-se `audotira_cge`.
 
@@ -16,7 +16,7 @@ aplicacao/
 docker/ nginx/ scripts/ documentacao/ dados_exemplo/ testes/
 ```
 
-`entidades`, `prestacoes_contas`, `documentos`, `normas`, `regras`, `inteligencia_artificial` e `achados` estão ativos. Pré-análise, avaliação e FinOps continuam reservados.
+`entidades`, `prestacoes_contas`, `documentos`, `normas`, `regras`, `inteligencia_artificial`, `achados` e `pareceres` estão ativos. Avaliação e FinOps continuam reservados. A pré-análise está descrita em `PRE_ANALISE_TECNICA.md`.
 
 O pipeline documental está descrito em [Inteligência documental](INTELIGENCIA_DOCUMENTAL.md). A base de conhecimento está em [Base normativa](BASE_NORMATIVA.md) e [RAG normativo](RAG_NORMATIVO.md). O catálogo e o motor estão em [Motor de regras](MOTOR_REGRAS.md).
 

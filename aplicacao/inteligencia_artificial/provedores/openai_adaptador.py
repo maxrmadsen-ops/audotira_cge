@@ -39,7 +39,7 @@ class ProvedorOpenAI(ProvedorInteligenciaArtificialBase):
                 {"role": "system", "content": requisicao.prompt_sistema},
                 {"role": "user", "content": requisicao.entrada},
             ],
-            "response_format": {"type": "json_object"},
+            "response_format": _formato_resposta(requisicao.schema),
         }
         pedido = urllib.request.Request(
             URL,
@@ -52,18 +52,29 @@ class ProvedorOpenAI(ProvedorInteligenciaArtificialBase):
         )
         inicio = time.perf_counter()
         try:
-            with urllib.request.urlopen(pedido, timeout=30) as resposta:
+            with urllib.request.urlopen(pedido, timeout=90) as resposta:
                 bruto = json.loads(resposta.read().decode("utf-8"))
         except Exception as erro:
             raise self.tratar_erro(erro) from None
         duracao = int((time.perf_counter() - inicio) * 1000)
         conteudo = bruto["choices"][0]["message"]["content"]
         uso = bruto.get("usage") or {}
+        telemetria = {
+            "tokens_entrada": int(uso.get("prompt_tokens") or 0),
+            "tokens_saida": int(uso.get("completion_tokens") or 0),
+            "duracao_ms": duracao,
+            "id_requisicao": str(bruto.get("id") or "")[:120],
+        }
+        try:
+            payload = extrair_objeto_json(conteudo)
+        except ErroProvedor as erro:
+            erro.telemetria = telemetria
+            raise
         return RespostaProvedor(
-            payload=extrair_objeto_json(conteudo),
-            tokens_entrada=int(uso.get("prompt_tokens") or 0),
-            tokens_saida=int(uso.get("completion_tokens") or 0),
-            id_requisicao=str(bruto.get("id") or "")[:120],
+            payload=payload,
+            tokens_entrada=telemetria["tokens_entrada"],
+            tokens_saida=telemetria["tokens_saida"],
+            id_requisicao=telemetria["id_requisicao"],
             duracao_ms=duracao,
         )
 
@@ -77,3 +88,13 @@ class ProvedorOpenAI(ProvedorInteligenciaArtificialBase):
         if isinstance(erro, urllib.error.URLError):
             return ErroProvedor("indisponibilidade")
         return ErroProvedor("erro_tecnico")
+
+
+def _formato_resposta(schema: dict) -> dict:
+    propriedades = (schema or {}).get("properties") or {}
+    if schema.get("type") == "object" and "secoes" in propriedades:
+        return {
+            "type": "json_schema",
+            "json_schema": {"name": "pre_analise_tecnica", "strict": True, "schema": schema},
+        }
+    return {"type": "json_object"}

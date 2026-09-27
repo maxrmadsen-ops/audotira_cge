@@ -12,7 +12,6 @@ class ItemMenu:
 
 
 MODULOS_PREPARADOS = (
-    ("pre-analises", "Pré-Análises", "Onda 7"),
     ("avaliacao", "Avaliação IA × Técnico", "Onda 8"),
     ("finops", "FinOps", "Onda 9"),
 )
@@ -32,6 +31,7 @@ def construir_menu(usuario) -> list[ItemMenu]:
         ItemMenu("Regras", "/regras/", True, "regras"),
         ItemMenu("Laboratório de IA", "/ia/laboratorio/", True, "laboratorio-ia"),
         ItemMenu("Achados", "/achados/", True, "achados"),
+        ItemMenu("Pré-Análises", "/pre-analises/", True, "pre-analises"),
     ]
     for slug, rotulo, _onda in MODULOS_PREPARADOS:
         itens.append(ItemMenu(rotulo, f"/modulos/{slug}/", False, slug))
