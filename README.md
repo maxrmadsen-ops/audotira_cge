@@ -8,7 +8,7 @@ O caso `2022TR000929` será apenas o primeiro caso de teste, em onda posterior. 
 
 ## Onda atual
 
-Onda 7 — pré-análise técnica assistida por IA, sobre as evidências e os achados da Onda 6. A integração com provedores nasce desligada. A IA redige fatos já apurados; o auditor revisa, congela e decide.
+Onda 8 — Ground Truth e avaliação IA × técnico, depois do congelamento da pré-análise. A referência técnica não entra na geração. A integração com provedores nasce desligada. A IA redige fatos já apurados; o auditor revisa, congela e decide.
 
 ## Execução
 

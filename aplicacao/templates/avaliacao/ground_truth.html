@@ -1,0 +1,82 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ ground_truth.codigo }} · Ground Truth{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'avaliacao:lista' %}">Avaliação</a> / Ground Truth</p>
+<h1 class="h3">Ground Truth — modo {{ ground_truth.get_modo_display }}</h1>
+<p>{{ ground_truth.codigo }} · versão {{ ground_truth.versao }} · {{ ground_truth.get_status_display }} · {{ ground_truth.prestacao_contas.numero_processo }}</p>
+{% if ground_truth.dados_demonstracao %}<p><span class="estado estado-aguardando">Dado de demonstração</span></p>{% endif %}
+{% if ground_truth.hash_conteudo %}<p class="small text-secondary">Hash {{ ground_truth.hash_conteudo }}</p>{% endif %}
+
+<h2 class="h5 mt-4">Versões</h2>
+<ul>{% for versao in versoes %}<li><a href="{% url 'avaliacao:ground_truth' versao.pk %}">v{{ versao.versao }} · {{ versao.get_status_display }}</a></li>{% endfor %}</ul>
+
+<h2 class="h5">Regras de referência</h2>
+<table class="table tabela-cge">
+    <thead><tr><th>Regra</th><th>Aplicável</th><th>Resultado esperado</th></tr></thead>
+    <tbody>
+        {% for item in ground_truth.regras_referencia.all %}
+            <tr><td>{{ item.regra.codigo }} v{{ item.regra.versao }}</td><td>{{ item.aplicavel|yesno:"sim,não" }}</td><td>{{ item.resultado_esperado }}</td></tr>
+        {% empty %}<tr><td colspan="3">Nenhuma regra de referência.</td></tr>{% endfor %}
+    </tbody>
+</table>
+{% if pode_colaborar and ground_truth.status == "rascunho" %}
+<form method="post" action="{% url 'avaliacao:regra_ground_truth' ground_truth.pk %}" class="row g-2 mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="versao_registro" value="{{ ground_truth.versao_registro }}">
+    <div class="col-md-3"><select class="form-select" name="regra">{% for regra in regras %}<option value="{{ regra.pk }}">{{ regra.codigo }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><input class="form-control" name="resultado_esperado" placeholder="Resultado esperado"></div>
+    <div class="col-md-2"><select class="form-select" name="aplicavel"><option value="1">Aplicável</option><option value="0">Não aplicável</option></select></div>
+    <div class="col-md-2"><button class="btn btn-primary" type="submit">Registrar regra</button></div>
+</form>
+{% endif %}
+
+<h2 class="h5">Achados de referência</h2>
+<table class="table tabela-cge">
+    <thead><tr><th>Código</th><th>Título</th><th>Criticidade</th><th>Materialidade</th></tr></thead>
+    <tbody>
+        {% for item in ground_truth.achados_referencia.all %}
+            <tr>
+                <td>{{ item.codigo }}</td>
+                <td>{{ item.titulo }}</td>
+                <td>{{ item.get_criticidade_display }}</td>
+                <td>{% if item.materialidade is None %}Não informada{% else %}R$ {{ item.materialidade }}{% endif %}</td>
+            </tr>
+        {% empty %}<tr><td colspan="4">Nenhum achado de referência.</td></tr>{% endfor %}
+    </tbody>
+</table>
+{% if pode_colaborar and ground_truth.status == "rascunho" %}
+<form method="post" action="{% url 'avaliacao:achado_ground_truth' ground_truth.pk %}" class="row g-2 mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="versao_registro" value="{{ ground_truth.versao_registro }}">
+    <div class="col-md-4"><input class="form-control" name="titulo" placeholder="Título"></div>
+    <div class="col-md-3"><input class="form-control" name="fato" placeholder="Fato"></div>
+    <div class="col-md-2"><input class="form-control" name="materialidade" placeholder="Materialidade"></div>
+    <div class="col-md-2">
+        <select class="form-select" name="criticidade">
+            <option value="baixa">Baixa</option>
+            <option value="media">Média</option>
+            <option value="alta">Alta</option>
+            <option value="critica">Crítica</option>
+        </select>
+    </div>
+    <div class="col-md-1"><button class="btn btn-primary" type="submit">Incluir</button></div>
+</form>
+{% endif %}
+
+{% if ground_truth.modo == "assistido" %}
+    <h2 class="h5">Resultado automatizado visível no modo assistido</h2>
+    <ul>{% for item in contexto.achados %}<li>{{ item.codigo }} · {{ item.titulo }}</li>{% empty %}<li>Nenhum achado automatizado.</li>{% endfor %}</ul>
+{% endif %}
+
+<div class="d-flex gap-2">
+    {% if pode_colaborar and ground_truth.status == "rascunho" %}
+        <form method="post" action="{% url 'avaliacao:enviar_ground_truth' ground_truth.pk %}">{% csrf_token %}<input type="hidden" name="versao_registro" value="{{ ground_truth.versao_registro }}"><button class="btn btn-outline-primary" type="submit">Enviar para validação</button></form>
+    {% endif %}
+    {% if pode_validar and ground_truth.status == "em_validacao" %}
+        <form method="post" action="{% url 'avaliacao:validar_ground_truth' ground_truth.pk %}">{% csrf_token %}<input type="hidden" name="versao_registro" value="{{ ground_truth.versao_registro }}"><button class="btn btn-outline-primary" type="submit">Validar</button></form>
+    {% endif %}
+    {% if pode_congelar and ground_truth.status == "validado" %}
+        <form method="post" action="{% url 'avaliacao:congelar_ground_truth' ground_truth.pk %}">{% csrf_token %}<input type="hidden" name="versao_registro" value="{{ ground_truth.versao_registro }}"><button class="btn btn-primary" type="submit">Congelar</button></form>
+    {% endif %}
+</div>
+{% endblock %}

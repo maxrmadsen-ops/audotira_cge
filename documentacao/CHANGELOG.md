@@ -1,5 +1,9 @@
 # Changelog
 
+## Onda 8 — 2026-09-27
+
+Ground Truth isolado e avaliação IA × técnico. A referência técnica nasce depois do congelamento da análise, em modo cego ou assistido, e não retroage sobre regra, evidência, achado ou pré-análise. A comparação calcula precisão, recall, F1, concordância e falsos negativos sem nota única da IA. PDF, FinOps e deploy continuam pendentes. A normalização de código ou valor citado pelo modelo, registrada na Onda 7, também continua pendente.
+
 ## Onda 7 — 2026-09-27
 
 Pré-análise técnica assistida por IA, versionada e rastreável. A redação usa fatos já apurados e segue a cadeia LLM, validação estrutural, completude, proveniência, guardrails, revisão humana e congelamento. Resposta vazia não é sucesso. Congelamento gera hash SHA-256. A exportação é HTML. PDF, comparação com gabarito, normalização de código ou valor citado pelo modelo e o painel FinOps ficam para as ondas seguintes.

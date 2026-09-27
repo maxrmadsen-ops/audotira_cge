@@ -1,0 +1,96 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ avaliacao.codigo }} · Avaliação{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'avaliacao:lista' %}">Avaliação</a> / IA × Técnico</p>
+<h1 class="h3">Avaliação IA × Técnico</h1>
+<p>
+    {{ avaliacao.prestacao_contas.numero_processo }} ·
+    {{ avaliacao.codigo }} v{{ avaliacao.versao }} ·
+    Ground Truth {{ avaliacao.ground_truth.codigo }} v{{ avaliacao.ground_truth.versao }} ·
+    modo {{ avaliacao.ground_truth.get_modo_display }} ·
+    {{ avaliacao.get_status_display }}
+</p>
+{% if avaliacao.snapshot %}
+    <p class="small text-secondary">Análise {{ avaliacao.snapshot.pre_analise.codigo }} v{{ avaliacao.snapshot.versao_pre_analise }} · hash da pré-análise {{ avaliacao.snapshot.hash_pre_analise }}</p>
+{% endif %}
+{% if avaliacao.hash_conteudo %}<p class="small text-secondary">Hash da avaliação {{ avaliacao.hash_conteudo }}</p>{% endif %}
+{% if avaliacao.dados_demonstracao %}<p><span class="estado estado-aguardando">Dado de demonstração</span></p>{% endif %}
+
+<ul class="nav nav-tabs mt-3">
+    {% for codigo, rotulo in abas %}
+        <li class="nav-item"><a class="nav-link {% if aba == codigo %}active{% endif %}" href="?aba={{ codigo }}">{{ rotulo }}</a></li>
+    {% endfor %}
+</ul>
+
+{% if aba == "resumo" %}
+    <div class="row g-3 mt-2">
+        <div class="col-md-3 cartao p-3"><strong>Precisão</strong><div>{{ precisao }}</div></div>
+        <div class="col-md-3 cartao p-3"><strong>Recall</strong><div>{{ recall }}</div></div>
+        <div class="col-md-3 cartao p-3"><strong>F1</strong><div>{{ f1 }}</div></div>
+        <div class="col-md-3 cartao p-3"><strong>Concordância das regras</strong><div>{{ concordancia }}</div></div>
+        <div class="col-md-3 cartao p-3"><strong>Verdadeiros positivos</strong><div>{% if "tp" in metricas %}{{ metricas.tp }}{% else %}Não disponível{% endif %}</div></div>
+        <div class="col-md-3 cartao p-3"><strong>Falsos positivos</strong><div>{% if "fp" in metricas %}{{ metricas.fp }}{% else %}Não disponível{% endif %}</div></div>
+        <div class="col-md-3 cartao p-3"><strong>Falsos negativos</strong><div>{% if "fn" in metricas %}{{ metricas.fn }}{% else %}Não disponível{% endif %}</div></div>
+        <div class="col-md-3 cartao p-3"><strong>Correspondências parciais</strong><div>{% if "parciais" in metricas %}{{ metricas.parciais }}{% else %}Não disponível{% endif %}</div></div>
+    </div>
+    <h2 class="h5 mt-4">Falsos negativos críticos</h2>
+    <ul>
+        {% for item in criticos %}
+            <li><a href="{% url 'avaliacao:falso_negativo' avaliacao.pk item.pk %}">{{ item.ground_truth_achado.codigo }} · {{ item.ground_truth_achado.get_criticidade_display }}</a></li>
+        {% empty %}<li>Nenhum falso negativo crítico nesta avaliação.</li>{% endfor %}
+    </ul>
+{% elif aba == "regras" %}
+    <table class="table tabela-cge mt-3">
+        <thead><tr><th>Regra</th><th>Categoria</th><th>Executor</th><th>Sistema</th><th>Ground Truth</th><th>Situação</th></tr></thead>
+        <tbody>
+            {% for item in comparacoes %}
+                <tr>
+                    <td>{{ item.regra.codigo }}</td>
+                    <td>{{ item.regra.categoria }}</td>
+                    <td>{{ item.regra.get_tipo_execucao_display }}</td>
+                    <td>{{ item.resultado_sistema|default:"—" }}</td>
+                    <td>{{ item.resultado_ground_truth|default:"—" }}</td>
+                    <td>{{ item.get_aplicabilidade_display }}{% if item.concordante == True %} · concordante{% elif item.concordante == False %} · divergente{% endif %}</td>
+                </tr>
+            {% empty %}<tr><td colspan="6">Comparação ainda não calculada.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+{% elif aba == "achados" or aba == "falsos-positivos" or aba == "falsos-negativos" or aba == "correspondencias" %}
+    <table class="table tabela-cge mt-3">
+        <thead><tr><th>Classificação</th><th>Achado</th><th>Referência</th><th>Método</th></tr></thead>
+        <tbody>
+            {% for item in correspondencias %}
+                {% if aba == "achados" or aba == "correspondencias" or aba == "falsos-positivos" and item.classificacao == "falso_positivo" or aba == "falsos-negativos" and item.classificacao == "falso_negativo" %}
+                    <tr>
+                        <td>{{ item.get_classificacao_display }}</td>
+                        <td>{% if item.achado %}{{ item.achado.codigo }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% if item.ground_truth_achado and item.classificacao == "falso_negativo" %}
+                                <a href="{% url 'avaliacao:falso_negativo' avaliacao.pk item.pk %}">{{ item.ground_truth_achado.codigo }}</a>
+                            {% elif item.ground_truth_achado %}{{ item.ground_truth_achado.codigo }}{% else %}—{% endif %}
+                        </td>
+                        <td>{{ item.get_metodo_display }}</td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+{% elif aba == "pre-analise" %}
+    <p class="mt-3">Achados presentes: {{ metricas.pre_analise.achados_presentes|default:"Não disponível" }}. Omitidos: {{ metricas.pre_analise.achados_omitidos|default:"Não disponível" }}.</p>
+    <p>Limitações preservadas: {{ metricas.pre_analise.limitacoes_preservadas|default:"Não disponível" }}.</p>
+    <p>Contraditórios preservados: {{ metricas.pre_analise.contraditorios_preservados|default:"Não disponível" }}.</p>
+    <p>Conclusão administrativa vedada: {{ metricas.pre_analise.conclusao_administrativa_vedada|default:"Não disponível" }}.</p>
+    <p>Encaminhamento registrado: {{ metricas.pre_analise.encaminhamento_registrado|default:"Não disponível" }}.</p>
+{% elif aba == "proveniencia" %}
+    <p class="mt-3">Taxa de afirmações suportadas: {{ metricas.proveniencia.taxa_suportadas|default:"Não disponível" }}.</p>
+    <p>Taxa de rejeição por proveniência: {{ metricas.proveniencia.taxa_rejeicao|default:"Não disponível" }}.</p>
+{% elif aba == "modelos" %}
+    <p class="mt-3">Provedor: {{ metricas.modelo.provedor|default:"Não disponível" }}. A tela não executa modelo novamente.</p>
+{% elif aba == "auditoria" %}
+    <ul class="mt-3">{% for item in auditoria %}<li>{{ item.data_hora }} · {{ item.descricao }}</li>{% empty %}<li>Sem eventos desta avaliação.</li>{% endfor %}</ul>
+{% endif %}
+
+{% if pode_concluir and avaliacao.status == "concluida" %}
+    <form class="mt-3" method="post" action="{% url 'avaliacao:congelar' avaliacao.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit">Congelar avaliação</button></form>
+{% endif %}
+{% endblock %}

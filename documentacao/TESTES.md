@@ -7,6 +7,8 @@ docker compose exec -T cge_web python manage.py test
 docker compose exec -T cge_web python manage.py check
 ```
 
+A Onda 8 acrescenta testes de isolamento do Ground Truth, congelamento, hash, modo cego no backend, TP, FP, FN, correspondência parcial, pendência, precisão, recall, F1, divisão por zero, regras fora do denominador, materialidade em Decimal, falso negativo crítico, norma revogada, matching estruturado, sugestão semântica não decisória, revisão humana e permissão exclusiva do auditor para congelar. A suíte não chama LLM real.
+
 O checkpoint 7.1 acrescenta testes de resposta vazia, seção sem afirmação, afirmação material sem fonte, encaminhamento fora do enum, fonte inventada que chega à proveniência, resposta governada, retry único de schema inválido e de resposta incompleta, duas falhas seguidas, contexto factual intacto no retry, Ground Truth e teste cego ausentes do retry, e métricas separadas por tentativa. A suíte não chama LLM real.
 
 O checkpoint da Onda 7 torna explícitos o valor divergente do cálculo, a fonte de outra prestação, o não localizado, as quatro conclusões vedadas, o Ground Truth fora do prompt e a imutabilidade da versão congelada diante da versão seguinte.

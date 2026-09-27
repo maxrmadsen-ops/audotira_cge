@@ -1,0 +1,19 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Falso negativo · {{ referencia.codigo }}{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'avaliacao:detalhe' correspondencia.avaliacao_id %}?aba=falsos-negativos">Falsos negativos</a> / {{ referencia.codigo }}</p>
+<h1 class="h3">Falso negativo{% if critico %} crítico{% endif %}</h1>
+<p>{{ referencia.codigo }} · {{ referencia.titulo }} · {{ referencia.get_criticidade_display }}</p>
+<p>Materialidade: {% if referencia.materialidade is None %}não informada{% else %}R$ {{ referencia.materialidade }}{% endif %}</p>
+<p>{{ referencia.fato }}</p>
+<h2 class="h5">Regras</h2>
+<ul>{% for regra in regras %}<li>{{ regra.codigo }} v{{ regra.versao }} · {{ regra.categoria }} · {{ regra.get_tipo_execucao_display }}</li>{% empty %}<li>Nenhuma regra vinculada.</li>{% endfor %}</ul>
+<h2 class="h5">Evidências</h2>
+<ul>{% for evidencia in evidencias %}<li>{{ evidencia.codigo }}{% if evidencia.documento %} · {{ evidencia.documento.nome_original }}{% if evidencia.pagina_documento %} · página {{ evidencia.pagina_documento.numero_pagina }}{% endif %}{% endif %}</li>{% empty %}<li>Nenhuma evidência vinculada.</li>{% endfor %}</ul>
+<h2 class="h5">Normas</h2>
+<ul>{% for norma in normas %}<li>{{ norma.titulo }}</li>{% empty %}<li>Nenhuma norma vinculada.</li>{% endfor %}</ul>
+<h2 class="h5">Trechos</h2>
+<ul>{% for trecho in trechos %}<li>{{ trecho.artigo }} {{ trecho.texto|truncatechars:180 }}</li>{% empty %}<li>Nenhum trecho vinculado.</li>{% endfor %}</ul>
+<p>Motivo da ausência: {{ correspondencia.justificativa }}</p>
+{% if pre_analise %}<p><a href="{% url 'pareceres:detalhe' pre_analise.pk %}">Abrir a pré-análise original {{ pre_analise.codigo }}</a></p>{% endif %}
+{% endblock %}

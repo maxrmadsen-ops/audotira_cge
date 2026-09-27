@@ -46,6 +46,9 @@ class Command(BaseCommand):
             from aplicacao.pareceres.demonstracao import garantir_demonstracao_pre_analise
 
             garantir_demonstracao_pre_analise(PrestacaoContas.objects.get(numero_processo=PROCESSO))
+            from aplicacao.avaliacao.demonstracao import garantir_demonstracao_avaliacao
+
+            garantir_demonstracao_avaliacao(PrestacaoContas.objects.get(numero_processo=PROCESSO))
             self.stdout.write("Cenário de demonstração já existe.")
             return
 
@@ -225,6 +228,9 @@ class Command(BaseCommand):
         from aplicacao.pareceres.demonstracao import garantir_demonstracao_pre_analise
 
         garantir_demonstracao_pre_analise(PrestacaoContas.objects.get(numero_processo=PROCESSO))
+        from aplicacao.avaliacao.demonstracao import garantir_demonstracao_avaliacao
+
+        garantir_demonstracao_avaliacao(PrestacaoContas.objects.get(numero_processo=PROCESSO))
         self.stdout.write(self.style.SUCCESS(f"Cenário de demonstração criado: {PROCESSO}"))
 
     def _enriquecer_regras(self):

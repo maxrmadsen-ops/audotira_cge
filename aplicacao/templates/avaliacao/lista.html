@@ -1,0 +1,44 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Avaliação · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início / Avaliação</p>
+<h1 class="h3">Avaliação IA × Técnico</h1>
+<p class="text-secondary">O Ground Truth fica depois do congelamento da análise. Modos cego e assistido não são somados.</p>
+<div class="row mt-4">
+    <div class="col-lg-6">
+        <h2 class="h5">Ground Truth</h2>
+        <div class="table-responsive cartao p-0">
+            <table class="table tabela-cge mb-0">
+                <thead><tr><th>Código</th><th>Modo</th><th>Versão</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for item in ground_truths %}
+                        <tr>
+                            <td><a href="{% url 'avaliacao:ground_truth' item.pk %}">{{ item.codigo }}</a></td>
+                            <td>Ground Truth — modo {{ item.get_modo_display }}</td>
+                            <td>{{ item.versao }}</td>
+                            <td>{{ item.get_status_display }}</td>
+                        </tr>
+                    {% empty %}<tr><td colspan="4">Nenhum Ground Truth registrado.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <h2 class="h5">Avaliações</h2>
+        <div class="table-responsive cartao p-0">
+            <table class="table tabela-cge mb-0">
+                <thead><tr><th>Código</th><th>Modo</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for item in avaliacoes %}
+                        <tr>
+                            <td><a href="{% url 'avaliacao:detalhe' item.pk %}">{{ item.codigo }} v{{ item.versao }}</a></td>
+                            <td>{{ item.ground_truth.get_modo_display }}</td>
+                            <td>{{ item.get_status_display }}</td>
+                        </tr>
+                    {% empty %}<tr><td colspan="3">Nenhuma avaliação concluída. Métricas não disponíveis.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

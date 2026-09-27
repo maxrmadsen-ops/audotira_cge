@@ -1,0 +1,47 @@
+<h2 class="h5">Avaliação</h2>
+<p class="text-secondary">Ground Truth e avaliação IA × técnico. O modo cego não mostra o resultado da IA nesta elaboração.</p>
+<div class="table-responsive cartao p-0 mb-3">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>Ground Truth</th><th>Modo</th><th>Status</th><th>Avaliação</th></tr></thead>
+        <tbody>
+            {% for item in ground_truths %}
+                <tr>
+                    <td><a href="{% url 'avaliacao:ground_truth' item.pk %}">{{ item.codigo }} v{{ item.versao }}</a></td>
+                    <td>Ground Truth — modo {{ item.get_modo_display }}</td>
+                    <td>{{ item.get_status_display }}</td>
+                    <td>
+                        {% for avaliacao in avaliacoes_ia %}
+                            {% if avaliacao.ground_truth_id == item.id %}
+                                <a href="{% url 'avaliacao:detalhe' avaliacao.pk %}">{{ avaliacao.codigo }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                </tr>
+            {% empty %}<tr><td colspan="4">Nenhum Ground Truth para esta prestação.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if pode_colaborar_gt %}
+<form method="post" action="{% url 'avaliacao:criar_ground_truth' %}" class="row g-2">
+    {% csrf_token %}
+    <input type="hidden" name="prestacao" value="{{ prestacao.pk }}">
+    <div class="col-md-3">
+        <select class="form-select" name="modo">
+            {% for valor, rotulo in modos_ground_truth %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-primary" type="submit">Criar Ground Truth</button></div>
+</form>
+{% endif %}
+{% if pode_iniciar_avaliacao and pre_analises_congeladas and ground_truths %}
+<form method="post" action="{% url 'avaliacao:iniciar' %}" class="row g-2 mt-2">
+    {% csrf_token %}
+    <div class="col-md-4">
+        <select class="form-select" name="pre_analise">{% for item in pre_analises_congeladas %}<option value="{{ item.pk }}">{{ item.codigo }} v{{ item.versao }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-4">
+        <select class="form-select" name="ground_truth">{% for item in ground_truths %}<option value="{{ item.pk }}">{{ item.codigo }} v{{ item.versao }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Iniciar avaliação</button></div>
+</form>
+{% endif %}

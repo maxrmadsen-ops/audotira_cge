@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "aplicacao.inteligencia_artificial.apps.InteligenciaArtificialConfig",
     "aplicacao.achados.apps.AchadosConfig",
     "aplicacao.pareceres.apps.PareceresConfig",
+    "aplicacao.avaliacao.apps.AvaliacaoConfig",
     "aplicacao.painel.apps.PainelConfig",
 ]
 

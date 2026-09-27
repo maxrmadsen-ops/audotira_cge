@@ -28,6 +28,8 @@ class RegistroAuditoria(models.Model):
         REPROCESSAMENTO = "reprocessamento", "Reprocessamento"
         VALIDACAO_HUMANA = "validacao_humana", "Validação humana"
         CONSULTA_NORMATIVA = "consulta_normativa", "Consulta normativa"
+        GROUND_TRUTH = "ground_truth", "Ground Truth"
+        AVALIACAO_IA = "avaliacao_ia", "Avaliação IA × técnico"
 
     data_hora = models.DateTimeField("data e hora", auto_now_add=True, db_index=True)
     usuario = models.ForeignKey(

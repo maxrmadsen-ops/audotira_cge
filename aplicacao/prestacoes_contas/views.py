@@ -36,6 +36,7 @@ ABAS = (
     ("analise", "Análise"),
     ("achados", "Achados"),
     ("pre-analise", "Pré-Análise"),
+    ("avaliacao", "Avaliação"),
 )
 ABAS_PREPARADAS = set()
 PERFIS_ALTERACAO = (
@@ -196,6 +197,10 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             from aplicacao.pareceres.views import contexto_aba
 
             contexto.update(contexto_aba(prestacao))
+        if aba == "avaliacao":
+            from aplicacao.avaliacao.views import contexto_aba as contexto_aba_avaliacao
+
+            contexto.update(contexto_aba_avaliacao(request, prestacao))
         return contexto
 
 
