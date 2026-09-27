@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
@@ -135,3 +136,8 @@ class LaboratorioView(PerfilExigidoMixin, View):
             "regras": RegraAnalise.objects.filter(ativa=True, capacidade="requer_ia").order_by("ordem"),
         "modelos": ModeloInteligenciaArtificial.objects.all(),
         }
+
+
+class VisaoGeralIaView(LoginRequiredMixin, View):
+    def get(self, request):
+        return render(request, "inteligencia_artificial/visao.html")

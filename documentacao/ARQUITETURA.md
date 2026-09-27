@@ -1,4 +1,4 @@
-# Arquitetura — Onda 8
+# Arquitetura — Onda 9
 
 A raiz do repositório é o workspace local. O remoto chama-se `audotira_cge`.
 
@@ -7,7 +7,7 @@ aplicacao/
   configuracao/     Django, Celery, URLs
   usuarios/         autenticação e perfis
   auditoria/        trilha de eventos
-  painel/           interface, saúde e navegação
+  painel/           central analítica, consultas, saúde e navegação
   prestacoes_contas/ documentos/ entidades/
   normas/           base normativa, vigência e RAG
   regras/ analises/ evidencias/ achados/
@@ -16,7 +16,7 @@ aplicacao/
 docker/ nginx/ scripts/ documentacao/ dados_exemplo/ testes/
 ```
 
-`entidades`, `prestacoes_contas`, `documentos`, `normas`, `regras`, `inteligencia_artificial`, `achados`, `pareceres` e `avaliacao` estão ativos. FinOps continua reservado. O Ground Truth e a avaliação estão descritos em `GROUND_TRUTH.md`, `AVALIACAO_IA_TECNICO.md` e `METRICAS_AVALIACAO.md`. A pré-análise está descrita em `PRE_ANALISE_TECNICA.md`.
+`entidades`, `prestacoes_contas`, `documentos`, `normas`, `regras`, `inteligencia_artificial`, `achados`, `pareceres` e `avaliacao` estão ativos. O Painel lê esses módulos em `painel/consultas/`, sem data warehouse. O FinOps fica em `/finops/` e usa o preço versionado já existente. O Ground Truth e a avaliação estão descritos em `GROUND_TRUTH.md`, `AVALIACAO_IA_TECNICO.md` e `METRICAS_AVALIACAO.md`. A pré-análise está descrita em `PRE_ANALISE_TECNICA.md`. A central analítica está em `PAINEL_360.md` e `INDICADORES_ONDA9.md`.
 
 O pipeline documental está descrito em [Inteligência documental](INTELIGENCIA_DOCUMENTAL.md). A base de conhecimento está em [Base normativa](BASE_NORMATIVA.md) e [RAG normativo](RAG_NORMATIVO.md). O catálogo e o motor estão em [Motor de regras](MOTOR_REGRAS.md).
 
@@ -45,7 +45,7 @@ Volumes persistentes: `cge_postgres_dados`, `cge_redis_dados`, `cge_static`, `cg
 
 0 Fundação · 1 Modelo de domínio · 2 Gestão e inteligência documental · 3 Base normativa e RAG · 4 Catálogo e motor de regras · 5 IA multiprovedor e agentes · 6 Evidências e achados · 7 Pré-análise técnica e revisão humana · 8 Ground Truth e avaliação IA × técnico · 9 Governança, FinOps e experiência executiva · 10 Hardening, caso real e preparação da demonstração.
 
-A instrumentação de custo de IA nasce na Onda 5. O painel FinOps fica na Onda 9. A Onda 10 não é absorvida pela Onda 9.
+A instrumentação de custo de IA nasce na Onda 5. O FinOps da Onda 9 só exibe custo quando há preço vigente. A Onda 10 não é absorvida pela Onda 9.
 
 ## Fronteiras já definidas
 

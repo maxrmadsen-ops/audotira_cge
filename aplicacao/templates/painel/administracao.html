@@ -3,7 +3,28 @@
 {% block conteudo %}
 <p class="trilho">Início / Administração</p>
 <h1 class="h3">Administração</h1>
-<p class="text-secondary">Áreas disponíveis nesta onda e estruturas reservadas para as ondas de governança.</p>
+<p class="text-secondary">Usuários, perfis e trilha recente. Senhas e segredos não são exibidos. Permissão administrativa não congela Ground Truth nem avaliação.</p>
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><article class="cartao"><h2>Usuários</h2><p class="kpi-valor">{{ usuarios_total }}</p></article></div>
+    <div class="col-md-4"><article class="cartao"><h2>Ativos</h2><p class="kpi-valor">{{ usuarios_ativos }}</p></article></div>
+    <div class="col-md-4"><article class="cartao"><h2>Perfis</h2><ul class="mb-0">{% for item in por_perfil %}<li>{{ item.perfil }}: {{ item.quantidade }}</li>{% endfor %}</ul></article></div>
+</div>
+<div class="table-responsive cartao p-0 mb-3">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>Quando</th><th>Evento</th><th>Usuário</th></tr></thead>
+        <tbody>
+            {% for evento in eventos %}
+                <tr>
+                    <td>{{ evento.data_hora|date:"d/m/Y H:i" }}</td>
+                    <td>{{ evento.get_evento_display }}</td>
+                    <td>{{ evento.usuario.username|default:"—" }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="3">Sem eventos recentes.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 <div class="row g-3">
     <div class="col-md-6">
         <article class="cartao">

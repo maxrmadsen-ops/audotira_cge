@@ -1,0 +1,25 @@
+{% if painel.colunas %}
+<section class="bloco-painel">
+    <h2 class="h5">Detalhamento</h2>
+    {% if painel.linhas %}
+        <div class="table-responsive cartao p-0">
+            <table class="table tabela-cge mb-0">
+                <thead>
+                    <tr>{% for coluna in painel.colunas %}<th>{{ coluna }}</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                    {% for linha in painel.linhas %}
+                        <tr>
+                            {% for valor in linha.colunas %}
+                                <td>{% if forloop.first and linha.url %}<a href="{{ linha.url }}">{{ valor }}</a>{% else %}{{ valor }}{% endif %}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>{{ painel.vazio_tabela }}</p>
+    {% endif %}
+</section>
+{% endif %}

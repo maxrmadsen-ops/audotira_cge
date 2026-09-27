@@ -1,0 +1,43 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}FinOps · CGE{% endblock %}
+{% block conteudo %}
+<header class="cabeca-pagina">
+    <div>
+        <p class="trilho">FinOps</p>
+        <h1>FinOps</h1>
+        <p>Consumo e custo da inteligência artificial. O FinOps não é uma aba do Painel. Sem preço vigente, o custo fica não disponível.</p>
+    </div>
+</header>
+<div class="aba-grade">
+    <aside class="coluna-filtros">{% include "painel/_filtros.html" %}</aside>
+    <div>
+        {% for aviso in painel.avisos %}<p class="aviso-painel">{{ aviso }}</p>{% endfor %}
+        {% include "painel/_kpis.html" %}
+        <div class="row g-3">
+            {% for grafico in painel.graficos %}
+                <div class="col-lg-6">{% include "painel/_grafico.html" %}</div>
+            {% endfor %}
+        </div>
+        <section class="cartao bloco-painel">
+            <h2 class="h6">Histórico</h2>
+            {% if painel.historico %}
+                <ul class="barras">
+                    {% for serie in painel.historico.series %}
+                        <li>
+                            <span>{{ serie.rotulo }}</span>
+                            <span class="barra-trilho" aria-hidden="true"><span class="barra-valor" style="width: {{ serie.percentual }}%"></span></span>
+                            <strong>{{ serie.exibicao }}</strong>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="estado-vazio">{{ painel.mensagem_historico }}</p>
+            {% endif %}
+        </section>
+        <section class="bloco-painel">
+            <h2 class="h5">Limites configurados</h2>
+            {% include "painel/_tabela.html" %}
+        </section>
+    </div>
+</div>
+{% endblock %}

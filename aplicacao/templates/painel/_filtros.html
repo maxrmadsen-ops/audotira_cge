@@ -1,0 +1,43 @@
+<form class="filtros-painel cartao" method="get">
+    <div class="filtros-cabeca">
+        <h2>Filtros</h2>
+        <a href="{{ request.path }}">Limpar</a>
+    </div>
+    {% if filtros.ativos %}
+        <p class="filtros-ativos"><span class="visually-hidden">Filtros ativos</span>Ativos
+            {% for rotulo, valor, restante in filtros.ativos %}
+                <span>{{ rotulo }}: {{ valor }} <a href="?{{ restante }}" aria-label="remover">×</a></span>
+            {% endfor %}
+            <a href="{{ request.path }}">Limpar filtros</a>
+        </p>
+    {% endif %}
+    {% for campo in campos_filtro %}
+        {% if campo.nome == "fim" %}
+        {% elif campo.nome == "inicio" %}
+            <div class="campo-filtro">
+                <span class="rotulo-campo" id="rotulo-periodo">Período</span>
+                <div class="periodo-par">
+                    <label for="id-inicio">De</label>
+                    <input class="form-control form-control-sm" id="id-inicio" type="date" name="inicio" value="{{ campo.valor }}" aria-label="De">
+                    {% for outro in campos_filtro %}
+                        {% if outro.nome == "fim" %}
+                            <label for="id-fim">Até</label>
+                            <input class="form-control form-control-sm" id="id-fim" type="date" name="fim" value="{{ outro.valor }}" aria-label="Até">
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <div class="campo-filtro">
+                <label for="id-{{ campo.nome }}">{{ campo.rotulo }}</label>
+                <select class="form-select form-select-sm" id="id-{{ campo.nome }}" name="{{ campo.nome }}">
+                    <option value="">Todos</option>
+                    {% for chave, rotulo in campo.opcoes %}
+                        <option value="{{ chave }}" {% if campo.valor == chave|stringformat:"s" %}selected{% endif %}>{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        {% endif %}
+    {% endfor %}
+    <button class="btn btn-primary btn-sm w-100" type="submit">Aplicar filtros</button>
+</form>

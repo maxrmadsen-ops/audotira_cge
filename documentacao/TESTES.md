@@ -7,6 +7,8 @@ docker compose exec -T cge_web python manage.py test
 docker compose exec -T cge_web python manage.py check
 ```
 
+A Onda 9 acrescenta testes da Visão 360° com e sem dados, da diferença entre nulo e zero, da série histórica insuficiente, dos filtros combinados, das permissões, do drill-down, da central de atenção, de documentos, normas, regras, evidência órfã, achados, materialidade decimal, pré-análise, revisão humana, TP/FP/FN, precisão, recall, F1, denominador zero, falso negativo crítico, operação de IA, tokens, custo sem preço, custo com vigência, isolamento do Ground Truth, teste cego, demonstração, ausência de segredo, menu estreito, ausência de CDN e das URLs anteriores. A suíte não chama OpenAI nem Anthropic.
+
 A Onda 8 acrescenta testes de isolamento do Ground Truth, congelamento, hash, modo cego no backend, TP, FP, FN, correspondência parcial, pendência, precisão, recall, F1, divisão por zero, regras fora do denominador, materialidade em Decimal, falso negativo crítico, norma revogada, matching estruturado, sugestão semântica não decisória, revisão humana e permissão exclusiva do auditor para congelar. A suíte não chama LLM real.
 
 O checkpoint 7.1 acrescenta testes de resposta vazia, seção sem afirmação, afirmação material sem fonte, encaminhamento fora do enum, fonte inventada que chega à proveniência, resposta governada, retry único de schema inválido e de resposta incompleta, duas falhas seguidas, contexto factual intacto no retry, Ground Truth e teste cego ausentes do retry, e métricas separadas por tentativa. A suíte não chama LLM real.

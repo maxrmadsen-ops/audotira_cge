@@ -5,6 +5,7 @@ from aplicacao.inteligencia_artificial import views
 app_name = "ia"
 
 urlpatterns = [
+    path("ia/", views.VisaoGeralIaView.as_view(), name="visao"),
     path("ia/provedores/", views.ProvedoresView.as_view(), name="provedores"),
     path("ia/catalogo/", views.CatalogoIaView.as_view(), name="catalogo"),
     path("ia/roteamento/", views.RoteamentoView.as_view(), name="roteamento"),

@@ -1,0 +1,116 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Painel · CGE{% endblock %}
+{% block conteudo %}
+<header class="cabeca-pagina">
+    <div>
+        <p class="trilho">Painel / Central analítica</p>
+        <h1>Central analítica</h1>
+        <p>O painel mostra o que está acontecendo. A investigação e a validação continuam nos menus operacionais.</p>
+    </div>
+    <p class="selo-institucional">Nenhum indicador aprova ou reprova a prestação.</p>
+</header>
+<nav class="abas-painel" aria-label="Abas analíticas">
+    {% for slug, rotulo, nome in abas_painel %}
+        <a class="{% if aba_atual == slug %}ativa{% endif %}" href="{% url nome %}{% if filtros.querystring %}?{{ filtros.querystring }}{% endif %}">{{ rotulo }}</a>
+    {% endfor %}
+</nav>
+{% if aba_atual == "visao" %}
+<div class="visao-grade">
+    <aside class="coluna-filtros">{% include "painel/_filtros.html" %}</aside>
+    <div class="visao-principal">
+        <div class="visao-topo">
+            <section class="cartao bloco-atencao">
+                <div class="cartao-cabeca">
+                    <div>
+                        <h2>Central de Atenção</h2>
+                        <p>Ordenada pela criticidade registrada — não é score calculado.</p>
+                    </div>
+                    <span class="badge-contagem">{{ painel.atencao|length }}</span>
+                </div>
+                {% if painel.atencao %}
+                    <ul class="lista-atencao">
+                        {% for item in painel.atencao %}
+                            <li class="{% if 'crítico' in item.tipo or 'Falso negativo' in item.tipo %}tom-critico{% elif 'Falha' in item.tipo %}tom-falha{% elif 'revisão' in item.tipo or 'Pré-análise' in item.tipo %}tom-revisao{% elif 'NÃO' in item.tipo %}tom-nao{% else %}tom-info{% endif %}">
+                                <a href="{{ item.url }}">{{ item.tipo }}</a>
+                                <span>{{ item.descricao }}</span>
+                                <small>{{ item.prestacao }}{% if item.criticidade %} · {{ item.criticidade }}{% endif %}{% if item.quando %} · {{ item.quando }}{% endif %}</small>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="estado-vazio">{{ painel.vazio_atencao }}</p>
+                {% endif %}
+            </section>
+            <div class="visao-achados">
+                {% with grafico=painel.graficos.1 %}{% include "painel/_grafico.html" %}{% endwith %}
+                {% with grafico=painel.graficos.2 %}{% include "painel/_grafico.html" %}{% endwith %}
+            </div>
+        </div>
+        {% include "painel/_kpis.html" %}
+        {% if painel.pipeline %}
+        <section class="cartao bloco-pipeline">
+            <h2>Pipeline da análise</h2>
+            <p>Objetos ligados às prestações do recorte, da entrada à revisão humana. A barra compara as quantidades entre si e não é taxa de conversão.</p>
+            <ol class="pipeline">
+                {% for etapa in painel.pipeline %}
+                    <li>
+                        <a href="{{ etapa.url }}">
+                            <strong>{{ etapa.exibicao }}</strong>
+                            <span>{{ etapa.nome }}</span>
+                            <span class="barra-trilho" aria-hidden="true"><span class="barra-valor" style="width: {{ etapa.peso }}%"></span></span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ol>
+        </section>
+        {% endif %}
+        <div class="visao-base">
+            {% with grafico=painel.graficos.0 %}{% include "painel/_grafico.html" %}{% endwith %}
+            <section class="cartao grafico-painel">
+                <div class="cartao-cabeca">
+                    <div>
+                        <h2 class="h6">Evolução das análises</h2>
+                        <p class="small text-secondary">Prestações por situação ao longo do tempo.</p>
+                    </div>
+                    <div class="janelas" role="group" aria-label="Período da série">
+                        {% for rotulo, consulta in janelas %}
+                            <a href="?{{ consulta }}">{{ rotulo }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% if painel.historico %}
+                    <ul class="barras">
+                        {% for serie in painel.historico.series %}
+                            <li>
+                                <span>{{ serie.rotulo }}</span>
+                                <span class="barra-trilho" aria-hidden="true"><span class="barra-valor" style="width: {{ serie.percentual }}%"></span></span>
+                                <strong>{{ serie.exibicao }}</strong>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="estado-vazio">{{ painel.mensagem_historico }}</p>
+                    <p class="small text-secondary mb-0">A série aparece com prestações em mais de um período.</p>
+                {% endif %}
+            </section>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="aba-grade">
+    <aside class="coluna-filtros">{% include "painel/_filtros.html" %}</aside>
+    <div>
+        {% if painel.avisos %}
+            {% for aviso in painel.avisos %}<p class="aviso-painel">{{ aviso }}</p>{% endfor %}
+        {% endif %}
+        {% include "painel/_kpis.html" %}
+        <div class="row g-3">
+            {% for grafico in painel.graficos %}
+                <div class="col-lg-6">{% include "painel/_grafico.html" %}</div>
+            {% endfor %}
+        </div>
+        {% include "painel/_tabela.html" %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

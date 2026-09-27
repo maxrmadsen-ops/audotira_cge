@@ -43,7 +43,7 @@ class TesteFundacao(TestCase):
         self.client.force_login(self.administrador)
         resposta = self.client.get(reverse("painel:inicio"))
         self.assertEqual(resposta.status_code, 200)
-        self.assertContains(resposta, "Aguardando próximas ondas")
+        self.assertContains(resposta, "Visão 360°")
         self.assertNotContains(resposta, "2022TR000929")
 
     def test_consulta_nao_abre_administracao_nem_saude(self):
@@ -61,8 +61,7 @@ class TesteFundacao(TestCase):
     def test_modulo_futuro_nao_finge_funcionalidade(self):
         self.client.force_login(self.consulta)
         resposta = self.client.get(reverse("painel:modulo", kwargs={"slug": "finops"}))
-        self.assertEqual(resposta.status_code, 200)
-        self.assertContains(resposta, "ainda não está disponível")
+        self.assertRedirects(resposta, reverse("painel:finops"))
         self.assertEqual(self.client.get(reverse("painel:modulo", kwargs={"slug": "inexistente"})).status_code, 404)
 
     def test_coleta_de_saude_nao_simula_provedores(self):

@@ -6,7 +6,7 @@
     <h1 class="h3 mb-0">Saúde do Sistema</h1>
     <a class="btn btn-outline-primary btn-sm" href="{% url 'painel:saude' %}">Verificar novamente</a>
 </div>
-<p class="text-secondary mt-2">Estados exibidos com texto. A verificação de OpenAI e Anthropic não faz chamada e não mostra chave.</p>
+<p class="text-secondary mt-2">Estados exibidos com texto. A verificação de OpenAI e Anthropic não faz chamada e não mostra chave. Última verificação nesta abertura: {{ verificado_em|date:"d/m/Y H:i" }}.</p>
 <div class="table-responsive cartao p-0 mt-3">
     <table class="table tabela-cge mb-0">
         <thead>
@@ -26,7 +26,7 @@
                         {% elif componente.estado == "Indisponível" %}
                             <span class="estado estado-indisponivel">Indisponível</span>
                         {% else %}
-                            <span class="estado estado-nao-configurado">Não configurado</span>
+                            <span class="estado estado-aguardando">{{ componente.estado }}</span>
                         {% endif %}
                     </td>
                     <td>{{ componente.detalhe }}</td>

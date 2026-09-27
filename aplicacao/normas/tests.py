@@ -228,8 +228,9 @@ class TesteNormas(TestCase):
         self.client.force_login(self.consulta)
         inicio = self.client.get(reverse("painel:inicio"))
         self.assertContains(inicio, 'href="/normas/"')
-        self.assertContains(inicio, "Normas cadastradas")
-        self.assertContains(inicio, "Aguardando próximas ondas")
+        self.assertContains(inicio, "Visão 360°")
+        normas = self.client.get(reverse("painel:normas"))
+        self.assertContains(normas, "Normas cadastradas")
         norma = self._norma_processada("20", date(2018, 1, 1), None, [LINHA])
         resposta = self.client.post(
             reverse("normas:pesquisa"),

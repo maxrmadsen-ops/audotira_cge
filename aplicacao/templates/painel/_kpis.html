@@ -1,0 +1,30 @@
+<section class="kpis" aria-label="Indicadores">
+    {% for item in painel.kpis %}
+        <article class="cartao kpi{% if "críticos" in item.nome or "crítico" in item.nome %} kpi-atencao{% endif %}">
+            <div class="kpi-cabeca">
+                <span class="kpi-icone" aria-hidden="true">
+                    {% if "Materialidade" in item.nome or "Custo" in item.nome %}
+                        {% include "componentes/icone.html" with nome="finops" %}
+                    {% elif "crítico" in item.nome or "Achado" in item.nome %}
+                        {% include "componentes/icone.html" with nome="achados" %}
+                    {% elif "Conclu" in item.nome %}
+                        {% include "componentes/icone.html" with nome="avaliacao" %}
+                    {% elif "Documento" in item.nome %}
+                        {% include "componentes/icone.html" with nome="documentos" %}
+                    {% elif "Norma" in item.nome %}
+                        {% include "componentes/icone.html" with nome="normas" %}
+                    {% elif "Regra" in item.nome %}
+                        {% include "componentes/icone.html" with nome="regras" %}
+                    {% elif "análise" in item.nome %}
+                        {% include "componentes/icone.html" with nome="saude" %}
+                    {% else %}
+                        {% include "componentes/icone.html" with nome="painel" %}
+                    {% endif %}
+                </span>
+                <h2>{{ item.nome }}</h2>
+            </div>
+            {% if item.url %}<a class="kpi-valor" href="{{ item.url }}" {% if item.observacao %}title="{{ item.observacao }}"{% endif %}>{{ item.exibicao }}</a>{% else %}<p class="kpi-valor" {% if item.observacao %}title="{{ item.observacao }}"{% endif %}>{{ item.exibicao }}</p>{% endif %}
+            {% if item.complemento %}<p class="kpi-complemento">{{ item.complemento }}</p>{% endif %}
+        </article>
+    {% endfor %}
+</section>

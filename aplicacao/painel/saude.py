@@ -113,12 +113,34 @@ def _estado_provedor(nome: str, codigo: str, habilitado: bool, chave: str) -> Co
     return _componente(nome, "Configurado", "Provedor habilitado. Nenhuma chamada de saúde foi realizada.")
 
 
+def verificar_celery_beat() -> ComponenteSaude:
+    return _componente(
+        "Celery Beat",
+        "Não verificado",
+        "Esta tela não consulta o agendador e não faz chamada externa.",
+    )
+
+
+def verificar_fila() -> ComponenteSaude:
+    try:
+        import redis
+
+        cliente = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
+        aguardando = cliente.llen("celery")
+        return _componente("Fila Celery", "Operacional", f"{aguardando} tarefa(s) aguardando na fila celery.")
+    except Exception:
+        logger.exception("Falha ao ler a fila Celery")
+        return _componente("Fila Celery", "Não verificado", "Não foi possível ler a fila local.")
+
+
 def coletar_saude() -> list[ComponenteSaude]:
     return [
         verificar_aplicacao(),
         verificar_postgresql(),
         verificar_redis(),
         verificar_celery(),
+        verificar_celery_beat(),
+        verificar_fila(),
         verificar_armazenamento(),
         *verificar_provedores_nao_configurados(),
     ]

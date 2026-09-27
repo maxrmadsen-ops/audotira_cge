@@ -1,0 +1,37 @@
+<section class="cartao grafico-painel">
+    <h2 class="h6">{{ grafico.titulo }}</h2>
+    {% if grafico.descricao %}<p class="small text-secondary">{{ grafico.descricao }}</p>{% endif %}
+    {% if grafico.tem_dados and grafico.formato == "donut" %}
+        <div class="donut-bloco">
+            <svg class="donut" viewBox="0 0 36 36" role="img" aria-label="{{ grafico.titulo }}: {{ grafico.total }}">
+                <circle class="donut-trilho" cx="18" cy="18" r="15.9"></circle>
+                {% for serie in grafico.series %}
+                    <circle class="donut-fatia fatia-{{ serie.rotulo|slugify }}" cx="18" cy="18" r="15.9" stroke-dasharray="{{ serie.traco }}" stroke-dashoffset="{{ serie.deslocamento }}"></circle>
+                {% endfor %}
+                <text x="18" y="17.2" text-anchor="middle" class="donut-numero">{{ grafico.total }}</text>
+                <text x="18" y="21.2" text-anchor="middle" class="donut-centro">{{ grafico.centro }}</text>
+            </svg>
+            <ul class="donut-legenda">
+                {% for serie in grafico.series %}
+                    <li>
+                        <span class="ponto fatia-{{ serie.rotulo|slugify }}"></span>
+                        {% if serie.url %}<a href="{{ serie.url }}">{{ serie.rotulo }}</a>{% else %}<span>{{ serie.rotulo }}</span>{% endif %}
+                        <strong>{{ serie.exibicao }}</strong>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% elif grafico.tem_dados %}
+        <ul class="barras">
+            {% for serie in grafico.series %}
+                <li>
+                    {% if serie.url %}<a href="{{ serie.url }}">{{ serie.rotulo }}</a>{% else %}<span>{{ serie.rotulo }}</span>{% endif %}
+                    <span class="barra-trilho" aria-hidden="true"><span class="barra-valor" style="width: {{ serie.percentual }}%"></span></span>
+                    <strong>{{ serie.exibicao }}</strong>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="estado-vazio mb-0">{{ grafico.vazio }}</p>
+    {% endif %}
+</section>

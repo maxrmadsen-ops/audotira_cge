@@ -1,0 +1,16 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Inteligência Artificial · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Inteligência Artificial</p>
+<h1 class="h3">Inteligência Artificial</h1>
+<p class="text-secondary">A operação da IA fica neste menu. A observação agregada fica no Painel, em Operação &amp; IA. O laboratório continua disponível e não altera a análise oficial.</p>
+<div class="row g-3">
+    <div class="col-md-6 col-xl-4"><article class="cartao"><h2>Visão geral</h2><p>Esta página reúne os acessos. Ela não executa modelo.</p></article></div>
+    <div class="col-md-6 col-xl-4"><article class="cartao"><h2>Agentes</h2><p>Os agentes governados são acionados pelo motor e pelo laboratório.</p><a href="{% url 'ia:laboratorio' %}">Abrir laboratório</a></article></div>
+    <div class="col-md-6 col-xl-4"><article class="cartao"><h2>Modelos</h2><p>Catálogo versionado de modelos. A chave não aparece.</p><a href="{% url 'ia:catalogo' %}">Abrir modelos</a></article></div>
+    <div class="col-md-6 col-xl-4"><article class="cartao"><h2>Prompts</h2><p>Prompts e versões ficam no catálogo administrativo.</p><a href="{% url 'ia:catalogo' %}">Abrir prompts</a></article></div>
+    <div class="col-md-6 col-xl-4"><article class="cartao"><h2>Execuções</h2><p>Consumo instrumental já registrado.</p><a href="{% url 'ia:consumo' %}">Abrir execuções</a></article></div>
+    <div class="col-md-6 col-xl-4"><article class="cartao"><h2>Guardrails</h2><p>Rejeições e erros normalizados aparecem na aba Operação &amp; IA do Painel, sem o texto do prompt.</p><a href="{% url 'painel:operacao' %}">Abrir operação</a></article></div>
+    <div class="col-md-6 col-xl-4"><article class="cartao"><h2>Laboratório</h2><p>Comparação de modelos. A análise oficial permanece intacta.</p><a href="{% url 'ia:laboratorio' %}">Abrir laboratório</a></article></div>
+</div>
+{% endblock %}

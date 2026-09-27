@@ -1,8 +1,14 @@
 # Changelog
 
+## Onda 9 — 2026-09-27
+
+Painel 360°, observabilidade e FinOps. A central analítica lê prestações, documentos, normas, regras, evidências, achados, pré-análises, revisões, avaliação e usos de IA já gravados. O FinOps calcula custo na leitura, com o preço vigente de `PrecoModeloInteligenciaArtificial`. Sem preço, o custo fica não disponível. Ground Truth não entra na análise. Não há nota geral da IA, score de prioridade nem conclusão administrativa.
+
+PDF da pré-análise, a normalização de código ou valor da Onda 7, preços comerciais reais e o deploy Linux continuam pendentes.
+
 ## Onda 8 — 2026-09-27
 
-Ground Truth isolado e avaliação IA × técnico. A referência técnica nasce depois do congelamento da análise, em modo cego ou assistido, e não retroage sobre regra, evidência, achado ou pré-análise. A comparação calcula precisão, recall, F1, concordância e falsos negativos sem nota única da IA. PDF, FinOps e deploy continuam pendentes. A normalização de código ou valor citado pelo modelo, registrada na Onda 7, também continua pendente.
+Ground Truth isolado e avaliação IA × técnico. A referência técnica nasce depois do congelamento da análise, em modo cego ou assistido, e não retroage sobre regra, evidência, achado ou pré-análise. A comparação calcula precisão, recall, F1, concordância e falsos negativos sem nota única da IA. PDF e deploy continuam pendentes. A normalização de código ou valor citado pelo modelo, registrada na Onda 7, também continua pendente.
 
 ## Onda 7 — 2026-09-27
 
