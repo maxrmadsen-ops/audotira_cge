@@ -1,5 +1,13 @@
 # Changelog
 
+## Onda 6 — 2026-09-27
+
+Evidências e achados potenciais rastreáveis. O resultado da regra não vira achado sozinho. A consolidação usa âncora estruturada, a materialidade é Decimal, e a confirmação é humana. A IA permanece desligada por padrão e não escolhe norma nem confirma achado.
+
+`RevisaoAchado` é decisão operacional humana e não constitui Ground Truth. Tempo médio de revisão e score numérico ficam para ondas posteriores.
+
+Não inclui a pré-análise técnica final, Ground Truth nem o painel FinOps.
+
 ## Onda 5 — 2026-09-27
 
 Camada de IA com provedores OpenAI e Anthropic isolados em adaptadores, provedor simulado para a suíte, agentes por regra que requer IA, prompts versionados, preços administráveis, registro de tokens, latência e custo estimado, validação de schema e de fontes, fallback auditado e laboratório que não altera a execução oficial. A integração do motor nasce desligada. Nenhuma chamada paga entra na suíte.

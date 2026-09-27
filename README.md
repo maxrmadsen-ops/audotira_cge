@@ -8,7 +8,7 @@ O caso `2022TR000929` será apenas o primeiro caso de teste, em onda posterior. 
 
 ## Onda atual
 
-Onda 5 — IA multi-LLM e agentes governados, sobre o motor da Onda 4. A integração nasce desligada. O laboratório compara modelos simulados e não altera a execução oficial.
+Onda 6 — evidências e achados rastreáveis, sobre a IA da Onda 5. A integração com provedores nasce desligada. Achado automático nasce potencial e só muda de estado por revisão humana.
 
 ## Execução
 

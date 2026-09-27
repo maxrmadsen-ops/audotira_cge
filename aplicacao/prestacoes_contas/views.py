@@ -37,7 +37,7 @@ ABAS = (
     ("achados", "Achados"),
     ("pre-analise", "Pré-Análise"),
 )
-ABAS_PREPARADAS = {"achados", "pre-analise"}
+ABAS_PREPARADAS = {"pre-analise"}
 PERFIS_ALTERACAO = (
     Usuario.Perfil.ADMINISTRADOR,
     Usuario.Perfil.AUDITOR,
@@ -177,6 +177,7 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             "form_movimentacao": FormularioMovimentacao(prestacao=prestacao),
             "form_contrapartida": FormularioContrapartida(prestacao=prestacao),
             "form_devolucao": FormularioDevolucao(prestacao=prestacao),
+            "fluxos": None,
             "form_funcionario": FormularioFuncionario(),
         }
         if aba == "documentos":
@@ -187,6 +188,10 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             from aplicacao.regras.views import contexto_aba_analise
 
             contexto.update(contexto_aba_analise(request, prestacao))
+        if aba == "achados":
+            from aplicacao.achados.metricas import da_prestacao
+
+            contexto["fluxos"] = da_prestacao(prestacao)
         return contexto
 
 

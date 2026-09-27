@@ -60,7 +60,7 @@ class TesteFundacao(TestCase):
 
     def test_modulo_futuro_nao_finge_funcionalidade(self):
         self.client.force_login(self.consulta)
-        resposta = self.client.get(reverse("painel:modulo", kwargs={"slug": "achados"}))
+        resposta = self.client.get(reverse("painel:modulo", kwargs={"slug": "pre-analises"}))
         self.assertEqual(resposta.status_code, 200)
         self.assertContains(resposta, "ainda não está disponível")
         self.assertEqual(self.client.get(reverse("painel:modulo", kwargs={"slug": "inexistente"})).status_code, 404)

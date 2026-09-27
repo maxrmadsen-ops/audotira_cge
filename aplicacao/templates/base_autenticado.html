@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block corpo %}
+{% if request.GET.incorporado != "1" %}
 <header class="barra-superior d-flex align-items-center justify-content-between px-3">
     <div class="d-flex align-items-center gap-2">
         <button class="btn btn-outline-light btn-sm d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#menu-principal" aria-controls="menu-principal" aria-expanded="false">Menu</button>
@@ -16,7 +17,9 @@
         </form>
     </div>
 </header>
+{% endif %}
 <div class="layout-app">
+    {% if request.GET.incorporado != "1" %}
     <nav id="menu-principal" class="menu-lateral collapse d-lg-block py-2" aria-label="Menu principal">
         {% for item in itens_menu %}
             <a href="{{ item.url }}" class="{% if request.path == item.url %}ativo{% endif %}">
@@ -25,6 +28,7 @@
             </a>
         {% endfor %}
     </nav>
+    {% endif %}
     <main class="conteudo">
         {% if messages %}
             {% for mensagem in messages %}

@@ -1,0 +1,138 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ achado.codigo }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'achados:lista' %}">Achados</a> / {{ achado.codigo }}</p>
+<div class="row g-3">
+    <div class="{% if evidencia_documento %}col-lg-6{% else %}col-12{% endif %}">
+        <h1 class="h3">{{ achado.codigo }}</h1>
+        <p>
+            <span class="estado">{{ achado.get_status_display }}</span>
+            <span class="estado">{{ achado.get_tipo_constatacao_display }}</span>
+            {% if achado.demonstracao %}<span class="estado estado-aguardando">Dados de demonstração</span>{% endif %}
+        </p>
+        <p>{{ achado.titulo }}</p>
+        <div class="row g-2">
+            <div class="col-6 col-md-4"><article class="cartao"><h2 class="h6">Natureza</h2><p class="mb-0">{{ achado.get_natureza_display }}</p></article></div>
+            <div class="col-6 col-md-4"><article class="cartao"><h2 class="h6">Criticidade</h2><p class="mb-0">{{ achado.get_criticidade_display }}</p></article></div>
+            <div class="col-6 col-md-4"><article class="cartao"><h2 class="h6">Prioridade</h2><p class="mb-0">{{ achado.get_prioridade_display }}</p></article></div>
+            <div class="col-6 col-md-4"><article class="cartao"><h2 class="h6">Materialidade</h2><p class="mb-0">{% if achado.materialidade_financeira != None %}R$ {{ achado.materialidade_financeira }}{% else %}Não aplicável{% endif %}</p></article></div>
+        </div>
+        {% if achado.evidencia_insuficiente %}<p class="mt-3"><strong>Evidência insuficiente — requer avaliação humana.</strong></p>{% endif %}
+    </div>
+    {% if evidencia_documento %}
+    <div class="col-lg-6">
+        <article class="cartao">
+            <h2 class="h6">Documento e página</h2>
+            <p class="mb-2">O visualizador da Onda 2 abre na página registrada. Nenhuma coordenada foi inventada.</p>
+            <iframe title="Visualizador do documento" src="{% url 'documentos:detalhe' evidencia_documento.documento_id %}?pagina={{ evidencia_documento.pagina_documento.numero_pagina }}&amp;incorporado=1&amp;trecho={{ evidencia_documento.trecho|urlencode }}" style="width:100%;height:28rem;border:1px solid var(--bs-border-color);"></iframe>
+        </article>
+    </div>
+    {% endif %}
+</div>
+
+<section class="cartao mt-3"><h2>Fato</h2><p class="mb-0">{{ achado.descricao_factual }}</p></section>
+<section class="cartao mt-3"><h2>Interpretação</h2><p class="mb-0">{{ achado.interpretacao|default:"—" }}</p></section>
+<section class="cartao mt-3"><h2>Possível implicação</h2><p class="mb-0">{{ achado.possivel_implicacao|default:"—" }}</p></section>
+
+<section class="cartao mt-3">
+    <h2>Regras relacionadas</h2>
+    <ul class="mb-0">
+        {% for vinculo in achado.vinculos_regra.all %}
+            <li>{{ vinculo.regra.codigo }} versão {{ vinculo.versao_regra }} · {{ vinculo.execucao.resultado_funcional }} · execução {{ vinculo.execucao_id }}</li>
+        {% empty %}<li>Nenhuma regra vinculada.</li>{% endfor %}
+    </ul>
+</section>
+
+<section class="cartao mt-3">
+    <h2>Evidências</h2>
+    <div class="table-responsive">
+        <table class="table tabela-cge mb-0">
+            <thead><tr><th>Código</th><th>Tipo</th><th>Papel</th><th>Fonte</th><th>Página</th><th>Trecho</th><th>Valor</th><th>Confiabilidade</th></tr></thead>
+            <tbody>
+                {% for vinculo in achado.vinculos_evidencia.all %}
+                    <tr>
+                        <td>{{ vinculo.evidencia.codigo }}</td>
+                        <td>{{ vinculo.evidencia.get_tipo_display }}</td>
+                        <td>{{ vinculo.get_papel_display }}</td>
+                        <td>
+                            {% if vinculo.evidencia.documento_id %}
+                                <a href="{% url 'documentos:detalhe' vinculo.evidencia.documento_id %}?pagina={{ vinculo.evidencia.pagina_documento.numero_pagina|default:1 }}">{{ vinculo.evidencia.documento.nome_original }}</a>
+                            {% else %}{{ vinculo.evidencia.origem|default:"—" }}{% endif %}
+                        </td>
+                        <td>{{ vinculo.evidencia.pagina_documento.numero_pagina|default:"—" }}</td>
+                        <td>{{ vinculo.evidencia.trecho|default:"—" }}</td>
+                        <td>{% if vinculo.evidencia.valor_numerico != None %}{{ vinculo.evidencia.valor_numerico }}{% else %}{{ vinculo.evidencia.valor_textual|default:"—" }}{% endif %}</td>
+                        <td>{{ vinculo.evidencia.get_confiabilidade_origem_display }}</td>
+                    </tr>
+                {% empty %}<tr><td colspan="8">Nenhuma evidência associada.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="cartao mt-3">
+    <h2>Fundamentação</h2>
+    <ul class="mb-0">
+        {% for fundamento in achado.fundamentacoes.all %}
+            <li>{{ fundamento.norma }} · {{ fundamento.trecho_normativo }} · vigência {{ fundamento.vigencia_inicio|default:"—" }} a {{ fundamento.vigencia_fim|default:"em aberto" }} · {{ fundamento.origem_resolucao }}</li>
+        {% empty %}<li>Nenhuma norma elegível foi vinculada. Nenhum fundamento foi inventado.</li>{% endfor %}
+    </ul>
+</section>
+
+{% if achado.sugestao_consolidacao %}
+<section class="cartao mt-3">
+    <h2>IA</h2>
+    <p class="mb-0">Sugestão registrada, sem cadeia de raciocínio. Usos: {{ achado.sugestao_consolidacao.usos }}. Aceita: {{ achado.sugestao_consolidacao.aceita }}.</p>
+</section>
+{% endif %}
+
+<section class="cartao mt-3">
+    <h2>Revisão humana</h2>
+    <ul>
+        {% for revisao in achado.revisoes.all %}
+            <li>{{ revisao.data_hora }} · {{ revisao.get_acao_display }} · {{ revisao.status_anterior }} → {{ revisao.status_novo }} · {{ revisao.usuario }} · {{ revisao.justificativa }}</li>
+        {% empty %}<li>Nenhuma revisão.</li>{% endfor %}
+    </ul>
+    <form method="post">
+        {% csrf_token %}
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label" for="acao">Ação</label>
+                <select class="form-select" id="acao" name="acao">
+                    {% for valor, rotulo in acoes %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-8">
+                <label class="form-label" for="justificativa">Justificativa</label>
+                <input class="form-control" id="justificativa" name="justificativa">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="comentario">Comentário</label>
+                <input class="form-control" id="comentario" name="comentario">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="criticidade">Criticidade</label>
+                <select class="form-select" id="criticidade" name="criticidade"><option value="">Manter</option>{% for valor, rotulo in criticidades %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}</select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="prioridade">Prioridade</label>
+                <select class="form-select" id="prioridade" name="prioridade"><option value="">Manter</option>{% for valor, rotulo in prioridades %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}</select>
+            </div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Registrar revisão</button></div>
+        </div>
+    </form>
+    <form class="mt-3" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="evidencia_humana">
+        <label class="form-label" for="trecho">Evidência humana complementar</label>
+        <textarea class="form-control" id="trecho" name="trecho" rows="2"></textarea>
+        <select class="form-select mt-2" name="papel">{% for valor, rotulo in papeis %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}</select>
+        <button class="btn btn-outline-primary mt-2" type="submit">Associar evidência</button>
+    </form>
+</section>
+
+<section class="cartao mt-3">
+    <h2>Saída original</h2>
+    <p class="mb-0">{{ achado.saida_original.factual|default:achado.descricao_factual }}</p>
+</section>
+{% endblock %}

@@ -115,11 +115,18 @@ class EnviarDocumentosView(PerfilExigidoMixin, View):
 class DetalheDocumentoView(LoginRequiredMixin, View):
     def get(self, request, pk):
         documento = self._documento(request, pk)
+        try:
+            pagina_inicial = int(request.GET.get("pagina") or 1)
+        except (TypeError, ValueError):
+            pagina_inicial = 1
+        if pagina_inicial < 1:
+            pagina_inicial = 1
         return render(
             request,
             "documentos/detalhe.html",
             {
                 "documento": documento,
+                "pagina_inicial": pagina_inicial,
                 "paginas": documento.paginas.all(),
                 "dados": documento.dados_extraidos.select_related("pagina"),
                 "form_validacao": FormularioValidacao(documento=documento),

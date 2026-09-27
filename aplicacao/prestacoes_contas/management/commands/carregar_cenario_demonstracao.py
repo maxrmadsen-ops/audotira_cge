@@ -40,6 +40,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if PrestacaoContas.objects.filter(numero_processo=PROCESSO).exists():
             self._enriquecer_regras()
+            from aplicacao.achados.demonstracao import garantir_demonstracao_achados
+
+            garantir_demonstracao_achados(PrestacaoContas.objects.get(numero_processo=PROCESSO))
             self.stdout.write("Cenário de demonstração já existe.")
             return
 
@@ -213,6 +216,9 @@ class Command(BaseCommand):
             demonstracao=True,
         )
         self._enriquecer_regras()
+        from aplicacao.achados.demonstracao import garantir_demonstracao_achados
+
+        garantir_demonstracao_achados(PrestacaoContas.objects.get(numero_processo=PROCESSO))
         self.stdout.write(self.style.SUCCESS(f"Cenário de demonstração criado: {PROCESSO}"))
 
     def _enriquecer_regras(self):

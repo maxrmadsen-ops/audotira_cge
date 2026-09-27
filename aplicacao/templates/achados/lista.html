@@ -1,0 +1,72 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Achados · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início / Achados</p>
+<h1 class="h3">Central de achados</h1>
+<p class="text-secondary">Achado potencial não é irregularidade. A confirmação depende de revisão humana.</p>
+<div class="row g-3 mt-1">
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Potenciais</h2><p class="mb-0 fs-4">{{ indicadores.achados_potenciais }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Em revisão</h2><p class="mb-0 fs-4">{{ indicadores.em_revisao }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Confirmados</h2><p class="mb-0 fs-4">{{ indicadores.achados_confirmados }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Descartados</h2><p class="mb-0 fs-4">{{ indicadores.achados_descartados }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Diligência</h2><p class="mb-0 fs-4">{{ indicadores.achados_diligencia }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Alta prioridade</h2><p class="mb-0 fs-4">{{ indicadores.alta_prioridade }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Materialidade potencial</h2><p class="mb-0 fs-4">R$ {{ indicadores.materialidade_potencial }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Evidências</h2><p class="mb-0 fs-4">{{ indicadores.quantidade_evidencias }}</p></article></div>
+</div>
+<form class="row g-2 mt-3" method="get">
+    <div class="col-md-3"><input class="form-control" name="prestacao" value="{{ filtros.prestacao }}" placeholder="Prestação"></div>
+    <div class="col-md-2"><input class="form-control" name="categoria" value="{{ filtros.categoria }}" placeholder="Categoria"></div>
+    <div class="col-md-2"><input class="form-control" name="regra" value="{{ filtros.regra }}" placeholder="Regra"></div>
+    <div class="col-md-2">
+        <select class="form-select" name="status"><option value="">Status</option>{% for valor, rotulo in status_opcoes %}<option value="{{ valor }}" {% if filtros.status == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="natureza"><option value="">Natureza</option>{% for valor, rotulo in naturezas %}<option value="{{ valor }}" {% if filtros.natureza == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="criticidade"><option value="">Criticidade</option>{% for valor, rotulo in criticidades %}<option value="{{ valor }}" {% if filtros.criticidade == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="prioridade"><option value="">Prioridade</option>{% for valor, rotulo in prioridades %}<option value="{{ valor }}" {% if filtros.prioridade == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="origem"><option value="">Origem</option>{% for valor, rotulo in origens %}<option value="{{ valor }}" {% if filtros.origem == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="materialidade">
+            <option value="">Materialidade</option>
+            <option value="com" {% if filtros.materialidade == "com" %}selected{% endif %}>Com valor</option>
+            <option value="sem" {% if filtros.materialidade == "sem" %}selected{% endif %}>Sem valor</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="revisao">
+            <option value="">Revisão humana</option>
+            <option value="com" {% if filtros.revisao == "com" %}selected{% endif %}>Com revisão</option>
+            <option value="sem" {% if filtros.revisao == "sem" %}selected{% endif %}>Sem revisão</option>
+        </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-primary" type="submit">Filtrar</button></div>
+</form>
+<div class="table-responsive cartao p-0 mt-3">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>Código</th><th>Título</th><th>Tipo</th><th>Status</th><th>Criticidade</th><th>Prioridade</th><th>Materialidade</th></tr></thead>
+        <tbody>
+            {% for achado in achados %}
+                <tr>
+                    <td><a href="{% url 'achados:detalhe' achado.pk %}">{{ achado.codigo }}</a></td>
+                    <td>{{ achado.titulo }}</td>
+                    <td>{{ achado.get_tipo_constatacao_display }}</td>
+                    <td>{{ achado.get_status_display }}</td>
+                    <td>{{ achado.get_criticidade_display }}</td>
+                    <td>{{ achado.get_prioridade_display }}</td>
+                    <td>{% if achado.materialidade_financeira != None %}R$ {{ achado.materialidade_financeira }}{% else %}—{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7">Nenhum achado. Os indicadores acima usam somente registros existentes.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -643,6 +643,31 @@ class ExecutorAchado(ExecutorRegraBase):
     nome = "achado"
 
     def executar(self, regra, contexto) -> ResultadoExecutor:
+        analise = getattr(contexto, "analise", None)
+        if analise is not None:
+            from aplicacao.achados.models import Achado
+
+            achados = Achado.objects.filter(analise=analise)
+            if achados.exists() and regra.configuracao.get("operacao") == "rastreavel":
+                if achados.filter(elementos_rastreaveis=True).exists():
+                    return _resultado(
+                        "ACHADO RASTREÁVEL",
+                        "Os achados desta rodada têm fato, regra e evidência rastreáveis.",
+                        entradas={"achados": list(achados.values_list("codigo", flat=True))},
+                    )
+                return _resultado(
+                    "NÃO GERAR",
+                    "Os achados desta rodada ainda não reúnem fato, evidência e origem.",
+                    status=StatusTecnico.INCONCLUSIVO,
+                )
+            if achados.exists() and regra.configuracao.get("operacao") == "fundamento":
+                if achados.filter(fundamentacao_suficiente=True).exists():
+                    return _resultado("FUNDAMENTADO", "A fundamentação aponta para trecho normativo já resolvido.")
+                return _resultado(
+                    "INSUFICIENTE",
+                    "Não há fundamento normativo elegível vinculado aos achados. Nenhum dispositivo foi inventado.",
+                    status=StatusTecnico.INCONCLUSIVO,
+                )
         candidatos = []
         for codigo, resultado in contexto.resultados.items():
             if codigo.startswith("ACH-") or codigo.startswith("SYS-"):

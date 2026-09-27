@@ -1,0 +1,27 @@
+<div class="row g-3">
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Regras</h2><p class="mb-0 fs-4">{{ fluxos.total_regras }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Execuções</h2><p class="mb-0 fs-4">{{ fluxos.regras_executadas }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Sinalizações</h2><p class="mb-0 fs-4">{{ fluxos.sinalizacoes }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Potenciais</h2><p class="mb-0 fs-4">{{ fluxos.achados_potenciais }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Confirmados</h2><p class="mb-0 fs-4">{{ fluxos.achados_confirmados }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Descartados</h2><p class="mb-0 fs-4">{{ fluxos.achados_descartados }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Em revisão</h2><p class="mb-0 fs-4">{{ fluxos.em_revisao }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Alta prioridade</h2><p class="mb-0 fs-4">{{ fluxos.alta_prioridade }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Materialidade</h2><p class="mb-0 fs-4">R$ {{ fluxos.materialidade_potencial }}</p></article></div>
+</div>
+<p class="text-secondary mt-3">{{ fluxos.total_regras }} regras no catálogo, {{ fluxos.regras_executadas }} execuções, {{ fluxos.sinalizacoes }} sinalizações, {{ fluxos.achados_potenciais }} achados potenciais, {{ fluxos.aguardando_revisao }} aguardando revisão.</p>
+<div class="table-responsive cartao p-0 mt-3">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>Código</th><th>Título</th><th>Status</th><th>Tipo</th></tr></thead>
+        <tbody>
+            {% for achado in fluxos.achados_lista %}
+                <tr>
+                    <td><a href="{% url 'achados:detalhe' achado.pk %}">{{ achado.codigo }}</a></td>
+                    <td>{{ achado.titulo }}</td>
+                    <td>{{ achado.get_status_display }}</td>
+                    <td>{{ achado.get_tipo_constatacao_display }}</td>
+                </tr>
+            {% empty %}<tr><td colspan="4">Nenhum achado nesta prestação.</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>

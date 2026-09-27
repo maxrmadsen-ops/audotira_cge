@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "aplicacao.normas.apps.NormasConfig",
     "aplicacao.regras.apps.RegrasConfig",
     "aplicacao.inteligencia_artificial.apps.InteligenciaArtificialConfig",
+    "aplicacao.achados.apps.AchadosConfig",
     "aplicacao.painel.apps.PainelConfig",
 ]
 

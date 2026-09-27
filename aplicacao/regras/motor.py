@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
@@ -18,6 +19,8 @@ from aplicacao.regras.escolhas import (
 from aplicacao.regras.executores import EXECUTORES
 from aplicacao.regras.models import CalculoExecucaoRegra, ExecucaoAnalise, ExecucaoRegra, ReferenciaExecucao, RegraAnalise
 from aplicacao.regras.resultados import ResultadoExecutor, conclusao_vedada
+
+logger = logging.getLogger("cge.achados")
 
 
 def ordenar_regras(regras: list[RegraAnalise]) -> list[RegraAnalise]:
@@ -232,3 +235,9 @@ def executar_analise(analise_id: int) -> None:
     with transaction.atomic():
         analise = ExecucaoAnalise.objects.select_for_update().get(pk=analise_id)
         MotorRegras().executar(analise)
+    try:
+        from aplicacao.achados.tarefas import gerar_achados_task
+
+        gerar_achados_task.delay(analise_id)
+    except Exception:
+        logger.exception("geracao de achados falhou analise=%s", analise_id)
