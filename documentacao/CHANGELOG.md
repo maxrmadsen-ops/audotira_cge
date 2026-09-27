@@ -2,6 +2,8 @@
 
 ## Onda 10 — 2026-09-27
 
+A tela de entrada passa a exibir a versão e a onda lidas de `aplicacao/configuracao/versao.py`, no lugar do texto fixo da Onda 9.
+
 Preparação da release `1.0.0-rc1` no notebook. A imagem proposta é `cge_aplicacao:onda10-rc1`. Cookie Secure e proxy reverso passam a depender de `COOKIES_SEGUROS` e `BEHIND_PROXY`, para o HTTP de homologação não quebrar o login. A saúde passa a informar a versão e se há migration pendente. O deploy Linux, o PDF da pré-análise, a normalização de proveniência da Onda 7, os preços comerciais e a carga de processo real continuam fora desta etapa.
 
 ## Onda 9 — 2026-09-27

@@ -39,6 +39,19 @@ class TesteReleaseOnda10(SimpleTestCase):
         self.assertNotIn("sk-", texto)
         self.assertNotIn("Bearer ", texto)
 
+    def test_entrada_usa_a_onda_corrente(self):
+        resposta = self.client.get("/entrar/")
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, "Versão 1.0.0-rc1")
+        self.assertContains(resposta, "Onda 10")
+        self.assertNotContains(resposta, "Onda 9")
+        for relativo in (
+            "aplicacao/templates/painel/entrar.html",
+            "aplicacao/templates/painel/administracao.html",
+            "aplicacao/templates/inteligencia_artificial/consumo.html",
+        ):
+            self.assertNotIn("Onda 9", (RAIZ / relativo).read_text(encoding="utf-8"))
+
     def test_periodo_permanece_empilhado(self):
         html = (RAIZ / "aplicacao/templates/painel/_filtros.html").read_text(encoding="utf-8")
         css = (RAIZ / "aplicacao/static/css/cge.css").read_text(encoding="utf-8")

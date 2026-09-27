@@ -39,6 +39,16 @@ Não apagar. É o cenário de regressão. No piloto, a opção adotada até nova
 
 Fonte excluída de teste cego continua fora do RAG, da evidência, do achado, da pré-análise e do contexto do modelo. O deploy não altera essa exclusão.
 
+## Área de recepção — ainda sem arquivos
+
+Nenhum documento real entra neste checkpoint. A pasta abaixo só existe no servidor, fora do Git:
+
+`/max/entrada_piloto_cge`
+
+Permissão `750`, dono `root`. Ela é a área de espera. O armazenamento da aplicação continua no volume `cge_arquivos`, montado em `/app/arquivos` nos serviços web e worker, e no volume `cge_midia` em `/app/media`. Esses volumes não entram na imagem nem no repositório.
+
+Quando a carga for autorizada, o operador é um usuário já permitido a incluir documento: analista, auditor ou administrador. Consulta não envia arquivo. O processo novo nasce com a marca operacional, separado de `DEMO-2024-001` pelo filtro “Somente operacionais”. Antes de copiar qualquer arquivo, gera-se um backup novo do PostgreSQL e dos dois volumes. O rollback dessa carga futura restaura esse par e não usa `docker compose down -v`.
+
 ## PDF da pré-análise
 
 Desejável para o piloto e dispensável para a homologação técnica. A saída oficial hoje é HTML. Um PDF novo mexe em exportação e em dependência de renderização. Fica para decisão posterior, sem implementação nesta onda.
