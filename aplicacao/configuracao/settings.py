@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "aplicacao.prestacoes_contas.apps.PrestacoesContasConfig",
     "aplicacao.documentos.apps.DocumentosConfig",
     "aplicacao.normas.apps.NormasConfig",
+    "aplicacao.regras.apps.RegrasConfig",
     "aplicacao.painel.apps.PainelConfig",
 ]
 

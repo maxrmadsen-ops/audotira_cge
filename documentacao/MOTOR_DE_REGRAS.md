@@ -1,5 +1,3 @@
 # Motor de regras
 
-Previsto para a Onda 4.
-
-As regras serão versionadas. Execuções determinísticas usarão Python e SQL. Ausência de evidência não será tratada como divergência. O catálogo ainda não existe.
+O desenho da Onda 4 está em [Motor de regras](MOTOR_REGRAS.md). O catálogo transcrito está em [Catálogo das regras](CATALOGO_REGRAS_CGE.md).

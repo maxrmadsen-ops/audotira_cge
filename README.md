@@ -8,7 +8,7 @@ O caso `2022TR000929` será apenas o primeiro caso de teste, em onda posterior. 
 
 ## Onda atual
 
-Onda 3 — base normativa, vigência e recuperação rastreável, sobre a inteligência documental da Onda 2.
+Onda 4 — catálogo e motor das 89 regras da CGE, sobre a base normativa da Onda 3. A análise aponta fatos e cálculos. A conclusão permanece com o analista.
 
 ## Execução
 

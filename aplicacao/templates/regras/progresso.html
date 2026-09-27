@@ -1,0 +1,18 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Análise {{ analise.pk }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'prestacoes_contas:detalhe' analise.prestacao_contas.pk %}?aba=analise">{{ analise.prestacao_contas.numero_processo }}</a> / Análise</p>
+<h1 class="h3">Execução da análise</h1>
+<p>{{ regra_de_ouro }}</p>
+<article class="cartao">
+    <p>Status: {{ analise.get_status_display }}</p>
+    <p>Etapa: {{ analise.get_etapa_display }}</p>
+    <p>Síntese: {{ analise.sintese }}</p>
+    <p>Modo: {{ analise.get_modo_execucao_display }}</p>
+    <p class="mb-0">Regras: {{ analise.total_regras }} · executadas {{ analise.executadas }} · não aplicáveis {{ analise.nao_aplicaveis }} · não verificáveis {{ analise.nao_verificaveis }} · requer IA {{ analise.requer_ia }} · requer analista {{ analise.requer_analista }} · erros {{ analise.erros }}</p>
+</article>
+{% if analise.status == "em_andamento" %}
+    <p class="mt-3">A rodada ainda está em andamento. Atualize esta página para ver a etapa.</p>
+{% endif %}
+<p class="mt-3"><a class="btn btn-primary" href="{% url 'prestacoes_contas:detalhe' analise.prestacao_contas.pk %}?aba=analise">Abrir a aba Análise</a></p>
+{% endblock %}

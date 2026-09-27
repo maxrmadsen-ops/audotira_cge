@@ -1,0 +1,55 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Regras · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">Início / Regras</p>
+<h1 class="h3">Catálogo de regras</h1>
+<p class="text-secondary">{{ regra_de_ouro }}</p>
+<form class="row g-2 mb-3" method="get">
+    <div class="col-md-3">
+        <select class="form-select" name="categoria">
+            <option value="">Categoria</option>
+            {% for categoria in categorias %}<option value="{{ categoria }}" {% if filtros.categoria == categoria %}selected{% endif %}>{{ categoria }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="tipo">
+            <option value="">Tipo técnico</option>
+            {% for valor, rotulo in tipos %}<option value="{{ valor }}" {% if filtros.tipo == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="capacidade">
+            <option value="">Capacidade</option>
+            {% for valor, rotulo in capacidades %}<option value="{{ valor }}" {% if filtros.capacidade == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="ativa">
+            <option value="1" {% if filtros.ativa != "todas" %}selected{% endif %}>Ativas</option>
+            <option value="todas" {% if filtros.ativa == "todas" %}selected{% endif %}>Todas as versões</option>
+        </select>
+    </div>
+    <div class="col-md-2"><input class="form-control" name="resultado" value="{{ filtros.resultado }}" placeholder="Resultado possível"></div>
+    <div class="col-md-1"><button class="btn btn-outline-primary w-100" type="submit">Filtrar</button></div>
+</form>
+<div class="table-responsive cartao p-0">
+    <table class="table tabela-cge mb-0">
+        <thead><tr><th>ID</th><th>Categoria</th><th>Regra</th><th>Tipo técnico</th><th>Capacidade atual</th><th>Versão</th><th>Ativa</th></tr></thead>
+        <tbody>
+            {% for regra in regras %}
+                <tr>
+                    <td><a href="{% url 'regras:detalhe' regra.codigo %}">{{ regra.codigo }}</a></td>
+                    <td>{{ regra.categoria }}</td>
+                    <td>{{ regra.titulo }}</td>
+                    <td>{{ regra.get_tipo_execucao_display }}</td>
+                    <td>{{ regra.get_capacidade_display }}</td>
+                    <td>{{ regra.versao }}</td>
+                    <td>{% if regra.ativa %}Sim{% else %}Não{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7">Nenhuma regra encontrada. Execute o carregamento do catálogo.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

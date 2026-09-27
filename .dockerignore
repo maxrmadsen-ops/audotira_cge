@@ -10,7 +10,10 @@ Chave*
 segredos/
 dados_sensiveis/
 ground_truth/
+Insumos Piloto/
 *.pdf
+*.rar
+*.xlsx
 __pycache__
 *.py[cod]
 .venv

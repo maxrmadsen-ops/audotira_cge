@@ -39,6 +39,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         if PrestacaoContas.objects.filter(numero_processo=PROCESSO).exists():
+            self._enriquecer_regras()
             self.stdout.write("Cenário de demonstração já existe.")
             return
 
@@ -211,4 +212,104 @@ class Command(BaseCommand):
             motivo="Devolução fictícia de saldo",
             demonstracao=True,
         )
+        self._enriquecer_regras()
         self.stdout.write(self.style.SUCCESS(f"Cenário de demonstração criado: {PROCESSO}"))
+
+    def _enriquecer_regras(self):
+        from aplicacao.documentos.escolhas import OrigemDocumento, TipoDocumento
+        from aplicacao.documentos.models import Documento
+        from aplicacao.regras.escolhas import FONTE_EXCLUIDA_TESTE_CEGO
+
+        prestacao = PrestacaoContas.objects.get(numero_processo=PROCESSO)
+        if prestacao.despesas.filter(descricao="DEMO-REGRAS divergência de valor").exists():
+            return
+        parcial = prestacao.parciais.order_by("numero_ordem").first()
+        fornecedor = prestacao.despesas.exclude(fornecedor=None).first().fornecedor
+        divergente = Despesa.objects.create(
+            prestacao=prestacao,
+            prestacao_parcial=parcial,
+            fornecedor=fornecedor,
+            descricao="DEMO-REGRAS divergência de valor",
+            valor=Decimal("1000.00"),
+            data=date(2024, 4, 2),
+            demonstracao=True,
+        )
+        fiscal = DocumentoFiscal.objects.create(
+            prestacao=prestacao,
+            emitente=fornecedor,
+            tipo=TipoDocumentoFiscal.NOTA_FISCAL,
+            numero="1002",
+            data_emissao=date(2024, 4, 2),
+            valor=Decimal("1000.00"),
+            demonstracao=True,
+        )
+        fiscal.despesas.add(divergente)
+        pagamento = Pagamento.objects.create(
+            prestacao=prestacao,
+            prestacao_parcial=parcial,
+            data=date(2024, 4, 3),
+            valor=Decimal("950.00"),
+            meio=MeioPagamento.PIX,
+            identificador="PIX-DEMO-1002",
+            demonstracao=True,
+        )
+        pagamento.despesas.add(divergente)
+        movimento = MovimentacaoBancaria.objects.create(
+            prestacao=prestacao,
+            data=date(2024, 4, 3),
+            valor=Decimal("950.00"),
+            tipo=TipoMovimentacao.DEBITO,
+            historico="Débito fictício com diferença",
+            identificador="MOV-DEMO-1002",
+            demonstracao=True,
+        )
+        movimento.pagamentos.add(pagamento)
+        Despesa.objects.create(
+            prestacao=prestacao,
+            prestacao_parcial=parcial,
+            descricao="DEMO-REGRAS documento ausente",
+            valor=Decimal("100.00"),
+            data=date(2024, 5, 2),
+            demonstracao=True,
+        )
+        Despesa.objects.create(
+            prestacao=prestacao,
+            prestacao_parcial=parcial,
+            descricao="DEMO-REGRAS dados insuficientes",
+            demonstracao=True,
+        )
+        fora = Despesa.objects.create(
+            prestacao=prestacao,
+            prestacao_parcial=parcial,
+            descricao="DEMO-REGRAS fora da vigência",
+            valor=Decimal("10.00"),
+            data=date(2023, 6, 1),
+            demonstracao=True,
+        )
+        fiscal_fora = DocumentoFiscal.objects.create(
+            prestacao=prestacao,
+            emitente=fornecedor,
+            tipo=TipoDocumentoFiscal.NOTA_FISCAL,
+            numero="1003",
+            data_emissao=date(2023, 6, 1),
+            valor=Decimal("10.00"),
+            demonstracao=True,
+        )
+        fiscal_fora.despesas.add(fora)
+        Documento.objects.create(
+            prestacao_contas=prestacao,
+            nome_original="Termo de demonstração.pdf",
+            nome_armazenado="termo-demonstracao.pdf",
+            tipo_documento=TipoDocumento.TERMO,
+            origem=OrigemDocumento.DEMONSTRACAO,
+            demonstracao=True,
+        )
+        Documento.objects.create(
+            prestacao_contas=prestacao,
+            nome_original="Relatório de prestação final com análise técnica.pdf",
+            nome_armazenado="relatorio-analise-tecnica.pdf",
+            tipo_documento=TipoDocumento.PRESTACAO_FINAL,
+            subtipo_documento=FONTE_EXCLUIDA_TESTE_CEGO,
+            origem=OrigemDocumento.DEMONSTRACAO,
+            demonstracao=True,
+        )

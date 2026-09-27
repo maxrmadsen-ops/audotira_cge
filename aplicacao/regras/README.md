@@ -1,5 +1,9 @@
 # regras
 
-Reservado para a Onda 4 — catálogo e motor de regras.
+Catálogo e motor das regras de análise da CGE.
 
-Sem modelos e sem lógica nesta onda.
+A fonte funcional é a planilha `Matriz_Tecnica_Regras_Analise_IA_2022TR929.xlsx`. O texto original está na semente `dados/matriz_regras_cge.json`. A planilha e os documentos reais não entram no Git.
+
+O carregamento idempotente é `python manage.py carregar_regras_cge`.
+
+A IA aponta fatos, evidências, cruzamentos e possíveis inconsistências. A conclusão cabe ao analista.

@@ -1,0 +1,62 @@
+<p>{{ regra_de_ouro }}</p>
+{% if pode_executar %}
+    <form class="d-flex flex-wrap gap-2 mb-3" method="post" action="{% url 'regras:executar' prestacao.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-primary" name="modo" value="normal" type="submit">Executar análise</button>
+        <button class="btn btn-outline-primary" name="modo" value="teste_cego" type="submit">Executar em teste cego</button>
+    </form>
+{% endif %}
+{% if not analise %}
+    <article class="cartao"><p class="mb-0">Nenhuma análise foi executada para esta prestação.</p></article>
+{% else %}
+    <article class="cartao mb-3">
+        <p>Síntese: <strong>{{ analise.sintese }}</strong> · {{ analise.get_status_display }} · {{ analise.get_etapa_display }}</p>
+        <p class="mb-0">{{ analise.total_regras }} regras · {{ analise.executadas }} executadas · {{ analise.nao_aplicaveis }} não aplicáveis · {{ analise.nao_verificaveis }} não verificáveis · {{ analise.requer_ia }} requerem IA · {{ analise.requer_analista }} requerem analista · {{ analise.erros }} erros</p>
+        {% if analise.modo_teste_cego %}
+            <p class="mt-2 mb-0">Teste cego. Documentos excluídos: {% for item in analise.documentos_excluidos %}{{ item.nome }}{% if not forloop.last %}; {% endif %}{% empty %}nenhum{% endfor %}.</p>
+        {% endif %}
+    </article>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise">Todas</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=divergencia">Divergências</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=atencao">Atenção</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=nao_verificavel">Não verificável</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=requer_ia">Requer IA</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=requer_analista">Requer analista</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=nao_aplicavel">Não aplicável</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?aba=analise&filtro=erro">Erro</a>
+    </div>
+    {% for grupo in grupos_analise %}
+        <h2 class="h5 mt-4">{{ grupo.categoria }}</h2>
+        {% for item in grupo.itens %}
+            <article class="cartao mb-3">
+                <p class="mb-1"><a href="{% url 'regras:detalhe' item.regra.codigo %}">{{ item.regra.codigo }}</a> · {{ item.snapshot.titulo }}</p>
+                <p class="mb-1">Resultado funcional: <strong>{{ item.resultado_funcional|default:"—" }}</strong></p>
+                <p class="mb-1">Status técnico: {{ item.get_status_tecnico_display }} · encaminhamento {{ item.get_encaminhamento_display }}</p>
+                <p class="mb-1">Execução da regra versão {{ item.snapshot.versao }} · {{ item.regra.executor }}</p>
+                {% if item.limitacao %}<p class="mb-1">Limitação: {{ item.limitacao }}</p>{% endif %}
+                <p class="mb-1">Ação para o analista: {{ item.snapshot.tratamento_analista }}</p>
+                <p class="mb-1">Fonte indicada na matriz: {{ item.snapshot.fonte_normativa_original }}</p>
+                {% if item.referencias.all %}
+                    <p class="mb-1">Fontes:</p>
+                    <ul>
+                        {% for fonte in item.referencias.all %}
+                            <li>{{ fonte.tipo_fonte }} {{ fonte.identificador }} · {{ fonte.papel_na_regra }} · {{ fonte.campo }} {{ fonte.valor_utilizado }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                {% if item.calculos.all %}
+                    <p class="mb-1">Cálculos:</p>
+                    <ul>
+                        {% for calculo in item.calculos.all %}
+                            <li>{{ calculo.operacao }} = {{ calculo.resultado }} {{ calculo.unidade }} · {{ calculo.operandos }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                <p class="mb-0 small text-secondary">Regra → entradas → fontes → cálculo → norma → resultado → limitação → ação para o analista.</p>
+            </article>
+        {% endfor %}
+    {% empty %}
+        <p>Nenhuma regra neste filtro.</p>
+    {% endfor %}
+{% endif %}

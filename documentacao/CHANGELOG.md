@@ -1,5 +1,11 @@
 # Changelog
 
+## Onda 4 — 2026-09-26
+
+Catálogo e motor das 89 regras da matriz técnica. Executores determinísticos usam `Decimal`. Regras semânticas ficam pendentes de IA. Ausência de dado não vira divergência. O teste cego exclui relatório com análise técnica prévia. A síntese da rodada não conclui a prestação.
+
+Não inclui modelo generativo, evidência definitiva, achado, pré-análise, Ground Truth nem FinOps.
+
 ## Onda 3 — 2026-09-26
 
 Base normativa e RAG rastreável. A vigência e a aplicabilidade escolhem as normas antes da busca lexical, vetorial ou híbrida. Embeddings de teste usam um provedor simulado, sem chamada de rede. Não há motor de regras nem modelo generativo.

@@ -1,0 +1,43 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ regra.codigo }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'regras:lista' %}">Regras</a> / {{ regra.codigo }}</p>
+<h1 class="h3">{{ regra.codigo }} · {{ regra.titulo }}</h1>
+<p class="text-secondary">{{ regra_de_ouro }}</p>
+<p><span class="estado estado-aguardando">Versão {{ regra.versao }}</span> {{ regra.get_tipo_execucao_display }} · {{ regra.get_capacidade_display }} · executor {{ regra.executor }}</p>
+<div class="cartao">
+    <h2 class="h5">Texto original da matriz</h2>
+    <dl class="row mb-0">
+        <dt class="col-md-3">Categoria</dt><dd class="col-md-9">{{ regra.categoria }}</dd>
+        <dt class="col-md-3">Regra de análise</dt><dd class="col-md-9">{{ regra.descricao_original }}</dd>
+        <dt class="col-md-3">Fonte normativa indicada nas diretrizes</dt><dd class="col-md-9">{{ regra.fonte_normativa_original }}</dd>
+        <dt class="col-md-3">Aplicabilidade</dt><dd class="col-md-9">{{ regra.aplicabilidade_original }}</dd>
+        <dt class="col-md-3">Entradas necessárias</dt><dd class="col-md-9">{{ regra.entradas_necessarias }}</dd>
+        <dt class="col-md-3">Dados a extrair</dt><dd class="col-md-9">{{ regra.dados_extrair }}</dd>
+        <dt class="col-md-3">Lógica de verificação</dt><dd class="col-md-9">{{ regra.logica_verificacao }}</dd>
+        <dt class="col-md-3">Resultado possível</dt><dd class="col-md-9">{{ regra.resultados_possiveis }}</dd>
+        <dt class="col-md-3">Evidência obrigatória</dt><dd class="col-md-9">{{ regra.evidencia_obrigatoria }}</dd>
+        <dt class="col-md-3">Limitação/observação</dt><dd class="col-md-9">{{ regra.limitacao_observacao }}</dd>
+        <dt class="col-md-3">Tratamento/Ação para o analista</dt><dd class="col-md-9">{{ regra.tratamento_analista }}</dd>
+    </dl>
+</div>
+<div class="cartao mt-3">
+    <h2 class="h5">Classificação técnica e dependências</h2>
+    <p>A classificação técnica não substitui a categoria funcional.</p>
+    <ul>
+        {% for dependencia in regra.dependencias.all %}
+            <li>{{ dependencia.get_tipo_display }} {{ dependencia.codigo_requisito }} {% if dependencia.parametro %}· {{ dependencia.parametro }}{% endif %}</li>
+        {% empty %}
+            <li>Nenhuma dependência cadastrada.</li>
+        {% endfor %}
+    </ul>
+</div>
+<div class="cartao mt-3">
+    <h2 class="h5">Histórico de versões</h2>
+    <ul class="mb-0">
+        {% for versao in historico %}
+            <li>{{ versao.codigo }} versão {{ versao.versao }}{% if versao.ativa %} · ativa{% endif %} · {{ versao.titulo }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

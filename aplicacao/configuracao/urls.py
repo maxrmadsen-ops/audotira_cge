@@ -7,6 +7,7 @@ admin.site.index_title = "Fundação da solução"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("", include("aplicacao.regras.urls")),
     path("", include("aplicacao.normas.urls")),
     path("", include("aplicacao.documentos.urls")),
     path("", include("aplicacao.prestacoes_contas.urls")),

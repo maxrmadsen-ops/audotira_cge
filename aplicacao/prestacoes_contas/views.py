@@ -33,11 +33,11 @@ ABAS = (
     ("financeiro", "Financeiro"),
     ("folha", "Folha de Pagamento"),
     ("documentos", "Documentos"),
-    ("regras", "Regras"),
+    ("analise", "Análise"),
     ("achados", "Achados"),
     ("pre-analise", "Pré-Análise"),
 )
-ABAS_PREPARADAS = {"regras", "achados", "pre-analise"}
+ABAS_PREPARADAS = {"achados", "pre-analise"}
 PERFIS_ALTERACAO = (
     Usuario.Perfil.ADMINISTRADOR,
     Usuario.Perfil.AUDITOR,
@@ -183,6 +183,10 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             from aplicacao.documentos.views import contexto_aba
 
             contexto.update(contexto_aba(request, prestacao))
+        if aba == "analise":
+            from aplicacao.regras.views import contexto_aba_analise
+
+            contexto.update(contexto_aba_analise(request, prestacao))
         return contexto
 
 
