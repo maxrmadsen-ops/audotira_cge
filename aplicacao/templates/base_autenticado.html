@@ -41,6 +41,16 @@
         </div>
     </nav>
     {% endif %}
+    <div class="miolo-app">
+    {% if request.GET.incorporado != "1" %}
+    <header class="topo-app">
+        <div class="topo-proposito">
+            <p class="topo-titulo">Análise assistida de prestações de contas</p>
+            <p class="topo-complemento">Agilidade e estruturação da análise, com rastreabilidade das evidências e preservação da autoridade do auditor.</p>
+        </div>
+        <p class="topo-usuario">{{ user.get_perfil_display }} · {{ user.username }}</p>
+    </header>
+    {% endif %}
     <main class="conteudo">
         {% if messages %}
             {% for mensagem in messages %}
@@ -50,5 +60,6 @@
         {% block conteudo %}{% endblock %}
         <p class="rodape-app">{{ nome_aplicacao }} · versão {{ versao_aplicacao }} · Onda {{ onda_atual }}. A inteligência artificial não aprova nem reprova prestações de contas.</p>
     </main>
+    </div>
 </div>
 {% endblock %}

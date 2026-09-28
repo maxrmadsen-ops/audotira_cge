@@ -1,0 +1,46 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ prompt.codigo }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'ia:prompts' %}">Prompts</a> / {{ prompt.codigo }}</p>
+<h1 class="h3">{{ prompt.nome }}</h1>
+<p>{{ prompt.finalidade }}</p>
+<article class="cartao">
+    <h2 class="h5">Controles estruturais da aplicação — não editáveis pelo prompt</h2>
+    <pre class="texto-extraido">{{ guardrails }}</pre>
+</article>
+{% for versao in versoes %}
+    <article class="cartao mt-3">
+        <h2 class="h5">Versão {{ versao.versao }} · {{ versao.get_status_display }}</h2>
+        <p class="small">Hash {{ versao.hash_conteudo }} · tipo {{ versao.tipo_documental|default:"geral" }} · criada em {{ versao.criado_em|date:"d/m/Y H:i" }}</p>
+        {% if versao.justificativa %}<p>Justificativa: {{ versao.justificativa }}</p>{% endif %}
+        <h3 class="h6">Prompt funcional</h3>
+        <pre class="texto-extraido">{{ versao.prompt_sistema }}</pre>
+        <h3 class="h6">Entrada</h3>
+        <pre class="texto-extraido">{{ versao.template_entrada }}</pre>
+        {% if pode_editar and versao.status == "rascunho" %}
+            <form method="post" action="{% url 'ia:ativar_prompt' prompt.codigo versao.versao %}">
+                {% csrf_token %}
+                <button class="btn btn-outline-primary btn-sm" type="submit">Ativar esta versão</button>
+            </form>
+        {% endif %}
+    </article>
+{% endfor %}
+{% if pode_editar %}
+    <form class="cartao mt-3" method="post" action="{% url 'ia:editar_prompt' prompt.codigo %}">
+        {% csrf_token %}
+        <h2 class="h5">Editar prompt</h2>
+        <div class="alert alert-warning" role="alert">{{ alerta }}</div>
+        <label class="form-label" for="prompt-sistema">Prompt funcional</label>
+        <textarea class="form-control mb-2" id="prompt-sistema" name="prompt_sistema" rows="8">{{ versoes.0.prompt_sistema }}</textarea>
+        <label class="form-label" for="template-entrada">Entrada</label>
+        <textarea class="form-control mb-2" id="template-entrada" name="template_entrada" rows="4">{{ versoes.0.template_entrada }}</textarea>
+        <label class="form-label" for="justificativa">Justificativa</label>
+        <textarea class="form-control mb-2" id="justificativa" name="justificativa" required></textarea>
+        <label class="form-check-label" for="confirmar-alteracao">
+            <input id="confirmar-alteracao" name="confirmar_alteracao" type="checkbox" value="sim" required>
+            Li o alerta e quero criar uma nova versão em rascunho.
+        </label>
+        <button class="btn btn-primary btn-sm d-block mt-3" type="submit">Salvar como rascunho</button>
+    </form>
+{% endif %}
+{% endblock %}

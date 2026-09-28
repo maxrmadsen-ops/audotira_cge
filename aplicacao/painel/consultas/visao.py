@@ -275,13 +275,13 @@ def montar_visao(filtros: FiltrosPainel) -> PainelAba:
             _kpi("Prestações cadastradas", texto_contagem(carteira.count()), href("painel:processos", estagio)),
             _kpi("Em análise", texto_contagem(carteira.filter(situacao=SituacaoPrestacao.EM_ANALISE).count()), href("painel:processos", filtros.alterar(situacao=SituacaoPrestacao.EM_ANALISE))),
             _kpi("Concluídas", texto_contagem(carteira.filter(situacao=SituacaoPrestacao.CONCLUIDA).count()), href("painel:processos", filtros.alterar(situacao=SituacaoPrestacao.CONCLUIDA))),
-            _kpi("Com achados", texto_contagem(com_achados), href("painel:achados", estagio), complemento=f"de {total_carteira}"),
             _kpi("Achados críticos", texto_contagem(criticos.count()), href("painel:achados", estagio.alterar(criticidade="alta_ou_critica")), "Alta ou crítica, conforme o cadastro do achado. O atalho reúne as duas criticidades já existentes."),
+            _kpi("Com achados", texto_contagem(com_achados), href("painel:achados", estagio), complemento=f"de {total_carteira}"),
             _kpi("Materialidade dos achados", _reais(materialidade), href("painel:achados", estagio), "Soma somente materialidades informadas. Ausência não entra como zero."),
         ],
         graficos=[
             grafico("Processos por etapa", "Situação cadastrada. Não é um SLA.", series_etapa, "Sem prestações para os filtros selecionados.", incluir_zeros=True),
-            grafico("Achados por criticidade", "Criticidade registrada no achado.", _series_grupo(contar_grupos(achs, "criticidade"), Criticidade, "painel:achados", estagio, "criticidade"), "Sem achados para os filtros selecionados." if not achs.exists() else "Criticidade ainda não registrada nos achados.", formato="donut", centro="Achados"),
+            grafico("Distribuição dos achados por criticidade", "Criticidade registrada no achado.", _series_grupo(contar_grupos(achs, "criticidade"), Criticidade, "painel:achados", estagio, "criticidade"), "Sem achados para os filtros selecionados." if not achs.exists() else "Criticidade ainda não registrada nos achados.", formato="donut", centro="Achados"),
             grafico("Achados por natureza", "Natureza registrada no achado.", series_natureza, "Sem achados para os filtros selecionados."),
         ],
         pipeline=_com_peso([

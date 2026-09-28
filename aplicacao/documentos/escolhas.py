@@ -17,7 +17,7 @@ class TipoDocumento(models.TextChoices):
     RELATORIO_EXECUCAO = "relatorio_execucao", "Relatório de execução"
     DECLARACAO = "declaracao", "Declaração"
     OUTRO = "outro", "Outro"
-    NAO_CLASSIFICADO = "nao_classificado", "Não classificado"
+    NAO_CLASSIFICADO = "nao_classificado", "Não identificado"
 
 
 class StatusProcessamento(models.TextChoices):
@@ -61,6 +61,7 @@ class MetodoClassificacao(models.TextChoices):
     NOME_ARQUIVO = "nome_arquivo", "Nome do arquivo"
     PALAVRAS_CHAVE = "palavras_chave", "Palavras-chave"
     HEURISTICA = "heuristica", "Heurística"
+    ESTRUTURAL = "estrutural", "Evidência estrutural"
     HUMANO = "humano", "Validação humana"
     NENHUM = "nenhum", "Nenhum"
 

@@ -6,7 +6,7 @@
     <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Aguardando validação</h2><p class="mb-0 fs-4">{{ indicadores_documentos.aguardando_validacao }}</p></article></div>
     <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Com OCR</h2><p class="mb-0 fs-4">{{ indicadores_documentos.com_ocr }}</p></article></div>
     <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Com erro</h2><p class="mb-0 fs-4">{{ indicadores_documentos.com_erro }}</p></article></div>
-    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Não classificados</h2><p class="mb-0 fs-4">{{ indicadores_documentos.nao_classificados }}</p></article></div>
+    <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Não identificados</h2><p class="mb-0 fs-4">{{ indicadores_documentos.nao_classificados }}</p></article></div>
 </div>
 {% if pode_alterar %}
     <form class="cartao mb-3" method="post" enctype="multipart/form-data" action="{% url 'documentos:enviar' prestacao.pk %}">

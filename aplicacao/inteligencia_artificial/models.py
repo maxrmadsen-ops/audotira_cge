@@ -1,3 +1,6 @@
+import hashlib
+import json
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -7,6 +10,7 @@ from aplicacao.inteligencia_artificial.escolhas import (
     FinalidadeModelo,
     ProvedorIA,
     StatusUso,
+    StatusVersaoPrompt,
     UnidadePrecificacao,
 )
 
@@ -102,6 +106,15 @@ class VersaoPromptInteligenciaArtificial(models.Model):
     schema_saida = models.JSONField("schema de saída", default=dict)
     ativo = models.BooleanField("ativo", default=True)
     utilizada = models.BooleanField("utilizada", default=False)
+    status = models.CharField(
+        "status",
+        max_length=20,
+        choices=StatusVersaoPrompt.choices,
+        default=StatusVersaoPrompt.ATIVO,
+    )
+    tipo_documental = models.CharField("tipo documental", max_length=40, blank=True)
+    justificativa = models.TextField("justificativa", blank=True)
+    hash_conteudo = models.CharField("hash do conteúdo", max_length=64, blank=True)
     criado_em = models.DateTimeField("criado em", auto_now_add=True)
     criado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -123,15 +136,38 @@ class VersaoPromptInteligenciaArtificial(models.Model):
     def __str__(self) -> str:
         return f"{self.prompt.codigo} v{self.versao}"
 
+    def conteudo_alterado(self, anterior) -> bool:
+        return (
+            anterior.prompt_sistema != self.prompt_sistema
+            or anterior.template_entrada != self.template_entrada
+            or anterior.schema_saida != self.schema_saida
+        )
+
+    def calcular_hash(self) -> str:
+        bruto = json.dumps(
+            {
+                "schema": self.schema_saida,
+                "sistema": self.prompt_sistema,
+                "entrada": self.template_entrada,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        return hashlib.sha256(bruto.encode("utf-8")).hexdigest()
+
     def save(self, *args, **kwargs):
         if self.pk:
             anterior = VersaoPromptInteligenciaArtificial.objects.get(pk=self.pk)
-            if anterior.utilizada and (
-                anterior.prompt_sistema != self.prompt_sistema
-                or anterior.template_entrada != self.template_entrada
-                or anterior.schema_saida != self.schema_saida
-            ):
-                raise ValidationError("Versão de prompt já utilizada não pode ser alterada. Crie uma nova versão.")
+            alterou = self.conteudo_alterado(anterior)
+            congelada = anterior.utilizada or anterior.status in {
+                StatusVersaoPrompt.ATIVO,
+                StatusVersaoPrompt.APROVADO,
+                StatusVersaoPrompt.SUBSTITUIDO,
+                StatusVersaoPrompt.INATIVO,
+            }
+            if alterou and congelada:
+                raise ValidationError("Versão de prompt ativa ou já fechada não pode ser alterada. Crie uma nova versão.")
+        self.hash_conteudo = self.calcular_hash()
         super().save(*args, **kwargs)
 
 

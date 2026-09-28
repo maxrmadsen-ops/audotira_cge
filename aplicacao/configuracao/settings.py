@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "aplicacao.entidades.apps.EntidadesConfig",
     "aplicacao.prestacoes_contas.apps.PrestacoesContasConfig",
     "aplicacao.documentos.apps.DocumentosConfig",
+    "aplicacao.instrumentos.apps.InstrumentosConfig",
     "aplicacao.normas.apps.NormasConfig",
     "aplicacao.regras.apps.RegrasConfig",
     "aplicacao.inteligencia_artificial.apps.InteligenciaArtificialConfig",

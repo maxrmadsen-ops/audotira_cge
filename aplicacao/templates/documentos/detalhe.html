@@ -16,6 +16,8 @@
         {% if documento.erro_processamento %}<p class="text-danger">{{ documento.erro_processamento }}</p>{% endif %}
     </div>
 </div>
+{% include "documentos/_ficha.html" %}
+{% if termo %}{% include "instrumentos/_termo.html" %}{% endif %}
 <div class="row g-3">
     <div class="col-lg-7">
         <article class="cartao visor-pdf">
@@ -41,10 +43,11 @@
             <h2>Informações</h2>
             <p>Tipo: {{ documento.get_tipo_documento_display }}</p>
             <p>Subtipo: {{ documento.subtipo_documento|default:"Não informado" }}</p>
-            <p>Sugestão atual: {{ documento.get_tipo_sugerido_display|default:"Não classificado" }}</p>
+            <p>Sugestão atual: {{ documento.get_tipo_sugerido_display|default:"Não identificado" }}</p>
             <p>Classificação original: {{ documento.get_classificacao_original_display|default:"Ainda não processado" }}</p>
             <p>Confiança: {% if documento.confianca_classificacao != None %}{{ documento.confianca_classificacao }}{% else %}—{% endif %}</p>
             <p>Método: {{ documento.get_metodo_classificacao_display }}</p>
+            <p>Fundamento: {{ documento.fundamento_classificacao|default:"Não registrado"|linebreaksbr }}</p>
             <p>Extração predominante: {{ documento.get_metodo_predominante_display }}</p>
             <p>Páginas: {{ documento.quantidade_paginas|default:"—" }}</p>
             <p>SHA-256: <span class="small">{{ documento.hash_sha256 }}</span></p>
@@ -58,12 +61,6 @@
             {% empty %}<p class="mb-0">Nenhum candidato.</p>{% endfor %}
         </article>
         {% if pode_alterar %}
-            <form class="cartao mt-3" method="post" action="{% url 'documentos:validar' documento.pk %}">
-                {% csrf_token %}
-                <h2>Validação humana</h2>
-                {% include "prestacoes_contas/_campos.html" with form=form_validacao %}
-                <button class="btn btn-primary btn-sm" type="submit">Confirmar classificação</button>
-            </form>
             <form class="cartao mt-3" method="post" action="{% url 'documentos:reprocessar' documento.pk %}">
                 {% csrf_token %}
                 <h2>Reprocessar</h2>
@@ -86,6 +83,7 @@
         {% endif %}
     </div>
 </div>
+{{ trecho_inicial|json_script:"trecho-buscado" }}
 <script src="{% static 'vendor/pdfjs/pdf.min.js' %}"></script>
 <script>
 const arquivoPdf = "{% url 'documentos:arquivo' documento.pk %}";
@@ -93,6 +91,7 @@ const textoBase = "{% url 'documentos:texto_pagina' documento.pk 1 %}".replace(/
 pdfjsLib.GlobalWorkerOptions.workerSrc = "{% static 'vendor/pdfjs/pdf.worker.min.js' %}";
 let pdfDoc = null;
 let paginaAtual = {{ pagina_inicial|default:1 }};
+const paginaPedida = paginaAtual;
 let escala = 1.1;
 const canvas = document.getElementById("pdf-canvas");
 const contexto = canvas.getContext("2d");
@@ -119,14 +118,34 @@ function carregarTexto(numero) {
                 meta.textContent = "";
                 return;
             }
-            destino.textContent = dados.texto || "Sem texto nesta página.";
+            const texto = dados.texto || "Sem texto nesta página.";
+            destino.textContent = texto;
             meta.textContent = dados.metodo + " · " + dados.qualidade + (dados.necessitou_ocr ? " · OCR necessário" : " · sem OCR");
+            const buscado = document.getElementById("trecho-buscado");
+            const trecho = buscado ? JSON.parse(buscado.textContent || '""') : "";
+            if (trecho && numero === paginaPedida) {
+                const indice = texto.toLowerCase().indexOf(trecho.toLowerCase());
+                if (indice >= 0) {
+                    destino.textContent = "";
+                    destino.append(document.createTextNode(texto.slice(0, indice)));
+                    const marca = document.createElement("mark");
+                    marca.className = "trecho-origem";
+                    marca.textContent = texto.slice(indice, indice + trecho.length);
+                    destino.append(marca);
+                    destino.append(document.createTextNode(texto.slice(indice + trecho.length)));
+                    marca.scrollIntoView({ block: "center" });
+                } else {
+                    meta.textContent += " · o trecho pedido não aparece nesta página";
+                }
+            }
         });
 }
 
 pdfjsLib.getDocument({ url: arquivoPdf, withCredentials: true }).promise.then(function (pdf) {
     pdfDoc = pdf;
-    desenhar(1);
+    desenhar(paginaAtual);
+}).catch(function () {
+    carregarTexto(paginaAtual);
 });
 
 document.getElementById("pdf-anterior").addEventListener("click", function () {

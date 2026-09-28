@@ -50,3 +50,12 @@ class EscopoLimite(models.TextChoices):
 class UnidadePrecificacao(models.TextChoices):
     MILHAO_TOKENS = "1000000", "1 milhão de tokens"
     MIL_TOKENS = "1000", "1 mil tokens"
+
+
+class StatusVersaoPrompt(models.TextChoices):
+    RASCUNHO = "rascunho", "Rascunho"
+    EM_TESTE = "em_teste", "Em teste"
+    APROVADO = "aprovado", "Aprovado"
+    ATIVO = "ativo", "Ativo"
+    INATIVO = "inativo", "Inativo"
+    SUBSTITUIDO = "substituido", "Substituído"

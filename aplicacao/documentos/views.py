@@ -10,10 +10,12 @@ from aplicacao.auditoria.models import RegistroAuditoria
 from aplicacao.auditoria.servicos import obter_ip, registrar_evento
 from aplicacao.documentos.armazenamento import ErroArmazenamento, ler_arquivo, remover_arquivo
 from aplicacao.documentos.escolhas import EtapaProcessamento, StatusProcessamento, TipoDocumento
+from aplicacao.documentos.ficha import montar_ficha
 from aplicacao.documentos.formularios import FormularioReprocessamento, FormularioValidacao
 from aplicacao.documentos.models import Documento, PaginaDocumento, ReprocessamentoDocumento
 from aplicacao.documentos.recebimento import filtrar_documentos, indicadores, receber_arquivo
 from aplicacao.documentos.tarefas import processar_documento_task
+from aplicacao.instrumentos.views import contexto_termo
 from aplicacao.documentos.validacao import ErroValidacaoDocumento
 from aplicacao.prestacoes_contas.models import PrestacaoContas, PrestacaoParcial
 from aplicacao.usuarios.acesso import PerfilExigidoMixin, pode_administrar, pode_executar_analise
@@ -121,19 +123,24 @@ class DetalheDocumentoView(LoginRequiredMixin, View):
             pagina_inicial = 1
         if pagina_inicial < 1:
             pagina_inicial = 1
+        dados = documento.dados_extraidos.select_related("pagina")
+        contexto = contexto_termo(documento)
         return render(
             request,
             "documentos/detalhe.html",
             {
                 "documento": documento,
                 "pagina_inicial": pagina_inicial,
+                "trecho_inicial": (request.GET.get("trecho") or "")[:80],
                 "paginas": documento.paginas.all(),
-                "dados": documento.dados_extraidos.select_related("pagina"),
+                "dados": dados,
+                "ficha": montar_ficha(documento, contexto.get("termo"), dados),
                 "form_validacao": FormularioValidacao(documento=documento),
                 "form_reprocessamento": FormularioReprocessamento(),
                 "pode_alterar": pode_executar_analise(request.user),
                 "pode_excluir": pode_administrar(request.user),
                 "acompanhar": documento.etapa in ETAPAS_ABERTAS,
+                **contexto,
             },
         )
 
@@ -228,6 +235,7 @@ class ValidarDocumentoView(PerfilExigidoMixin, View):
                 "tipo_anterior": tipo_anterior,
                 "tipo_final": documento.tipo_documento,
                 "classificacao_original": documento.classificacao_original,
+                "justificativa": formulario.cleaned_data.get("justificativa") or "",
             },
         )
         messages.success(request, "Classificação registrada. A sugestão original do sistema foi preservada.")
@@ -239,6 +247,11 @@ class ReprocessarDocumentoView(PerfilExigidoMixin, View):
 
     def post(self, request, pk):
         documento = get_object_or_404(Documento.objects.ativos(), pk=pk)
+        from aplicacao.instrumentos.servico import documento_congelado
+
+        if documento_congelado(documento):
+            messages.error(request, "Este termo está congelado. Abra uma nova versão antes de reprocessar.")
+            return redirect("documentos:detalhe", pk=pk)
         formulario = FormularioReprocessamento(request.POST)
         motivo = formulario.cleaned_data.get("motivo", "") if formulario.is_valid() else ""
         registro = ReprocessamentoDocumento.objects.create(documento=documento, solicitado_por=request.user, motivo=motivo)

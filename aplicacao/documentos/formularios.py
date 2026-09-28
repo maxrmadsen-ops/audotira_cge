@@ -9,6 +9,7 @@ class FormularioValidacao(forms.Form):
     tipo_documento = forms.ChoiceField(label="Tipo", choices=TipoDocumento.choices)
     subtipo_documento = forms.CharField(label="Subtipo", max_length=120, required=False)
     prestacao_parcial = forms.ModelChoiceField(label="Prestação parcial", queryset=PrestacaoParcial.objects.none(), required=False)
+    justificativa = forms.CharField(label="Justificativa", max_length=500, required=False)
     data_documento = forms.DateField(
         label="Data do documento",
         required=False,

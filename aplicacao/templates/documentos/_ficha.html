@@ -1,0 +1,104 @@
+{% load instrumentos_extras %}
+<section class="cartao ficha" id="ficha-extracao" aria-label="Ficha de extração e validação">
+    <header class="ficha-cabecalho">
+        <div>
+            <h2 class="h4 mb-1">Ficha de extração e validação</h2>
+            <p class="small mb-0">O valor extraído permanece. A correção humana grava só o valor validado, com responsável, data e justificativa.</p>
+        </div>
+        <p class="mb-0">
+            {% if ficha.classificacao.validada %}
+                <span class="estado ficha-validado">Validado</span>
+            {% else %}
+                <span class="estado ficha-aguardando">Aguardando validação humana</span>
+            {% endif %}
+        </p>
+    </header>
+    <dl class="ficha-classificacao">
+        <div><dt>Tipo identificado</dt><dd>{{ ficha.classificacao.tipo }}</dd></div>
+        <div><dt>Tipo documental</dt><dd>{{ ficha.classificacao.tipo_documental }}</dd></div>
+        <div><dt>Método</dt><dd>{{ ficha.classificacao.metodo }}</dd></div>
+        <div><dt>Estado</dt><dd>{% if ficha.classificacao.validada %}Validado{% if documento.validado_por %} por {{ documento.validado_por }} em {{ documento.validado_em|date:"d/m/Y H:i" }}{% endif %}{% else %}Aguardando validação humana{% endif %}</dd></div>
+        <div><dt>Confiança</dt><dd>{% if ficha.classificacao.confianca != None %}{{ ficha.classificacao.confianca }}{% else %}Não se aplica{% endif %}</dd></div>
+    </dl>
+    <p class="small"><strong>Evidências da classificação</strong><br>{{ ficha.classificacao.fundamento|default:"Origem não determinada"|linebreaksbr }}</p>
+    <p class="small mb-2">Extração: {{ ficha.metadados.metodo }} · Captura: {{ ficha.metadados.capturado_em|date:"d/m/Y H:i" }}{% if ficha.metadados.versao %} · Versão {{ ficha.metadados.versao }}{% endif %}{% if ficha.metadados.prompt %} · {{ ficha.metadados.prompt }}{% endif %}{% if ficha.metadados.modelo %} · {{ ficha.metadados.modelo }}{% endif %}</p>
+    {% if ficha.classificacao.justificativa %}<p class="small">Justificativa da última classificação humana: {{ ficha.classificacao.justificativa }}</p>{% endif %}
+    {% if pode_alterar %}
+        <div class="ficha-acoes-classificacao">
+            <form method="post" action="{% url 'documentos:validar' documento.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="tipo_documento" value="{{ documento.tipo_documento }}">
+                <input type="hidden" name="subtipo_documento" value="{{ documento.subtipo_documento }}">
+                <input type="hidden" name="prestacao_parcial" value="{{ documento.prestacao_parcial_id|default:'' }}">
+                <input type="hidden" name="data_documento" value="{{ documento.data_documento|date:'Y-m-d' }}">
+                <label class="form-label" for="justificativa-confirmar">Justificativa</label>
+                <input class="form-control form-control-sm mb-2" id="justificativa-confirmar" name="justificativa" maxlength="500">
+                <button class="btn btn-primary btn-sm" type="submit">Confirmar classificação</button>
+            </form>
+            <form method="post" action="{% url 'documentos:validar' documento.pk %}">
+                {% csrf_token %}
+                <p class="small mb-1">Corrigir a classificação. A sugestão original do sistema permanece registrada.</p>
+                {% include "prestacoes_contas/_campos.html" with form=form_validacao %}
+                <button class="btn btn-outline-primary btn-sm" type="submit">Corrigir classificação</button>
+            </form>
+        </div>
+    {% endif %}
+
+    {% for grupo in ficha.grupos %}
+        <h3 class="h5 mt-4">{{ grupo.titulo }}</h3>
+        <div class="ficha-rolagem">
+            <table class="ficha-tabela">
+                <thead>
+                    <tr>
+                        <th>Campo</th>
+                        <th>Valor extraído</th>
+                        <th>Valor validado</th>
+                        <th>Documento-fonte</th>
+                        <th>Página</th>
+                        <th>Trecho/evidência</th>
+                        <th>Método</th>
+                        <th>Captura</th>
+                        <th>Confiança</th>
+                        <th>Situação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in grupo.linhas %}
+                        <tr class="{{ linha.classe }}{% if linha.destaque %} ficha-destaque{% endif %}">
+                            <th scope="row">{{ linha.rotulo }}{% if linha.natureza %}<span class="ficha-natureza">{{ linha.natureza }}</span>{% endif %}</th>
+                            <td>{{ linha.valor_extraido|mascarar_cpf|default:"Não identificado"|truncatechars:420 }}</td>
+                            <td>{{ linha.valor_validado|mascarar_cpf|default:"Ainda sem validação" }}{% if linha.responsavel %}<span class="ficha-natureza">{{ linha.responsavel }} em {{ linha.validado_em|date:"d/m/Y H:i" }}{% if linha.observacao %} · {{ linha.observacao }}{% endif %} · versão {{ linha.versao|default:"—" }}</span>{% endif %}</td>
+                            <td>{{ linha.documento }}</td>
+                            <td>{% if linha.pagina %}{{ linha.pagina }}{% else %}Origem não determinada{% endif %}</td>
+                            <td>{% if linha.trecho %}{{ linha.trecho|mascarar_cpf|truncatechars:280 }}{% else %}Origem não determinada{% endif %}</td>
+                            <td>{{ linha.metodo }}</td>
+                            <td>{{ linha.capturado_em|date:"d/m/Y H:i" }}</td>
+                            <td>{% if linha.confianca != None %}{{ linha.confianca }}{% else %}Não se aplica{% endif %}</td>
+                            <td><span class="estado {{ linha.classe }}">{{ linha.situacao_rotulo }}</span></td>
+                            <td>
+                                {% if linha.pagina %}
+                                    <a href="?pagina={{ linha.pagina }}&trecho={{ linha.busca|urlencode }}#texto-pagina">Ver origem</a>
+                                {% else %}
+                                    <span>Origem não determinada</span>
+                                {% endif %}
+                                {% if linha.campo_id and pode_alterar and termo and not termo.congelado %}
+                                    <form method="post" action="{% url 'documentos:validar_campo_termo' documento.pk linha.campo_id %}">
+                                        {% csrf_token %}
+                                        <label class="visually-hidden" for="valor-ficha-{{ linha.campo_id }}">Valor validado de {{ linha.rotulo }}</label>
+                                        <input class="form-control form-control-sm mb-1" id="valor-ficha-{{ linha.campo_id }}" name="valor_validado" value="{{ linha.valor_validado|default:linha.valor_extraido }}">
+                                        <label class="visually-hidden" for="obs-ficha-{{ linha.campo_id }}">Justificativa de {{ linha.rotulo }}</label>
+                                        <input class="form-control form-control-sm mb-1" id="obs-ficha-{{ linha.campo_id }}" name="observacao" placeholder="Justificativa">
+                                        <button class="btn btn-primary btn-sm" name="acao" value="confirmar" type="submit">Confirmar</button>
+                                        <button class="btn btn-outline-primary btn-sm" name="acao" value="corrigir" type="submit">Corrigir</button>
+                                        <button class="btn btn-outline-secondary btn-sm" name="acao" value="nao_identificado" type="submit">Não identificado</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endfor %}
+</section>

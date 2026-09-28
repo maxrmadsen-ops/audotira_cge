@@ -1,6 +1,7 @@
 import hashlib
 import tempfile
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -10,7 +11,8 @@ from django.urls import reverse
 
 from aplicacao.auditoria.models import RegistroAuditoria
 from aplicacao.documentos.armazenamento import ErroArmazenamento, caminho_seguro
-from aplicacao.documentos.escolhas import MetodoExtracao, QualidadeExtracao, TipoDocumento
+from aplicacao.documentos.classificacao import classificar
+from aplicacao.documentos.escolhas import MetodoClassificacao, MetodoExtracao, QualidadeExtracao, TipoDocumento
 from aplicacao.documentos.metadados import _cnpj_valido, _digito
 from aplicacao.documentos.models import Documento, ReprocessamentoDocumento
 from aplicacao.documentos.qualidade import avaliar_qualidade
@@ -246,3 +248,59 @@ class TesteDocumentos(TestCase):
         resposta = self.client.get(reverse("prestacoes_contas:detalhe", kwargs={"pk": self.prestacao.pk}), {"aba": "documentos"})
         self.assertContains(resposta, "nota_fiscal_sintetica.pdf")
         self.assertContains(resposta, "Nota fiscal")
+
+
+TERMO_ESTRUTURAL = """
+TERMO DE FOMENTO Nº 100/2024
+CONCEDENTE: Entidade Alfa.
+BENEFICIÁRIO: Associação Beta do município de OUTRO/SC.
+OBJETO: atendimento especializado.
+CLÁUSULA PRIMEIRA — DO OBJETO.
+CLÁUSULA QUINTA — DA TRANSFERÊNCIA DOS RECURSOS. montante de R$ 10,00.
+A vigência encerra em 31 de dezembro de 2024.
+Documento assinado digitalmente para conferencia.
+O plano de trabalho segue anexo.
+"""
+
+
+class TesteClassificacaoEstrutural(TestCase):
+    def test_estrutura_identifica_termo_e_aponta_o_trecho(self):
+        resultado = classificar("anexo.pdf", TERMO_ESTRUTURAL)
+        self.assertEqual(resultado["tipo"], TipoDocumento.TERMO)
+        self.assertEqual(resultado["subtipo"], "Termo de Fomento")
+        self.assertEqual(resultado["numero"], "100/2024")
+        self.assertEqual(resultado["estado"], "identificado")
+        self.assertEqual(resultado["metodo"], MetodoClassificacao.ESTRUTURAL)
+        self.assertIn("TERMO DE FOMENTO Nº 100/2024", resultado["fundamento"])
+        self.assertTrue(any(item["criterio"] == "título numerado do instrumento" for item in resultado["evidencias"]))
+        self.assertGreaterEqual(len(resultado["evidencias"]), 3)
+        colapsado = " ".join(TERMO_ESTRUTURAL.split())
+        for item in resultado["evidencias"]:
+            self.assertIn(item["trecho"], colapsado)
+
+    def test_mencao_isolada_nao_vira_termo(self):
+        citacao = classificar("oficio.pdf", "O ofício apenas cita o Termo de Fomento nº 100/2024, sem cláusulas nem partes.")
+        mencao = classificar("relatorio.pdf", "O corpo menciona a expressão Termo de Fomento somente como referência.")
+        self.assertEqual(citacao["tipo"], TipoDocumento.NAO_CLASSIFICADO)
+        self.assertEqual(citacao["estado"], "insuficiente")
+        self.assertEqual(mencao["tipo"], TipoDocumento.NAO_CLASSIFICADO)
+
+    def test_titulo_sem_estrutura_nao_basta(self):
+        resultado = classificar("capa.pdf", "TERMO DE FOMENTO Nº 100/2024")
+        self.assertEqual(resultado["tipo"], TipoDocumento.NAO_CLASSIFICADO)
+
+    def test_conferencia_nao_vira_nota_fiscal(self):
+        resultado = classificar("assinado.pdf", "Documento assinado digitalmente para conferencia. Acesse o portal.")
+        self.assertNotEqual(resultado["tipo"], TipoDocumento.NOTA_FISCAL)
+        self.assertEqual(resultado["tipo"], TipoDocumento.NAO_CLASSIFICADO)
+
+    def test_indicios_concorrentes_nao_desempatam(self):
+        resultado = classificar("misto.pdf", "Recibo de declaracao sintetica sem outro contexto.")
+        self.assertEqual(resultado["tipo"], TipoDocumento.NAO_CLASSIFICADO)
+        self.assertGreaterEqual(len(resultado["evidencias"]), 2)
+
+    def test_regra_nao_conhece_o_caso_piloto(self):
+        fonte = Path(__file__).with_name("classificacao.py").read_text(encoding="utf-8")
+        self.assertNotIn("929", fonte)
+        self.assertNotIn("VARGEM", fonte)
+        self.assertNotIn("345.284", fonte)

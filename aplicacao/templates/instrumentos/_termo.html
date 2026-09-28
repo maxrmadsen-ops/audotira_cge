@@ -1,0 +1,149 @@
+{% load instrumentos_extras %}
+<section class="cartao mt-3" aria-label="Termo de fomento estruturado">
+    <div class="d-flex flex-wrap justify-content-between gap-2">
+        <h2 class="h4 mb-0">Leitura estruturada do termo</h2>
+        <p class="mb-0">
+            {% if termo.status_validacao == "aguardando_validacao" %}<span class="estado estado-aguardando">Aguardando validação humana</span>{% else %}<span class="estado estado-aguardando">{{ termo.get_status_validacao_display }}</span>{% endif %}
+            {% if termo.congelado %}<span class="estado estado-operacional">Versão {{ termo.versao }} congelada</span>{% endif %}
+            <span class="estado estado-nao-configurado">Extração determinística · prompt {{ termo.versao_prompt.prompt.codigo }} v{{ termo.versao_prompt.versao }}</span>
+        </p>
+    </div>
+    <p class="small text-secondary">Valor extraído não é fato validado. A aplicação financeira e a conta bancária são expectativas, não comprovação.</p>
+    <nav class="termo-secoes" aria-label="Seções do termo">
+        <a href="#termo-resumo">Resumo</a>
+        <a href="#termo-partes">Partes</a>
+        <a href="#termo-objeto">Objeto</a>
+        <a href="#termo-recursos">Recursos</a>
+        <a href="#termo-prazos">Vigência e prazos</a>
+        <a href="#termo-clausulas">Cláusulas</a>
+        <a href="#termo-obrigacoes">Obrigações</a>
+        <a href="#termo-aplicacao">Aplicação financeira</a>
+        <a href="#termo-conta">Conta bancária</a>
+        <a href="#termo-normas">Base legal</a>
+        <a href="#termo-sancoes">Penalidades</a>
+        <a href="#termo-validacao">Validação humana</a>
+    </nav>
+
+    <div id="termo-resumo" class="kpis">
+        <article class="cartao kpi"><h2>Termo</h2><p class="kpi-valor">{{ termo.identificacao_completa|default:"Não identificado" }}</p></article>
+        <article class="cartao kpi"><h2>Processo</h2><p class="kpi-valor">{{ termo.processo_sgpe|default:"Não identificado" }}</p></article>
+        <article class="cartao kpi"><h2>Município</h2><p class="kpi-valor">{{ termo.municipio|default:"Não identificado" }}{% if termo.uf %}/{{ termo.uf }}{% endif %}</p></article>
+        <article class="cartao kpi"><h2>Valor</h2><p class="kpi-valor">{% if termo.valor_total != None %}R$ {{ termo.valor_total }}{% else %}Não identificado{% endif %}</p></article>
+        <article class="cartao kpi"><h2>Parcelas</h2><p class="kpi-valor">{{ termo.quantidade_parcelas|default:"Não identificado" }}</p></article>
+        <article class="cartao kpi"><h2>Cláusulas</h2><p class="kpi-valor">{{ clausulas_termo|length }}</p></article>
+    </div>
+    {% if termo.alerta_aritmetico %}<p class="estado estado-aguardando">{{ termo.alerta_aritmetico }}</p>{% elif termo.consistente_aritmeticamente %}<p class="small">Os valores informados são matematicamente consistentes. Isso não aprova a prestação.</p>{% endif %}
+
+    <h3 id="termo-partes" class="h5 mt-4">Partes</h3>
+    {% for parte in partes_termo %}
+        <article class="cartao mb-2">
+            <p><strong>{{ parte.get_papel_display }}</strong> · {{ parte.nome|default:"Não identificado" }} {% if parte.sigla %}({{ parte.sigla }}){% endif %}</p>
+            <p class="mb-0 small">CNPJ: {{ parte.cnpj|default:"Não identificado" }} · Representante: {{ parte.representante_nome|default:"Não identificado" }} · CPF: {{ parte.representante_cpf|mascarar_cpf|default:"Não identificado" }}</p>
+        </article>
+    {% empty %}<p>Não identificado.</p>{% endfor %}
+
+    <h3 id="termo-objeto" class="h5">Objeto e finalidade</h3>
+    <p>{{ termo.objeto_integral|default:"Não identificado" }}</p>
+    <p class="small">Finalidade distinta: {{ termo.finalidade|default:"Não identificado" }}</p>
+    <p class="small">Plano de trabalho: {{ termo.referencia_plano_trabalho|default:"Não identificado" }}</p>
+    <p class="small">Destinação: {{ termo.destinacao_recursos|default:"Não identificado" }}</p>
+
+    <h3 id="termo-recursos" class="h5">Recursos</h3>
+    <p>Total: {% if termo.valor_total != None %}{{ termo.valor_total }} {{ termo.moeda }} (texto {{ termo.valor_total_texto }}){% else %}Não identificado{% endif %}</p>
+    <p>Parcela: {% if termo.valor_parcela != None %}{{ termo.valor_parcela }} · quantidade {{ termo.quantidade_parcelas }}{% else %}Não identificado{% endif %}</p>
+
+    <h3 id="termo-prazos" class="h5">Vigência e prazos</h3>
+    <p>Celebração: {{ termo.data_celebracao|default:"Não identificado" }} · Assinatura: {{ termo.data_assinatura|default:"Não identificado" }} · Publicação: {{ termo.data_publicacao|default:"Não identificado" }}</p>
+    <p>Início: {{ termo.vigencia_inicio|default:"Não identificado" }} · Fim: {{ termo.vigencia_fim|default:"Não identificado" }}</p>
+    {% for regra in regras_temporais %}
+        <article class="cartao mb-2">
+            <p><span class="selo-temporal">Temporal</span> Cláusula {{ regra.clausula.ordinal|default:"—" }}</p>
+            <p>{{ regra.quantidade }} {{ regra.get_unidade_display }} {{ regra.get_operador_display }} {{ regra.evento_destino }}</p>
+            <p class="small mb-0">Data documental: {{ regra.data_documental|default:"Não identificada" }} · Data calculada: {{ regra.data_calculada|default:"Não calculada — o marco ainda não existe" }}</p>
+            <p class="small">Página: {{ regra.pagina|default:"Não identificada" }} · Cálculo: {{ regra.calculo|default:"Não calculada" }}</p>
+            <p class="small">{% if regra.pagina %}<a href="?pagina={{ regra.pagina }}#texto-pagina">Ver origem</a> · {% endif %}{{ regra.trecho }}</p>
+        </article>
+    {% empty %}<p>Nenhuma regra temporal identificada.</p>{% endfor %}
+
+    <h3 id="termo-clausulas" class="h5">Cláusulas</h3>
+    {% for clausula in clausulas_termo %}
+        <details class="cartao clausula mb-2" {% if clausula.ordinal == "QUINTA" or clausula.ordinal == "SEXTA" or clausula.ordinal == "SETIMA" %}open{% endif %}>
+            <summary>Cláusula {{ clausula.ordinal|default:"sem número" }} — {{ clausula.titulo|default:"Sem título" }} · {{ clausula.get_categoria_display }}</summary>
+            <p class="small">Página: {{ clausula.pagina|default:"Não identificada" }} {% if clausula.pagina %}· <a href="?pagina={{ clausula.pagina }}#texto-pagina">Ver origem</a>{% endif %}</p>
+            <p>{{ clausula.texto|default:"Não identificado" }}</p>
+            {% if clausula.ordinal == "QUINTA" or clausula.ordinal == "SEXTA" or clausula.ordinal == "SETIMA" %}
+                {% for obrigacao in clausula.obrigacoes.all %}
+                    <p><span class="selo-documental">Obrigação</span> Responsável: {{ obrigacao.sujeito|default:"Não identificado na cláusula" }}</p>
+                    <p class="small">Condição: {{ obrigacao.condicao|default:"Não identificada" }} · Prazo: {{ obrigacao.prazo_texto|default:"Não identificado" }}</p>
+                    <p class="small">Evidência futura: {{ obrigacao.evidencia_esperada|default:"Não identificada" }} · Situação: {{ obrigacao.get_situacao_display }}</p>
+                {% empty %}
+                    <p class="small">Obrigação nominada: Não identificada nesta cláusula.</p>
+                {% endfor %}
+                {% for regra in clausula.regras_temporais.all %}
+                    <p class="small">Marco: {{ regra.evento_destino|default:"Não identificado" }} · Quantidade: {{ regra.quantidade|default:"Não identificada" }} {{ regra.get_unidade_display }} · Data calculada: {{ regra.data_calculada|default:"Não calculada" }}</p>
+                {% empty %}
+                    <p class="small">Data calculada: não. Não há prazo com marco suficiente nesta cláusula.</p>
+                {% endfor %}
+            {% endif %}
+            {% if clausula.categoria == "temporal" %}<span class="selo-temporal">Temporal</span>{% endif %}
+            {% if clausula.categoria == "aplicacao_financeira" %}<span class="selo-financeira">Aplicação financeira</span>{% endif %}
+            {% if clausula.categoria == "conta_bancaria" %}<span class="selo-conta">Conta bancária</span>{% endif %}
+            {% if clausula.categoria == "penalidade" %}<span class="selo-sancao">Sanção ou consequência</span>{% endif %}
+        </details>
+    {% empty %}<p>Nenhuma cláusula identificada.</p>{% endfor %}
+
+    <h3 id="termo-obrigacoes" class="h5">Obrigações e regras derivadas</h3>
+    {% for obrigacao in obrigacoes_termo %}
+        <p><span class="selo-documental">{{ obrigacao.get_categoria_display }}</span> {{ obrigacao.sujeito|default:"Sujeito não identificado" }} — {{ obrigacao.texto }}</p>
+        <p class="small">Evidência esperada: {{ obrigacao.evidencia_esperada|default:"Não identificada" }} · Situação: {{ obrigacao.get_situacao_display }}</p>
+    {% empty %}<p>Nenhuma obrigação identificada.</p>{% endfor %}
+    {% for regra in regras_derivadas %}
+        <p class="small">Regra derivada {{ regra.codigo }} · conclusão: {{ regra.conclusao|default:"não atribuída" }}</p>
+    {% endfor %}
+
+    <h3 id="termo-aplicacao" class="h5">Aplicação financeira</h3>
+    {% if aplicacao_termo %}
+        <p>{{ aplicacao_termo.texto }}</p>
+        <p class="small">Sujeito: {{ aplicacao_termo.sujeito }} · Condição: {{ aplicacao_termo.condicao|default:"Não identificada" }} · Rendimentos: {{ aplicacao_termo.destinacao_rendimentos|default:"Não identificado" }}</p>
+        <p class="small">Evidência esperada depois: {{ aplicacao_termo.evidencia_esperada }}. Situação: {{ aplicacao_termo.get_situacao_display }}. Cumprimento não foi avaliado.</p>
+    {% else %}<p>Não identificado.</p>{% endif %}
+
+    <h3 id="termo-conta" class="h5">Conta bancária</h3>
+    {% if conta_termo %}
+        <p>{{ conta_termo.instituicao|default:"Instituição não identificada" }} · {{ conta_termo.tipo_conta|default:"Tipo não identificado" }}</p>
+        <p class="small">Agência: {{ conta_termo.agencia|default:"Não identificada" }} · Conta: {{ conta_termo.numero_conta|default:"Não identificada" }}</p>
+        <p>{{ conta_termo.texto }}</p>
+        <p class="small">Evidência esperada: {{ conta_termo.evidencia_esperada }}</p>
+    {% else %}<p>Não identificado.</p>{% endif %}
+
+    <h3 id="termo-normas" class="h5">Base legal citada</h3>
+    <ul>
+        {% for referencia in referencias_termo %}
+            <li>{{ referencia.texto }} · {{ referencia.get_status_correspondencia_display }} {% if referencia.norma %}· catálogo {{ referencia.norma }}{% endif %}</li>
+        {% empty %}<li>Não identificado.</li>{% endfor %}
+    </ul>
+
+    <h3 id="termo-sancoes" class="h5">Penalidades e consequências</h3>
+    {% for item in consequencias_termo %}
+        <p>{{ item.texto }} {% if item.percentual != None %}· {{ item.percentual }}%{% endif %}</p>
+    {% empty %}<p>Não identificado.</p>{% endfor %}
+
+    <h3 id="termo-validacao" class="h5">Validação humana</h3>
+    <p class="small">A conferência campo a campo está na ficha de extração. O valor extraído não é substituído.</p>
+    {% if pode_alterar and not termo.congelado %}
+        <form method="post" action="{% url 'documentos:congelar_termo' documento.pk %}">
+            {% csrf_token %}
+            <button class="btn btn-primary btn-sm" type="submit">Congelar versão validada</button>
+        </form>
+    {% endif %}
+    {% if pode_alterar and termo.congelado %}
+        <form method="post" action="{% url 'documentos:nova_versao_termo' documento.pk %}">
+            {% csrf_token %}
+            <button class="btn btn-outline-primary btn-sm" type="submit">Abrir nova versão</button>
+        </form>
+    {% endif %}
+    {% if versoes_termo %}
+        <h3 class="h6 mt-3">Versões congeladas</h3>
+        <ul>{% for versao in versoes_termo %}<li>v{{ versao.numero }} · {{ versao.hash_conteudo }}</li>{% endfor %}</ul>
+    {% endif %}
+</section>

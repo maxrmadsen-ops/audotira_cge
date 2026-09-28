@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from aplicacao.usuarios.acesso import pode_administrar
+from aplicacao.usuarios.models import Usuario
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,9 @@ def construir_menu(usuario) -> list[ItemMenu]:
     ]
     for slug, rotulo, _onda in MODULOS_PREPARADOS:
         itens.append(ItemMenu(rotulo, f"/modulos/{slug}/", False, slug, "gestao"))
+
+    if getattr(usuario, "perfil", "") in {Usuario.Perfil.ADMINISTRADOR, Usuario.Perfil.AUDITOR}:
+        itens.append(ItemMenu("Prompts", "/ia/prompts/", True, "prompts", "inteligencia"))
 
     if pode_administrar(usuario):
         itens.append(ItemMenu("Administração", "/administracao/", True, "administracao", "gestao"))

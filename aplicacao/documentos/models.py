@@ -92,6 +92,7 @@ class Documento(models.Model):
         null=True,
         blank=True,
     )
+    fundamento_classificacao = models.TextField("fundamento da classificação", blank=True)
     classificacao_validada = models.BooleanField("classificação validada", default=False)
     validado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,

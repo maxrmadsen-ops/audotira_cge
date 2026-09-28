@@ -1,33 +1,93 @@
 {% extends "base.html" %}
+{% load static %}
 {% block titulo %}Entrar · CGE{% endblock %}
 {% block corpo %}
 <div class="login-envoltorio">
-    <section class="login-institucional">
-        <div>
-            <p class="mb-2">Controladoria-Geral do Estado de Santa Catarina</p>
-            <h1>Análise assistida de prestações de contas</h1>
-            <p class="mt-3 mb-0">A decisão administrativa permanece com o auditor. Os documentos da prestação podem ser recebidos e lidos sem modelo de linguagem.</p>
+    <section class="login-institucional" aria-label="Identificação institucional">
+        <div class="login-conteudo">
+            <p class="login-orgao">Controladoria-Geral do Estado de Santa Catarina</p>
+            <h1>Análise assistida de <span>prestações de contas</span></h1>
+            <p class="login-apoio">Tecnologia, evidências e inteligência para apoiar a atuação do auditor na análise das prestações de contas do Estado de Santa Catarina.</p>
+            <p class="login-decisao">A decisão administrativa permanece com o auditor.</p>
+            <div class="pilares">
+                <article>
+                    <span class="pilar-icone" aria-hidden="true">{% include "componentes/icone.html" with nome="documentos" %}</span>
+                    <div>
+                        <h2>Documentação completa</h2>
+                        <p>Recebimento, leitura e extração de informações de documentos, PDFs e imagens, com rastreabilidade à fonte.</p>
+                    </div>
+                </article>
+                <article>
+                    <span class="pilar-icone" aria-hidden="true">{% include "componentes/icone.html" with nome="normas" %}</span>
+                    <div>
+                        <h2>Regras e normativos</h2>
+                        <p>Verificação automatizada com base nas normas aplicáveis e no catálogo de regras da CGE.</p>
+                    </div>
+                </article>
+                <article>
+                    <span class="pilar-icone" aria-hidden="true">{% include "componentes/icone.html" with nome="inteligencia-artificial" %}</span>
+                    <div>
+                        <h2>IA segura e auditável</h2>
+                        <p>Suporte à análise técnica, sempre com proveniência e validação humana.</p>
+                    </div>
+                </article>
+                <article>
+                    <span class="pilar-icone" aria-hidden="true">{% include "componentes/icone.html" with nome="regras" %}</span>
+                    <div>
+                        <h2>Transparência e governança</h2>
+                        <p>Trilha de auditoria completa, versionamento de prompts e controle de acessos.</p>
+                    </div>
+                </article>
+            </div>
         </div>
-            <p class="mb-0 small">Versão {{ versao_aplicacao }} · Onda {{ onda_atual }}</p>
     </section>
-    <section class="login-formulario">
+    <section class="login-formulario" aria-label="Acesso">
         <div class="login-caixa">
-            <h2 class="h4 mb-3">Entrar</h2>
+            <div class="login-marcas login-marcas-card">
+                <img src="{% static 'marca/logo_secretaria_adm.png' %}" alt="Governo de Santa Catarina — Secretaria de Estado da Administração">
+                <img src="{% static 'marca/logo_cge.png' %}" alt="CGE/SC">
+            </div>
+            <p class="login-sistema">Sistema de Análise de Prestações de Contas</p>
+            <h2>Entrar</h2>
+            <p class="login-subtitulo">Acesse sua conta para continuar</p>
             {% if form.non_field_errors %}
                 <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
             {% endif %}
             <form method="post" novalidate>
                 {% csrf_token %}
-                {% for campo in form %}
-                    <div class="mb-3">
-                        <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
-                        {{ campo }}
-                        {% if campo.errors %}<div class="text-danger small mt-1">{{ campo.errors|striptags }}</div>{% endif %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.username.id_for_label }}">Usuário</label>
+                    <div class="campo-acesso">
+                        <span class="campo-acesso-icone" aria-hidden="true">{% include "componentes/icone.html" with nome="administracao" %}</span>
+                        {{ form.username }}
                     </div>
-                {% endfor %}
-                <button class="btn btn-primary w-100" type="submit">Acessar</button>
+                    {% if form.username.errors %}<div class="text-danger small mt-1">{{ form.username.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.password.id_for_label }}">Senha</label>
+                    <div class="campo-acesso">
+                        <span class="campo-acesso-icone" aria-hidden="true">{% include "componentes/icone.html" with nome="saude" %}</span>
+                        {{ form.password }}
+                        <button class="btn-olho" type="button" id="alternar-senha" aria-controls="{{ form.password.id_for_label }}" aria-pressed="false">Mostrar</button>
+                    </div>
+                    {% if form.password.errors %}<div class="text-danger small mt-1">{{ form.password.errors|striptags }}</div>{% endif %}
+                </div>
+                <button class="btn btn-primary w-100 btn-acessar" type="submit">Acessar</button>
             </form>
+            <p class="login-seguro">Ambiente seguro e auditoria de acesso</p>
+            <p class="login-versao">Versão {{ versao_aplicacao }} · Onda {{ onda_atual }}</p>
         </div>
     </section>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById("alternar-senha").addEventListener("click", function () {
+    var campo = document.getElementById("{{ form.password.id_for_label }}");
+    var visivel = campo.type === "text";
+    campo.type = visivel ? "password" : "text";
+    this.textContent = visivel ? "Mostrar" : "Ocultar";
+    this.setAttribute("aria-pressed", visivel ? "false" : "true");
+});
+</script>
 {% endblock %}

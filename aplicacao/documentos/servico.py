@@ -13,6 +13,16 @@ from aplicacao.documentos.models import DadoExtraidoDocumento, Documento, Pagina
 def executar_pipeline(documento_id: int, usuario_id: int | None = None, reprocessamento_id: int | None = None) -> None:
     documento = Documento.objects.get(pk=documento_id)
     usuario = get_user_model().objects.filter(pk=usuario_id).first() if usuario_id else None
+    from aplicacao.instrumentos.servico import documento_congelado
+
+    if documento_congelado(documento):
+        registrar_evento(
+            evento=RegistroAuditoria.Evento.REPROCESSAMENTO,
+            descricao="Reprocessamento não aplicado porque o termo está congelado",
+            usuario=usuario,
+            detalhes={"documento": documento.pk},
+        )
+        return
     try:
         _marcar(documento, StatusProcessamento.VALIDANDO, EtapaProcessamento.VALIDANDO_ARQUIVO, "")
         caminho = ler_arquivo(documento.nome_armazenado)
@@ -28,6 +38,7 @@ def executar_pipeline(documento_id: int, usuario_id: int | None = None, reproces
         _aplicar_sugestao(documento, sugestao)
         _marcar(documento, etapa=EtapaProcessamento.EXTRAINDO_METADADOS)
         _substituir_dados(documento)
+        _estruturar_termo(documento)
         if documento.classificacao_validada:
             _marcar(documento, StatusProcessamento.VALIDADO, EtapaProcessamento.CONCLUIDO, "")
             resultado = "sucesso"
@@ -95,17 +106,22 @@ def _aplicar_sugestao(documento: Documento, sugestao: dict) -> None:
     documento.tipo_sugerido = sugestao["tipo"]
     documento.metodo_classificacao = sugestao["metodo"]
     documento.confianca_classificacao = sugestao["confianca"]
+    documento.fundamento_classificacao = sugestao.get("fundamento", "")
     if not documento.classificacao_original:
         documento.classificacao_original = sugestao["tipo"]
     if not documento.classificacao_validada:
         documento.tipo_documento = sugestao["tipo"]
+        if sugestao.get("subtipo") and not documento.subtipo_documento:
+            documento.subtipo_documento = sugestao["subtipo"]
     documento.save(
         update_fields=[
             "tipo_sugerido",
             "metodo_classificacao",
             "confianca_classificacao",
+            "fundamento_classificacao",
             "classificacao_original",
             "tipo_documento",
+            "subtipo_documento",
             "atualizado_em",
         ]
     )
@@ -129,6 +145,21 @@ def _substituir_dados(documento: Documento) -> None:
             for item in extrair_candidatos(paginas)
         ]
     )
+
+
+def _estruturar_termo(documento: Documento) -> None:
+    from aplicacao.documentos.classificacao import _normalizar
+    from aplicacao.documentos.escolhas import TipoDocumento
+    from aplicacao.instrumentos.models import TermoCongelado
+    from aplicacao.instrumentos.servico import estruturar_termo
+
+    texto = "\n".join(documento.paginas.values_list("texto_extraido", flat=True))
+    if documento.tipo_documento != TipoDocumento.TERMO and "termo de fomento" not in _normalizar(texto):
+        return
+    try:
+        estruturar_termo(documento)
+    except TermoCongelado:
+        return
 
 
 def _falhar(documento: Documento, usuario, mensagem: str, reprocessamento_id: int | None) -> None:
