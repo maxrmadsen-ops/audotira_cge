@@ -4,7 +4,7 @@
 
 | Serviço | Função | Volume |
 |---|---|---|
-| cge_nginx | única entrada HTTP | estáticos em `cge_static` |
+| cge_nginx | entrada da stack, publicada em 8003; o HTTPS oficial termina no Nginx do host | estáticos em `cge_static` |
 | cge_web | Django/Gunicorn, migrate e collectstatic na subida | `cge_static`, `cge_arquivos`, `cge_midia` |
 | cge_worker | Celery worker | `cge_arquivos` |
 | cge_agendador | Celery Beat, agenda em arquivo | `cge_celery_agenda` |

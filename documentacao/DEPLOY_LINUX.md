@@ -8,11 +8,11 @@ Este documento é o plano. Nenhuma etapa abaixo deve ser executada sem autoriza�
 NOTEBOOK → GITHUB → RELEASE VERSIONADA → SERVIDOR LINUX → DOCKER COMPOSE
 ```
 
-Não desenvolver no servidor. O diretório previsto continua `/max/auditoria_cge`. A porta HTTP prevista continua `8003`. Não usar `8001`, `8002` nem `8443`. Não alterar `/max/portas.txt`, Portainer dos outros stacks, nem outro diretório em `/max`.
+Não desenvolver no servidor. O diretório previsto continua `/max/auditoria_cge`. A porta técnica continua `8003`. O acesso oficial é `https://cge.datapedia.ia.br`, no Nginx do host, que já ocupa 80 e 443. Não abrir outro processo nessas portas. Não usar `8001`, `8002` nem `8443`. Não alterar Portainer nem os sites dos outros sistemas.
 
 ## O que conferir no servidor, quando autorizado
 
-Sistema, disco, memória, Docker Engine, plugin Compose, a porta 8003 livre e permissão de escrita em `/max/auditoria_cge`. Não há domínio nem certificado definidos. O acesso inicial, se autorizado, é HTTP na rede permitida: `http://<servidor>:8003/`. HTTPS fica para quando existirem nome e certificado; não inventar nenhum dos dois.
+Sistema, disco, memória, Docker Engine, plugin Compose, a porta 8003 e permissão de escrita em `/max/auditoria_cge`. O nome público em uso é `cge.datapedia.ia.br`. O certificado e o proxy estão descritos em `HTTPS_DNS.md`.
 
 ## Instalação, quando autorizada
 

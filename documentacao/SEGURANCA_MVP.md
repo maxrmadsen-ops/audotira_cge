@@ -10,7 +10,7 @@ O notebook pode usar `DEBUG=True` e HTTP em `127.0.0.1:8080`.
 
 O Linux usa `DEBUG=False`. `ALLOWED_HOSTS` e `CSRF_TRUSTED_ORIGINS` recebem o endereço real de acesso, sem curinga. `SECRET_KEY` e `DB_PASSWORD` são novas e diferentes das do notebook.
 
-`COOKIES_SEGUROS` fica `false` enquanto não houver HTTPS. Ligá-lo em HTTP impede o navegador de enviar o cookie de sessão. `BEHIND_PROXY=true` no Linux faz o Django honrar `X-Forwarded-Proto` enviado pelo Nginx. Não há redirecionamento forçado para HTTPS nem HSTS, porque não há domínio nem certificado fornecidos.
+No Linux homologado, o acesso oficial é `https://cge.datapedia.ia.br`. `COOKIES_SEGUROS=true` e `BEHIND_PROXY=true`. O Nginx do host termina o TLS e envia `X-Forwarded-Proto: https`. O cookie de sessão é Secure, HttpOnly e SameSite Lax. HSTS permanece desligado. A porta 8003 continua técnica; com cookie Secure, o login oficial é o HTTPS. O certificado não entra no Git. O procedimento está em `HTTPS_DNS.md`.
 
 ## Rede
 

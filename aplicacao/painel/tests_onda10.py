@@ -39,6 +39,20 @@ class TesteReleaseOnda10(SimpleTestCase):
         self.assertNotIn("sk-", texto)
         self.assertNotIn("Bearer ", texto)
 
+    def test_nginx_resolve_o_nome_do_web(self):
+        texto = (RAIZ / "nginx/nginx.conf").read_text(encoding="utf-8")
+        self.assertIn("resolver 127.0.0.11", texto)
+        self.assertIn("set $cge_upstream cge_web;", texto)
+        self.assertIn("proxy_pass http://$cge_upstream:8000;", texto)
+        self.assertNotIn("proxy_pass http://cge_web:8000;", texto)
+
+    def test_proxy_e_cookie_same_site(self):
+        from aplicacao.configuracao.settings import CSRF_COOKIE_SAMESITE, SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE
+
+        self.assertTrue(SESSION_COOKIE_HTTPONLY)
+        self.assertEqual(SESSION_COOKIE_SAMESITE, "Lax")
+        self.assertEqual(CSRF_COOKIE_SAMESITE, "Lax")
+
     def test_entrada_usa_a_onda_corrente(self):
         resposta = self.client.get("/entrar/")
         self.assertEqual(resposta.status_code, 200)
