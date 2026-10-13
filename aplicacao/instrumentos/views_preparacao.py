@@ -34,7 +34,6 @@ from aplicacao.instrumentos.preparacao import (
 from aplicacao.instrumentos.servico import termo_do_documento
 from aplicacao.instrumentos.esquema_partes import ROTULO_UNIDADE, confirmar_parte, corrigir_atributo_parte, montar_unidades
 from aplicacao.instrumentos.base_normativa import montar_linhas, receber_documento, validar_referencia
-from aplicacao.instrumentos.enriquecimento import enriquecer_instrumento
 from aplicacao.instrumentos.estruturacao_partes import estruturar_partes
 from aplicacao.instrumentos.unidade_identificacao import confirmar_identificacao, corrigir_atributo_identificacao
 from aplicacao.instrumentos.unidade_objeto import (
@@ -103,8 +102,6 @@ class PreparacaoAnaliseView(_PreparacaoMixin, View):
 class InstrumentoParceriaView(_PreparacaoMixin, View):
     def get(self, request, pk):
         prestacao = self._prestacao(request, pk)
-        if pode_atuar_na_prestacao(request.user, prestacao):
-            self._enriquecer(request, prestacao)
         return render(request, "instrumentos/instrumento.html", self._contexto(request, prestacao))
 
     def post(self, request, pk):
@@ -342,38 +339,6 @@ class InstrumentoParceriaView(_PreparacaoMixin, View):
                 "modalidade": "individual",
                 "justificativa": campo.observacao,
             },
-        )
-
-    def _enriquecer(self, request, prestacao):
-        preparacao = obter_preparacao(prestacao)
-        documento = preparacao.documento
-        termo = termo_do_documento(documento) if documento else None
-        if termo is None or termo.congelado:
-            return
-        try:
-            resumo = enriquecer_instrumento(termo)
-        except (TermoCongelado, ValueError) as exc:
-            messages.error(request, str(exc))
-            return
-        if not resumo or not resumo.get("aceitos"):
-            return
-        registrar_evento(
-            evento=RegistroAuditoria.Evento.CHAMADA_IA,
-            descricao="Estruturação automática dos atributos do instrumento a partir do texto do documento",
-            usuario=request.user,
-            endereco_ip=obter_ip(request),
-            caminho=request.path,
-            detalhes={
-                "documento": documento.pk,
-                "prestacao": preparacao.prestacao_id,
-                "versao": termo.versao,
-                "aceitos": [item.get("chave") for item in resumo["aceitos"]],
-                "rejeitados": len(resumo.get("rejeitados") or []),
-            },
-        )
-        messages.success(
-            request,
-            f"{len(resumo['aceitos'])} atributos foram estruturados a partir do documento. A conferência humana continua obrigatória.",
         )
 
     def _estruturar_partes(self, request, preparacao):

@@ -87,7 +87,7 @@
     <div class="cartao-cabeca">
         <div>
             <h2 class="h5">Conferência das informações</h2>
-            <p class="ajuda-contextual" id="ajuda-conferencia">Os contadores são só desta validação documental. Ao abrir esta tela, o modelo estrutura os atributos ainda vazios ou truncados quando a integração está configurada. A confirmação continua humana. Correção, ausência, validação anterior e divergência aritmética não entram na confirmação em lote.</p>
+            <p class="ajuda-contextual" id="ajuda-conferencia">Os contadores são só desta validação documental. Abrir esta tela apenas consulta os dados já gravados. O modelo só é chamado pelo botão de estruturação. A confirmação continua humana. Correção, ausência, validação anterior e divergência aritmética não entram na confirmação em lote.</p>
         </div>
         {% if pode_alterar and not termo.congelado %}
             <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#lote-instrumento" aria-describedby="ajuda-conferencia" {% if not elegiveis %}disabled{% endif %}>Confirmar todos os elegíveis</button>

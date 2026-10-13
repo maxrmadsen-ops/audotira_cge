@@ -44,6 +44,7 @@ FONTES = (
     "aplicacao/instrumentos/unidade_identificacao.py",
     "aplicacao/instrumentos/enriquecimento.py",
     "aplicacao/instrumentos/base_normativa.py",
+    "aplicacao/prestacoes_contas/migracao_seletiva.py",
 )
 
 
@@ -230,6 +231,18 @@ class TestePreparacaoInstrumento(TestCase):
             texto = (raiz / relativo).read_text(encoding="utf-8")
             for marca in PROIBIDOS:
                 self.assertNotIn(marca, texto, f"{relativo} contém {marca}")
+
+    def test_abertura_consulta_dados_e_nao_chama_modelo(self):
+        import inspect
+
+        from aplicacao.instrumentos.views_preparacao import InstrumentoParceriaView
+
+        self._processar()
+        self.assertNotIn("enriquecer_instrumento", inspect.getsource(InstrumentoParceriaView.get))
+        pagina = self.client.get(reverse("instrumentos:instrumento", kwargs={"pk": self.prestacao.pk}))
+        self.assertEqual(pagina.status_code, 200)
+        self.assertContains(pagina, "apenas consulta os dados já gravados")
+        self.assertContains(pagina, "Estruturar atributos com o modelo")
 
     def _conferir_unidades(self, termo, usuario):
         from aplicacao.instrumentos.esquema_partes import confirmar_parte
