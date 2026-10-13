@@ -6,19 +6,38 @@ from django.views import View
 
 from aplicacao.auditoria.models import RegistroAuditoria
 from aplicacao.auditoria.servicos import registrar_evento
-from aplicacao.pareceres.escolhas import AcaoRevisaoPreAnalise
-from aplicacao.pareceres.models import AfirmacaoPreAnalise, PreAnaliseTecnica
+from aplicacao.pareceres.escolhas import AcaoRevisaoPreAnalise, StatusParecerFinal
+from aplicacao.pareceres.models import AfirmacaoPreAnalise, ParecerFinal, PreAnaliseTecnica
+from aplicacao.pareceres.parecer_final import (
+    aproveitar_sugestao,
+    finalizar_parecer,
+    obter_ou_criar_parecer,
+    registrar_sugestao_ia,
+    salvar_texto_analista,
+)
 from aplicacao.pareceres.revisao import ErroConcorrencia, ErroRevisaoPreAnalise, congelar, revisar_afirmacao
 from aplicacao.pareceres.tarefas import gerar_pre_analise_task
 from aplicacao.prestacoes_contas.models import PrestacaoContas
-from aplicacao.usuarios.acesso import pode_consultar, pode_executar_analise, pode_validar_analise
+from aplicacao.usuarios.acesso import (
+    exigir_atuar_na_prestacao,
+    exigir_ver_prestacao,
+    pode_atuar_na_prestacao,
+    pode_consultar,
+    pode_executar_analise,
+    pode_validar_analise,
+    prestacoes_visiveis,
+)
 
 
 class ListaPreAnalisesView(LoginRequiredMixin, View):
     def get(self, request):
         if not pode_consultar(request.user):
             return redirect("painel:entrar")
-        consulta = PreAnaliseTecnica.objects.select_related("prestacao_contas", "solicitada_por", "modelo_inteligencia_artificial")
+        consulta = PreAnaliseTecnica.objects.select_related(
+            "prestacao_contas",
+            "solicitada_por",
+            "modelo_inteligencia_artificial",
+        ).filter(prestacao_contas__in=prestacoes_visiveis(request.user))
         prestacao = request.GET.get("prestacao", "").strip()
         if prestacao:
             consulta = consulta.filter(prestacao_contas__numero_processo__icontains=prestacao)
@@ -33,10 +52,16 @@ class DetalhePreAnaliseView(LoginRequiredMixin, View):
     def get(self, request, pk):
         if not pode_consultar(request.user):
             return redirect("painel:entrar")
+        pre = get_object_or_404(
+            PreAnaliseTecnica.objects.select_related("prestacao_contas"),
+            pk=pk,
+        )
+        exigir_ver_prestacao(request.user, pre.prestacao_contas)
         return render(request, "pareceres/detalhe.html", _contexto(request, pk))
 
     def post(self, request, pk):
         pre = get_object_or_404(PreAnaliseTecnica, pk=pk)
+        exigir_ver_prestacao(request.user, pre.prestacao_contas)
         acao = request.POST.get("acao", "")
         try:
             if acao == AcaoRevisaoPreAnalise.CONGELAR:
@@ -47,6 +72,7 @@ class DetalhePreAnaliseView(LoginRequiredMixin, View):
             elif acao in {AcaoRevisaoPreAnalise.ACEITAR, AcaoRevisaoPreAnalise.AJUSTAR, AcaoRevisaoPreAnalise.REJEITAR}:
                 if not pode_executar_analise(request.user):
                     return HttpResponseForbidden("Perfil sem permissão para revisar a pré-análise.")
+                exigir_atuar_na_prestacao(request.user, pre.prestacao_contas)
                 afirmacao = get_object_or_404(AfirmacaoPreAnalise, pk=request.POST.get("afirmacao"), secao__pre_analise=pre)
                 revisar_afirmacao(
                     pre,
@@ -133,3 +159,72 @@ def _contexto(request, pk):
         "quantidade_achados": pre.execucao_analise.achados.count(),
         "quantidade_regras": pre.execucao_analise.execucoes.count(),
     }
+
+
+class ParecerFinalView(LoginRequiredMixin, View):
+    """Tela com sugestão IA, texto do analista e versão final — separados."""
+
+    def get(self, request, prestacao_pk):
+        prestacao = get_object_or_404(PrestacaoContas, pk=prestacao_pk)
+        exigir_ver_prestacao(request.user, prestacao)
+        parecer = ParecerFinal.objects.filter(prestacao=prestacao).order_by("-versao").first()
+        pode_atuar = pode_atuar_na_prestacao(request.user, prestacao)
+        return render(
+            request,
+            "pareceres/parecer_final.html",
+            {
+                "prestacao": prestacao,
+                "parecer": parecer,
+                "pode_atuar": pode_atuar,
+                "historico": list(parecer.historico.select_related("usuario")[:30]) if parecer else [],
+                "versoes": list(ParecerFinal.objects.filter(prestacao=prestacao).order_by("-versao")[:20]),
+            },
+        )
+
+    def post(self, request, prestacao_pk):
+        prestacao = get_object_or_404(PrestacaoContas, pk=prestacao_pk)
+        exigir_atuar_na_prestacao(request.user, prestacao)
+        acao = (request.POST.get("acao") or "").strip()
+        parecer = obter_ou_criar_parecer(prestacao=prestacao, usuario=request.user)
+        try:
+            if acao == "registrar_sugestao":
+                registrar_sugestao_ia(
+                    parecer=parecer,
+                    usuario=request.user,
+                    texto=request.POST.get("sugestao_ia", ""),
+                    request=request,
+                )
+                messages.success(request, "Sugestão de apoio registrada (não é decisão administrativa).")
+            elif acao == "aproveitar_integral":
+                aproveitar_sugestao(parecer=parecer, usuario=request.user, parcial=False, request=request)
+                messages.success(request, "Sugestão copiada para o texto do analista. Revise antes de finalizar.")
+            elif acao == "aproveitar_parcial":
+                aproveitar_sugestao(parecer=parecer, usuario=request.user, parcial=True, request=request)
+                messages.success(request, "Sugestão acrescentada ao texto do analista.")
+            elif acao == "salvar_analista":
+                salvar_texto_analista(
+                    parecer=parecer,
+                    usuario=request.user,
+                    texto=request.POST.get("texto_analista", ""),
+                    request=request,
+                )
+                messages.success(request, "Texto do analista salvo.")
+            elif acao == "finalizar":
+                finalizar_parecer(
+                    parecer=parecer,
+                    usuario=request.user,
+                    texto_final=request.POST.get("texto_final"),
+                    request=request,
+                )
+                messages.success(request, "Versão final consolidada pelo analista.")
+            elif acao == "nova_versao":
+                if parecer.status == StatusParecerFinal.FINALIZADO:
+                    obter_ou_criar_parecer(prestacao=prestacao, usuario=request.user)
+                    messages.success(request, "Nova versão de parecer aberta.")
+                else:
+                    messages.info(request, "Já existe versão em elaboração.")
+            else:
+                messages.error(request, "Ação não reconhecida.")
+        except ValueError as erro:
+            messages.error(request, str(erro))
+        return redirect("pareceres:parecer_final", prestacao_pk=prestacao.pk)

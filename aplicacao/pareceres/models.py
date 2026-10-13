@@ -5,6 +5,7 @@ from aplicacao.pareceres.escolhas import (
     AcaoRevisaoPreAnalise,
     EncaminhamentoPreAnalise,
     OrigemConteudo,
+    StatusParecerFinal,
     StatusPreAnalise,
     StatusValidacaoAfirmacao,
     TipoAfirmacao,
@@ -201,3 +202,76 @@ class RevisaoPreAnalise(models.Model):
         verbose_name = "revisão da pré-análise"
         verbose_name_plural = "revisões da pré-análise"
         ordering = ["-data_hora"]
+
+
+class ParecerFinal(models.Model):
+    """Parecer final do analista. A sugestão de IA nunca é decisão administrativa."""
+
+    prestacao = models.ForeignKey(
+        "prestacoes_contas.PrestacaoContas",
+        verbose_name="prestação de contas",
+        on_delete=models.PROTECT,
+        related_name="pareceres_finais",
+    )
+    versao = models.PositiveIntegerField("versão", default=1)
+    status = models.CharField(
+        "status",
+        max_length=20,
+        choices=StatusParecerFinal.choices,
+        default=StatusParecerFinal.RASCUNHO,
+    )
+    sugestao_ia = models.TextField("sugestão produzida pelo sistema/IA", blank=True)
+    texto_analista = models.TextField("versão elaborada pelo analista", blank=True)
+    texto_final = models.TextField("versão final", blank=True)
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="autor",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="pareceres_finais",
+    )
+    sugestao_gerada_em = models.DateTimeField("sugestão gerada em", null=True, blank=True)
+    elaborada_em = models.DateTimeField("elaborada em", null=True, blank=True)
+    finalizada_em = models.DateTimeField("finalizada em", null=True, blank=True)
+    demonstracao = models.BooleanField("demonstração", default=False)
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+    atualizado_em = models.DateTimeField("atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "parecer final"
+        verbose_name_plural = "pareceres finais"
+        ordering = ["-versao", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["prestacao", "versao"], name="parecer_final_versao_unica"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Parecer {self.prestacao_id} v{self.versao}"
+
+
+class HistoricoParecerFinal(models.Model):
+    parecer = models.ForeignKey(
+        ParecerFinal,
+        verbose_name="parecer",
+        on_delete=models.CASCADE,
+        related_name="historico",
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="usuário",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="historicos_parecer_final",
+    )
+    acao = models.CharField("ação", max_length=40)
+    texto_anterior = models.TextField("texto anterior", blank=True)
+    texto_posterior = models.TextField("texto posterior", blank=True)
+    observacao = models.TextField("observação", blank=True)
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "histórico do parecer final"
+        verbose_name_plural = "históricos do parecer final"
+        ordering = ["-criado_em", "-id"]

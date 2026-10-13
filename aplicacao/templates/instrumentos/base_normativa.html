@@ -1,0 +1,82 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Base normativa · CGE{% endblock %}
+{% block conteudo %}
+<div class="pagina-instrumento">
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / <a href="{% url 'instrumentos:preparacao' prestacao.pk %}">Preparação da análise</a>
+    / Base normativa
+</p>
+<h1 class="h3">Base Normativa</h1>
+<p class="small mb-2"><strong>Piloto: revisão humana obrigatória.</strong> A vigência não verificada não autoriza uso conclusivo da norma.</p>
+{% include "instrumentos/_navegacao_processo.html" %}
+
+<article class="cartao mb-3">
+    <div class="cartao-cabeca">
+        <div>
+            <h2 class="h5">Referências normativas identificadas no Instrumento da Parceria</h2>
+            <p class="ajuda-contextual">A lista vem das referências já extraídas do instrumento. O modelo não preenche o texto de uma norma ausente.</p>
+        </div>
+    </div>
+    <h3 class="h6">Documentos normativos necessários</h3>
+    {% if linhas %}
+    <div class="table-responsive">
+        <table class="table tabela-cge">
+            <thead>
+                <tr>
+                    <th>Norma</th>
+                    <th>Referência</th>
+                    <th>Documento disponível</th>
+                    <th>Vigência</th>
+                    <th>Situação</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in linhas %}
+                <tr>
+                    <td>{{ linha.nome }}</td>
+                    <td>
+                        {{ linha.texto }}
+                        {% if linha.trecho %}<div class="small">Origem: {{ linha.trecho }}</div>{% endif %}
+                    </td>
+                    <td>{{ linha.documento }}</td>
+                    <td>{{ linha.vigencia }}</td>
+                    <td>{{ linha.situacao }}</td>
+                    <td>
+                        {% if linha.norma and linha.norma.arquivo %}
+                        <a href="{% url 'normas:arquivo' linha.norma.pk %}">Visualizar documento</a>
+                        {% endif %}
+                        {% if pode_alterar and linha.documento == "Ausente" %}
+                        <form method="post" enctype="multipart/form-data" class="mt-1">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="enviar_documento">
+                            <input type="hidden" name="referencia" value="{{ linha.referencia.pk }}">
+                            <label class="form-label" for="arquivo-{{ linha.referencia.pk }}">Enviar documento</label>
+                            <input class="form-control form-control-sm" id="arquivo-{{ linha.referencia.pk }}" type="file" name="arquivo" accept="application/pdf" required>
+                            <button class="btn btn-outline-primary btn-sm mt-1" type="submit">Enviar documento</button>
+                        </form>
+                        {% endif %}
+                        {% if pode_alterar and linha.situacao != "Validado" and linha.documento == "Disponível" %}
+                        <form method="post" class="mt-1">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="validar">
+                            <input type="hidden" name="referencia" value="{{ linha.referencia.pk }}">
+                            <button class="btn btn-outline-primary btn-sm" type="submit">Validar norma</button>
+                        </form>
+                        {% endif %}
+                        {% if linha.norma %}
+                        <a class="d-block" href="{% url 'normas:detalhe' linha.norma.pk %}">Consultar vigência</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>Nenhuma referência normativa identificada no instrumento.</p>
+    {% endif %}
+</article>
+</div>
+{% endblock %}

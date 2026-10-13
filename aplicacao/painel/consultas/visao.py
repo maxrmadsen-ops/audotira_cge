@@ -160,14 +160,15 @@ def descrever_campos(aba: str, filtros: FiltrosPainel, opcoes: dict) -> list[dic
     return campos
 
 
-def opcoes_de_filtro(aba: str, origem: str = "") -> dict:
+def opcoes_de_filtro(aba: str, origem: str = "", usuario=None, filtros: FiltrosPainel | None = None) -> dict:
     from aplicacao.entidades.models import Entidade
     from aplicacao.regras.escolhas import TipoExecucaoTecnica
     from aplicacao.inteligencia_artificial.escolhas import ProvedorIA
-    from aplicacao.inteligencia_artificial.models import ModeloInteligenciaArtificial, UsoInteligenciaArtificial
+    from aplicacao.inteligencia_artificial.models import ModeloInteligenciaArtificial
     from aplicacao.pareceres.escolhas import StatusPreAnalise
     from aplicacao.prestacoes_contas.models import PrestacaoContas
     from aplicacao.regras.models import RegraAnalise
+    from aplicacao.usuarios.acesso import prestacoes_visiveis
     from aplicacao.usuarios.models import Usuario
 
     situacoes = {
@@ -176,28 +177,40 @@ def opcoes_de_filtro(aba: str, origem: str = "") -> dict:
         "achados": StatusAchado.choices,
         "pre_analise": StatusPreAnalise.choices,
     }.get(aba, SituacaoPrestacao.choices)
-    prestacoes = PrestacaoContas.objects.order_by("numero_processo")
-    if origem == "demonstracao":
-        prestacoes = prestacoes.filter(demonstracao=True)
-    elif origem == "operacional":
-        prestacoes = prestacoes.filter(demonstracao=False)
+    base_filtros = filtros or FiltrosPainel(origem=origem)
+    if usuario is not None and base_filtros.ids_prestacao is None:
+        from aplicacao.painel.consultas.escopo import filtros_com_escopo
+
+        base_filtros = filtros_com_escopo(usuario, base_filtros.alterar(origem=origem or base_filtros.origem))
+    elif origem and not base_filtros.origem:
+        base_filtros = base_filtros.alterar(origem=origem)
+
+    if usuario is not None:
+        prestacoes_qs = prestacoes_visiveis(usuario, PrestacaoContas.objects.all())
+    else:
+        prestacoes_qs = PrestacaoContas.objects.all()
+    if base_filtros.origem == "demonstracao":
+        prestacoes_qs = prestacoes_qs.filter(demonstracao=True)
+    elif base_filtros.origem == "operacional":
+        prestacoes_qs = prestacoes_qs.filter(demonstracao=False)
+    prestacoes_qs = prestacoes_qs.order_by("numero_processo")
     return {
         "situacoes": situacoes,
-        "prestacoes": list(prestacoes.values_list("id", "numero_processo")[:300]),
-        "concedentes": list(Entidade.objects.filter(prestacoes_como_concedente__isnull=False).order_by("nome").distinct().values_list("id", "nome")[:200]),
-        "beneficiarios": list(Entidade.objects.filter(prestacoes_como_beneficiario__isnull=False).order_by("nome").distinct().values_list("id", "nome")[:200]),
+        "prestacoes": list(prestacoes_qs.values_list("id", "numero_processo")[:300]),
+        "concedentes": list(Entidade.objects.filter(prestacoes_como_concedente__in=prestacoes_qs).order_by("nome").distinct().values_list("id", "nome")[:200]),
+        "beneficiarios": list(Entidade.objects.filter(prestacoes_como_beneficiario__in=prestacoes_qs).order_by("nome").distinct().values_list("id", "nome")[:200]),
         "instrumentos": TipoInstrumento.choices,
         "criticidades": Criticidade.choices,
         "naturezas": NaturezaAchado.choices,
-        "categorias": list(achados(FiltrosPainel()).exclude(categoria="").order_by("categoria").values_list("categoria", flat=True).distinct()[:80]),
+        "categorias": list(achados(base_filtros).exclude(categoria="").order_by("categoria").values_list("categoria", flat=True).distinct()[:80]),
         "tipos_documento": TipoDocumento.choices,
         "regras": list(RegraAnalise.objects.order_by("codigo").values_list("id", "codigo")[:120]),
         "categorias_regra": list(RegraAnalise.objects.exclude(categoria="").order_by("categoria").values_list("categoria", flat=True).distinct()),
         "tipos_execucao": TipoExecucaoTecnica.choices,
-        "agentes": list(UsoInteligenciaArtificial.objects.exclude(agente="").order_by("agente").values_list("agente", flat=True).distinct()[:80]),
+        "agentes": list(usos(base_filtros).exclude(agente="").order_by("agente").values_list("agente", flat=True).distinct()[:80]),
         "modelos": list(ModeloInteligenciaArtificial.objects.order_by("nome_exibicao").values_list("id", "nome_exibicao")[:80]),
         "provedores": ProvedorIA.choices,
-        "responsaveis": list(Usuario.objects.order_by("username").values_list("id", "username")[:200]),
+        "responsaveis": list(Usuario.objects.filter(perfil=Usuario.Perfil.ANALISTA).order_by("username").values_list("id", "username")[:200]),
         "origens": [("demonstracao", "Somente demonstração"), ("operacional", "Somente operacionais")],
     }
 

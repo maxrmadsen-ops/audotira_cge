@@ -77,7 +77,7 @@ class StatusCampo(models.TextChoices):
     EXTRAIDO = "extraido", "Extraído"
     AGUARDANDO = "aguardando_validacao", "Pendente de validação"
     VALIDADO = "validado", "Validado"
-    CORRIGIDO = "corrigido", "Corrigido pelo humano"
+    CORRIGIDO = "corrigido", "Corrigido pelo analista"
     NAO_IDENTIFICADO = "nao_identificado", "Não identificado"
     REJEITADO = "rejeitado", "Rejeitado"
 
@@ -86,3 +86,13 @@ class StatusCorrespondenciaNorma(models.TextChoices):
     NAO_CONFRONTADA = "nao_confrontada", "Não confrontada com o catálogo"
     CORRESPONDENTE = "correspondente", "Correspondente"
     SEM_CORRESPONDENCIA = "sem_correspondencia", "Sem correspondência no catálogo"
+
+
+class EstadoPreparacao(models.TextChoices):
+    NAO_INICIADO = "nao_iniciado", "Não iniciado"
+    EM_PROCESSAMENTO = "em_processamento", "Em processamento"
+    EXTRACAO_CONCLUIDA = "extracao_concluida", "Extração concluída"
+    AGUARDANDO_VALIDACAO = "aguardando_validacao", "Aguardando validação"
+    VALIDADO = "validado", "Validado"
+    REQUER_ATENCAO = "requer_atencao", "Requer atenção"
+    ERRO = "erro", "Erro"

@@ -30,6 +30,22 @@ class RegistroAuditoria(models.Model):
         CONSULTA_NORMATIVA = "consulta_normativa", "Consulta normativa"
         GROUND_TRUTH = "ground_truth", "Ground Truth"
         AVALIACAO_IA = "avaliacao_ia", "Avaliação IA × técnico"
+        ATRIBUICAO_PROCESSO = "atribuicao_processo", "Atribuição de processo"
+        REDISTRIBUICAO_PROCESSO = "redistribuicao_processo", "Redistribuição de processo"
+        MUDANCA_USUARIO = "mudanca_usuario", "Mudança de usuário"
+        MUDANCA_PERFIL = "mudanca_perfil", "Mudança de perfil"
+        ABERTURA_DILIGENCIA = "abertura_diligencia", "Abertura de diligência"
+        ALTERACAO_DILIGENCIA = "alteracao_diligencia", "Alteração de diligência"
+        ELABORACAO_PARECER = "elaboracao_parecer", "Elaboração de parecer"
+        INSTRUMENTO_SELECIONADO = "instrumento_selecionado", "Instrumento selecionado"
+        INSTRUMENTO_PROCESSADO = "instrumento_processado", "Instrumento processado"
+        INSTRUMENTO_CLASSIFICADO = "instrumento_classificado", "Instrumento classificado"
+        CAMPO_CONFIRMADO = "campo_confirmado", "Campo confirmado"
+        CAMPO_CORRIGIDO = "campo_corrigido", "Campo corrigido"
+        CAMPO_NAO_IDENTIFICADO = "campo_nao_identificado", "Campo não identificado"
+        VALIDACAO_INSTRUMENTO_CONCLUIDA = "validacao_instrumento_concluida", "Validação do instrumento concluída"
+        VALIDACAO_INSTRUMENTO_REABERTA = "validacao_instrumento_reaberta", "Validação do instrumento reaberta"
+        INSTRUMENTO_REPROCESSADO = "instrumento_reprocessado", "Instrumento reprocessado"
 
     data_hora = models.DateTimeField("data e hora", auto_now_add=True, db_index=True)
     usuario = models.ForeignKey(

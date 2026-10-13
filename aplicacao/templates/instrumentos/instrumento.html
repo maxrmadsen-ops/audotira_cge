@@ -1,0 +1,719 @@
+{% extends "base_autenticado.html" %}
+{% load instrumentos_extras %}
+{% block titulo %}Instrumento da parceria · CGE{% endblock %}
+{% block conteudo %}
+<div class="pagina-instrumento">
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / <a href="{% url 'instrumentos:preparacao' prestacao.pk %}">Preparação da análise</a>
+    / Instrumento da parceria
+</p>
+<h1 class="h3">Instrumento da Parceria</h1>
+<p class="small mb-2"><strong>Piloto: revisão humana obrigatória.</strong> Durante o piloto, os instrumentos são submetidos e validados manualmente.</p>
+
+<div class="topo-instrumento">
+    <div class="topo-macros">
+        {% include "instrumentos/_navegacao_processo.html" %}
+    </div>
+    <aside class="cartao instrumento-analise" aria-label="Instrumento em análise">
+        <h2 class="h6">Instrumento em análise</h2>
+        <p class="mb-1"><strong>{% if termo %}{{ termo.identificacao_completa|default:"Instrumento em conferência" }}{% else %}Ainda não processado{% endif %}</strong></p>
+        <p class="small mb-1">{% if documento %}{{ documento.nome_original }}{% else %}Nenhum documento selecionado.{% endif %}</p>
+        <p class="small mb-1">{% if termo %}Versão {{ termo.versao }}{% else %}Sem versão{% endif %}</p>
+        <p class="small mb-1">Processamento: {{ preparacao.get_estado_display }}</p>
+        <p class="small mb-2">Validação: {% if termo %}{{ termo.get_status_validacao_display }}{% else %}Ainda sem extração{% endif %}</p>
+        <p class="ajuda-contextual" id="ajuda-documento">Visualizar PDF abre o arquivo armazenado. Gerenciar documento reúne seleção, envio e reprocessamento, sem apagar versão congelada.</p>
+        <div class="acoes-documento">
+            {% if documento %}
+                <a class="btn btn-primary btn-sm" href="{% url 'documentos:arquivo' documento.pk %}" target="_blank" rel="noopener">Visualizar PDF</a>
+            {% else %}
+                <button class="btn btn-primary btn-sm" type="button" disabled>Visualizar PDF</button>
+            {% endif %}
+            {% if pode_preparar %}
+                <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#gerir-documento" aria-describedby="ajuda-documento">Gerenciar documento</button>
+            {% endif %}
+        </div>
+        {% if preparacao.mensagem %}<p class="small mt-2 mb-0" role="status">{{ preparacao.mensagem }}</p>{% endif %}
+    </aside>
+</div>
+
+{% if termo %}
+<article class="cartao validacao-faixa mb-3" aria-label="Validação do Instrumento da Parceria">
+    <div class="validacao-corpo">
+        <h2 class="h5">Validação do Instrumento da Parceria</h2>
+        <p class="ajuda-contextual">Estes números são só desta atividade. Campo não identificado não conta como validado. Concluir encerra só o Passo 1. A preparação da análise não fica integralmente concluída. A prestação de contas não é concluída.</p>
+        <div class="filtros-progresso" role="group" aria-label="Filtrar a validação do instrumento">
+            <button class="filtro-progresso" type="button" data-filtro-botao="todos" aria-pressed="{% if filtro_ativo == 'todos' %}true{% else %}false{% endif %}">Total de unidades <strong>{{ resumo.total }}</strong></button>
+            <button class="filtro-progresso" type="button" data-filtro-botao="revisados" aria-pressed="{% if filtro_ativo == 'revisados' %}true{% else %}false{% endif %}">Unidades revisadas <strong>{{ resumo.revisados }}</strong></button>
+            <button class="filtro-progresso" type="button" data-filtro-botao="pendentes" aria-pressed="{% if filtro_ativo == 'pendentes' %}true{% else %}false{% endif %}">Unidades pendentes <strong>{{ resumo.pendentes }}</strong></button>
+            <button class="filtro-progresso" type="button" data-filtro-botao="ausentes" aria-pressed="{% if filtro_ativo == 'ausentes' %}true{% else %}false{% endif %}">Campos não identificados <strong>{{ resumo.nao_identificadas }}</strong></button>
+            <button class="filtro-progresso" type="button" data-filtro-botao="divergentes" aria-pressed="{% if filtro_ativo == 'divergentes' %}true{% else %}false{% endif %}">Divergências <strong>{{ resumo.divergencias }}</strong></button>
+        </div>
+        <div class="trilho-progresso" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ resumo.percentual }}" aria-label="Progresso de campos revisados. Não identificados não contam como validados.">
+            <span style="width: {{ resumo.percentual }}%"></span>
+        </div>
+        <p class="small mb-0">{{ resumo.revisados }} de {{ resumo.total }} unidades revisadas. Não identificados não contam como validados.</p>
+        <p class="small mb-0">Atributos técnicos extraídos: {{ resumo.atributos }}. Eles ficam no detalhe da cláusula e não entram neste progresso.</p>
+    </div>
+    <div class="validacao-conclusao">
+        {% if termo.congelado %}
+            <p class="mb-1"><strong>Instrumento validado</strong></p>
+            <p class="small mb-1">{% if termo.validado_por %}{{ termo.validado_por }}{% else %}Responsável não registrado{% endif %}{% if termo.validado_em %} em {{ termo.validado_em|date:"d/m/Y H:i" }}{% endif %}</p>
+            <p class="small mb-2">Versão {{ termo.versao }}. A preparação da análise e a prestação de contas não foram encerradas.</p>
+            {% if pode_preparar %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="reabrir">
+                <button class="btn btn-outline-primary btn-sm" type="submit">Reabrir validação</button>
+            </form>
+            {% endif %}
+        {% elif pode_preparar %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="concluir">
+                {% if resumo.nao_identificadas %}
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="checkbox" name="ciente_ausencias" value="1" id="ciente-ausencias" required>
+                    <label class="form-check-label" for="ciente-ausencias">Estou ciente das informações não identificadas.</label>
+                </div>
+                {% endif %}
+                <p class="ajuda-contextual" id="ajuda-conclusao">{% if resumo.pendentes %}Ainda há campos pendentes. A conclusão permanece indisponível.{% else %}Esta ação encerra só a validação do instrumento. A prestação de contas não é concluída.{% endif %}</p>
+                <button class="btn btn-primary btn-sm" type="submit" aria-describedby="ajuda-conclusao" {% if resumo.pendentes %}disabled{% endif %}>Concluir validação do instrumento</button>
+            </form>
+        {% endif %}
+    </div>
+</article>
+<article class="cartao mb-3" aria-label="Conferência das informações">
+    <div class="cartao-cabeca">
+        <div>
+            <h2 class="h5">Conferência das informações</h2>
+            <p class="ajuda-contextual" id="ajuda-conferencia">Os contadores são só desta validação documental. Ao abrir esta tela, o modelo estrutura os atributos ainda vazios ou truncados quando a integração está configurada. A confirmação continua humana. Correção, ausência, validação anterior e divergência aritmética não entram na confirmação em lote.</p>
+        </div>
+        {% if pode_alterar and not termo.congelado %}
+            <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#lote-instrumento" aria-describedby="ajuda-conferencia" {% if not elegiveis %}disabled{% endif %}>Confirmar todos os elegíveis</button>
+        {% endif %}
+    </div>
+    {% if termo.congelado %}<p class="small mb-2">Versão validada. Reabra a validação para alterar campos. A versão congelada permanece.</p>{% endif %}
+    {% for grupo in grupos_conferencia %}
+        <details class="grupo-conferencia {{ grupo.classe }}" id="grupo-{{ grupo.ancora }}" {% if grupo.ancora == grupo_aberto %}open{% endif %}>
+            <summary>
+                <span class="marca-grupo" aria-hidden="true">{{ grupo.icone }}</span>
+                <span>{% if grupo.consolidada %}{{ grupo.unidade.titulo }}{% else %}{{ grupo.titulo }}{% endif %}</span>
+                <span class="meta-grupo">{% if grupo.tipo == "identificacao" %}1 unidade | {{ grupo.revisados }} revisada | {{ grupo.pendentes }} pendente{% elif grupo.tipo == "partes" %}{{ grupo.quantidade }} unidades | {{ grupo.revisados }} revisadas | {{ grupo.pendentes }} pendentes{% elif grupo.consolidada %}1 unidade | {{ grupo.revisados }} revisada | {{ grupo.pendentes }} pendente{% else %}{{ grupo.quantidade }} campos | {{ grupo.revisados }} revisados | {{ grupo.pendentes }} pendentes{% endif %}</span>
+                {% if grupo.situacao == "Em conferência" %}<span class="mini-progresso" aria-hidden="true"><span style="width: {{ grupo.percentual }}%"></span></span>{% endif %}
+                <span class="estado-grupo">{{ grupo.situacao }}</span>
+            </summary>
+            <div class="corpo-grupo">
+                {% if grupo.tipo == "identificacao" %}
+                <p class="small mb-2">Uma unidade. A confirmação vale só para os atributos identificados. Ausência permanece sem validação.</p>
+                <section class="unidade-parte" id="campo-unidade-identificacao">
+                    <h3 class="h6 mb-1">Identificação do instrumento — {{ grupo.identificacao.identificados|length }} atributos identificados{% if grupo.identificacao.ausentes %} | {{ grupo.identificacao.ausentes|length }} informações ausentes{% endif %}</h3>
+                    <div class="table-responsive">
+                        <table class="table tabela-cge tabela-parte mb-2">
+                            <tbody>
+                                {% for linha in grupo.identificacao.linhas %}
+                                <tr id="campo-{{ linha.chave }}" {% if campo_foco == linha.chave %}data-foco="1"{% endif %}>
+                                    <th scope="row">{{ linha.rotulo }}</th>
+                                    <td class="valor-integral">{% if linha.exibicao %}{{ linha.exibicao }}{% else %}Não identificado no documento{% endif %}</td>
+                                    <td>{{ linha.situacao }}</td>
+                                    <td>
+                                        {% if pode_alterar and not termo.congelado %}
+                                        <details>
+                                            <summary>Corrigir</summary>
+                                            <form method="post">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="acao" value="corrigir_atributo_identificacao">
+                                                <input type="hidden" name="chave" value="{{ linha.chave }}">
+                                                <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                                                <input type="hidden" name="campo" value="{{ linha.chave }}">
+                                                <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                                                <label class="visually-hidden" for="valor-id-{{ linha.chave }}">Valor validado de {{ linha.rotulo }}</label>
+                                                <input class="form-control form-control-sm mb-1" id="valor-id-{{ linha.chave }}" name="valor_validado" value="{{ linha.exibicao }}">
+                                                <label class="visually-hidden" for="obs-id-{{ linha.chave }}">Justificativa de {{ linha.rotulo }}</label>
+                                                <input class="form-control form-control-sm mb-1" id="obs-id-{{ linha.chave }}" name="observacao" placeholder="Justificativa">
+                                                <button class="btn btn-outline-primary btn-sm" type="submit">Gravar correção</button>
+                                            </form>
+                                        </details>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="acoes-campo">
+                        {% if pode_alterar and not termo.congelado and grupo.identificacao.elegiveis %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="confirmar_identificacao">
+                            <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                            <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                            <p class="ajuda-contextual">Serão confirmados {{ grupo.identificacao.elegiveis|length }} atributos. Ausências não entram nesta confirmação.</p>
+                            <button class="btn btn-primary btn-sm" type="submit">Confirmar identificação</button>
+                        </form>
+                        {% elif not grupo.identificacao.elegiveis %}
+                        <p class="small mb-0">Nenhum atributo elegível. Ausências não são confirmadas.</p>
+                        {% endif %}
+                    </div>
+                    <details>
+                        <summary>Detalhes técnicos</summary>
+                        <p class="ajuda-contextual">Cada evidência permanece no trecho em que foi localizada. Trechos diferentes não são unidos.</p>
+                        {% for evidencia in grupo.identificacao.evidencias %}
+                        <article class="atributo-tecnico">
+                            <h4 class="h6">{{ evidencia.rotulos|join:", " }}</h4>
+                            <p class="small mb-1">{{ documento.nome_original }}{% if evidencia.pagina %} · página {{ evidencia.pagina }}{% else %} · origem da página não determinada{% endif %} · versão {{ grupo.identificacao.versao }} · {{ evidencia.metodo|default:"Método não registrado" }}</p>
+                            <p class="valor-integral">{% if evidencia.trecho %}{{ evidencia.trecho }}{% else %}Origem não determinada{% endif %}</p>
+                            {% if evidencia.pagina %}
+                            <a href="#origem-documento" data-origem-pagina="{{ evidencia.pagina }}" data-origem-trecho="{{ evidencia.trecho }}">Ver origem</a>
+                            {% else %}
+                            <span>Origem não determinada</span>
+                            {% endif %}
+                        </article>
+                        {% endfor %}
+                    </details>
+                </section>
+                {% elif grupo.tipo == "partes" %}
+                <p class="small mb-2">Cada parte é uma unidade. A confirmação vale só para os atributos identificados. Ausência permanece sem validação.</p>
+                {% if pode_alterar and not termo.congelado %}
+                <form method="post" class="mb-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="estruturar_partes">
+                    <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                    <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                    <p class="ajuda-contextual">O modelo só pode copiar trechos que já estão no documento. Ausência continua sem valor. Validação humana não é substituída.</p>
+                    <button class="btn btn-outline-primary btn-sm" type="submit">Estruturar atributos com o modelo</button>
+                </form>
+                {% endif %}
+                {% for unidade in grupo.unidades_parte %}
+                <section class="unidade-parte" id="campo-unidade-parte-{{ unidade.papel }}">
+                    <h3 class="h6 mb-1">{{ unidade.titulo }} — {{ unidade.identificados|length }} atributos identificados{% if unidade.ausentes %} | {{ unidade.ausentes|length }} informações ausentes{% endif %}</h3>
+                    {% if unidade.papel_registrado != unidade.titulo %}<p class="small mb-1">Papel registrado: {{ unidade.papel_registrado }}.</p>{% endif %}
+                    {% if unidade.validacao_anterior %}<p class="small mb-1">A validação anterior do nome foi preservada e não cobre os demais atributos.</p>{% endif %}
+                    <div class="table-responsive">
+                        <table class="table tabela-cge tabela-parte mb-2">
+                            <tbody>
+                                {% for linha in unidade.linhas %}
+                                <tr>
+                                    <th scope="row">{{ linha.rotulo }}</th>
+                                    <td>{% if linha.exibicao %}{% if linha.chave == "cpf" %}{{ linha.exibicao|mascarar_cpf }}{% else %}{{ linha.exibicao }}{% endif %}{% else %}Não identificado no documento{% endif %}</td>
+                                    <td>{{ linha.situacao }}</td>
+                                    <td>
+                                        {% if pode_alterar and not termo.congelado %}
+                                        <details>
+                                            <summary>Corrigir</summary>
+                                            <form method="post">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="acao" value="corrigir_atributo_parte">
+                                                <input type="hidden" name="papel" value="{{ unidade.papel }}">
+                                                <input type="hidden" name="chave" value="{{ linha.chave }}">
+                                                <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                                                <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                                                <label class="visually-hidden" for="valor-{{ unidade.papel }}-{{ linha.chave }}">Valor validado de {{ linha.rotulo }}</label>
+                                                <input class="form-control form-control-sm mb-1" id="valor-{{ unidade.papel }}-{{ linha.chave }}" name="valor_validado" value="{{ linha.exibicao }}">
+                                                <label class="visually-hidden" for="obs-{{ unidade.papel }}-{{ linha.chave }}">Justificativa de {{ linha.rotulo }}</label>
+                                                <input class="form-control form-control-sm mb-1" id="obs-{{ unidade.papel }}-{{ linha.chave }}" name="observacao" placeholder="Justificativa">
+                                                <button class="btn btn-outline-primary btn-sm" type="submit">Gravar correção</button>
+                                            </form>
+                                        </details>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="small mb-2">Logradouro, número, complemento e CEP permanecem sem valor até uma extração que os grave. O endereço exibido é o campo único já existente.</p>
+                    <div class="acoes-campo">
+                        {% if unidade.pagina %}
+                        <a href="#origem-documento" data-origem-pagina="{{ unidade.pagina }}" data-origem-trecho="{{ unidade.trecho }}">Ver documento</a>
+                        {% else %}
+                        <span>Origem não determinada</span>
+                        {% endif %}
+                        {% if pode_alterar and not termo.congelado and unidade.elegiveis %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="confirmar_parte">
+                            <input type="hidden" name="papel" value="{{ unidade.papel }}">
+                            <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                            <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                            <p class="ajuda-contextual">Serão confirmados {{ unidade.elegiveis|length }} atributos. Ausências não entram nesta confirmação.</p>
+                            <button class="btn btn-primary btn-sm" type="submit">Confirmar {{ unidade.titulo|lower }}</button>
+                        </form>
+                        {% elif not unidade.elegiveis %}
+                        <p class="small mb-0">Nenhum atributo elegível. Ausências não são confirmadas.</p>
+                        {% endif %}
+                    </div>
+                </section>
+                {% endfor %}
+                {% else %}
+                {% if grupo.consolidada %}
+                <p class="small mb-2">Uma unidade documental. {{ grupo.elegiveis|length }} elegível para lote. Os atributos técnicos ficam nas informações estruturadas.</p>
+                {% else %}
+                <p class="small mb-2">{{ grupo.ausentes }} não identificados · {{ grupo.elegiveis|length }} elegíveis para lote.</p>
+                {% endif %}
+                <p class="grupo-vazio-filtro small" hidden>Nenhum campo deste grupo corresponde ao filtro.</p>
+                {% if pode_alterar and not termo.congelado %}
+                    <button class="btn btn-outline-primary btn-sm mb-2" type="button" data-bs-toggle="modal" data-bs-target="#lote-grupo-{{ forloop.counter }}" {% if not grupo.elegiveis %}disabled{% endif %}>Confirmar elegíveis deste grupo</button>
+                {% endif %}
+                {% if grupo.consolidada %}
+                <article class="cartao-campo" id="campo-{{ grupo.unidade.nome }}" tabindex="-1" data-pendente="{% if grupo.unidade.pendente %}1{% else %}0{% endif %}" data-revisado="{% if grupo.unidade.revisada and grupo.unidade.situacao != 'Divergente' %}1{% else %}0{% endif %}" data-divergente="{% if grupo.unidade.situacao == 'Divergente' %}1{% else %}0{% endif %}" data-ausente="0">
+                    <h3 class="h6">{{ grupo.unidade.titulo }}</h3>
+                    <p class="rotulo-valor">Cláusula</p>
+                    <p class="valor-integral">{% if grupo.unidade.texto %}{{ grupo.unidade.texto }}{% else %}Cláusula não localizada no documento.{% endif %}</p>
+                    <p class="small mb-1">{{ documento.nome_original }}{% if grupo.unidade.pagina %} · página {{ grupo.unidade.pagina }}{% else %} · origem da página não determinada{% endif %}</p>
+                    <p class="mb-1"><span class="rotulo-valor">Situação da conferência</span> <span class="estado">{{ grupo.unidade.situacao }}</span></p>
+                    {% if grupo.unidade.ressalva %}<p class="alerta-integridade" role="alert">{{ grupo.unidade.ressalva }}</p>{% endif %}
+                    {% for motivo in grupo.unidade.motivos %}<p class="alerta-integridade" role="alert">{{ motivo }}</p>{% endfor %}
+                    {% if grupo.unidade.registro and grupo.unidade.registro.validado_por %}
+                    <p class="small mb-1">{{ grupo.unidade.registro.validado_por }} em {{ grupo.unidade.registro.validado_em|date:"d/m/Y H:i" }} · versão {{ termo.versao }}</p>
+                    {% endif %}
+                    {% if pode_alterar and not termo.congelado and grupo.unidade.texto and grupo.unidade.pendente %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="confirmar_unidade">
+                        <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                        <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                        <button class="btn btn-primary btn-sm" type="submit">Confirmar cláusula</button>
+                    </form>
+                    {% endif %}
+                    {% if pode_alterar and not termo.congelado %}
+                    <details>
+                        <summary>Corrigir</summary>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="corrigir_unidade">
+                            <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                            <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                            <label class="visually-hidden" for="clausula-validada">Texto validado da cláusula</label>
+                            <textarea class="form-control form-control-sm mb-1 valor-integral" id="clausula-validada" name="valor_validado" rows="6">{{ grupo.unidade.texto }}</textarea>
+                            <label class="visually-hidden" for="clausula-justificativa">Justificativa da correção</label>
+                            <input class="form-control form-control-sm mb-1" id="clausula-justificativa" name="observacao" placeholder="Justificativa">
+                            <button class="btn btn-outline-primary btn-sm" type="submit">Gravar correção</button>
+                        </form>
+                    </details>
+                    <details>
+                        <summary>Registrar divergência</summary>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="divergir_unidade">
+                            <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                            <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                            <label class="visually-hidden" for="clausula-divergencia">Justificativa da divergência</label>
+                            <textarea class="form-control form-control-sm mb-1" id="clausula-divergencia" name="observacao" rows="3" required></textarea>
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">Registrar divergência</button>
+                        </form>
+                    </details>
+                    {% endif %}
+                    <details>
+                        <summary>Informações estruturadas</summary>
+                        <p class="ajuda-contextual">Objeto, finalidade e destinação continuam disponíveis para as verificações posteriores. A confirmação da cláusula não valida atributo ausente, incompleto ou inconsistente. Decisões humanas anteriores permanecem.</p>
+                        {% for campo in grupo.campos %}
+                        <article class="atributo-tecnico">
+                            <h4 class="h6">{{ campo.rotulo }}</h4>
+                            <p class="rotulo-valor">Valor extraído</p>
+                            <p class="valor-integral">{{ campo.valor_extraido|mascarar_cpf|default:"Não identificado" }}</p>
+                            <p class="rotulo-valor">Valor validado</p>
+                            <p class="valor-integral">{% if campo.valor_validado %}{{ campo.valor_validado|mascarar_cpf }}{% else %}Ainda sem validação{% endif %}</p>
+                            <p class="small mb-1"><span class="estado">{{ campo.get_status_display }}</span>{% if campo.validado_por %} · {{ campo.validado_por }}{% if campo.validado_em %} em {{ campo.validado_em|date:"d/m/Y H:i" }}{% endif %}{% endif %}</p>
+                            {% if campo.alerta_integridade %}<p class="alerta-integridade" role="alert">{{ campo.alerta_integridade }}</p>{% endif %}
+                            <p class="small mb-2">{% if campo.pagina %}Página {{ campo.pagina }}{% else %}Origem da página não determinada{% endif %}</p>
+                        </article>
+                        {% endfor %}
+                    </details>
+                </article>
+                {% else %}
+                <div class="grade-campos">
+                    {% for campo in grupo.campos %}
+                    <article class="cartao-campo" id="campo-{{ campo.nome }}" tabindex="-1" {% if campo_foco == campo.nome %}data-foco="1"{% endif %} data-revisado="{% if campo.status == 'validado' or campo.status == 'corrigido' %}1{% else %}0{% endif %}" data-pendente="{% if campo.status == 'extraido' or campo.status == 'aguardando_validacao' %}1{% else %}0{% endif %}" data-ausente="{% if campo.status == 'nao_identificado' %}1{% else %}0{% endif %}" data-divergente="{% if campo.divergente %}1{% else %}0{% endif %}">
+                        <h3 class="h6">{{ campo.rotulo }}</h3>
+                        <p class="rotulo-valor">Valor extraído pelo sistema</p>
+                        <p class="valor-integral">{{ campo.valor_extraido|mascarar_cpf|default:"Não identificado" }}</p>
+                        {% if campo.alerta_integridade %}
+                        <p class="alerta-integridade" role="alert">{{ campo.alerta_integridade }}</p>
+                        {% endif %}
+                        {% if campo.alerta_relacionado %}
+                        <p class="alerta-integridade" role="alert">{{ campo.alerta_relacionado }}</p>
+                        {% endif %}
+                        {% if pode_alterar and not termo.congelado and campo.pode_confirmar %}
+                        <form method="post" action="{% url 'documentos:validar_campo_termo' documento.pk campo.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="retorno" value="{{ retorno_validacao }}">
+                            <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                            <input type="hidden" name="campo" value="{{ campo.nome }}">
+                            <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                            <button class="btn btn-primary btn-sm" name="acao" value="confirmar" type="submit">Confirmar informação</button>
+                        </form>
+                        {% endif %}
+                        <p class="rotulo-valor">Valor validado pelo auditor</p>
+                        <p class="valor-validado">
+                            {% if campo.status == "nao_identificado" and campo.validado_por_id %}
+                                Ausência reconhecida. O texto extraído permanece registrado.
+                            {% elif campo.valor_validado %}
+                                {{ campo.valor_validado|mascarar_cpf }}
+                            {% else %}
+                                Ainda sem validação
+                            {% endif %}
+                        </p>
+                        <p class="mb-1"><span class="rotulo-valor">Situação da conferência</span> <span class="estado">{{ campo.get_status_display }}</span>{% if campo.divergente and not campo.alerta_integridade and not campo.alerta_relacionado %}<span class="ficha-natureza">Divergência aritmética. A confirmação em lote não inclui este campo.</span>{% endif %}</p>
+                        <p class="small mb-1">{{ documento.nome_original }}{% if campo.pagina %} · página {{ campo.pagina }}{% else %} · origem da página não determinada{% endif %}</p>
+                        <div class="acoes-campo">
+                            {% if campo.pagina %}
+                                <a href="#origem-documento" data-origem-pagina="{{ campo.pagina }}" data-origem-trecho="{{ campo.trecho }}">Ver origem</a>
+                            {% else %}
+                                <span>Origem não determinada</span>
+                            {% endif %}
+                            {% if pode_alterar and not termo.congelado %}
+                                <details>
+                                    <summary>Corrigir</summary>
+                                    <form method="post" action="{% url 'documentos:validar_campo_termo' documento.pk campo.pk %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="retorno" value="{{ retorno_validacao }}">
+                                        <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                                        <input type="hidden" name="campo" value="{{ campo.nome }}">
+                                        <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                                        <p class="ajuda-contextual">A correção grava o valor validado e preserva o valor extraído. A justificativa é obrigatória quando o valor muda.</p>
+                                        <label class="visually-hidden" for="valor-{{ campo.pk }}">Valor validado de {{ campo.rotulo }}</label>
+                                        <input class="form-control form-control-sm mb-1" id="valor-{{ campo.pk }}" name="valor_validado" value="{{ campo.valor_validado|default:campo.valor_extraido }}">
+                                        <label class="visually-hidden" for="obs-{{ campo.pk }}">Justificativa de {{ campo.rotulo }}</label>
+                                        <input class="form-control form-control-sm mb-1" id="obs-{{ campo.pk }}" name="observacao" placeholder="Justificativa">
+                                        <button class="btn btn-outline-primary btn-sm" name="acao" value="corrigir" type="submit">Gravar correção</button>
+                                    </form>
+                                </details>
+                                {% if campo.status != "nao_identificado" %}
+                                <form method="post" action="{% url 'documentos:validar_campo_termo' documento.pk campo.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="retorno" value="{{ retorno_validacao }}">
+                                    <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                                    <input type="hidden" name="campo" value="{{ campo.nome }}">
+                                    <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                                    <button class="btn btn-outline-secondary btn-sm" name="acao" value="nao_identificado" type="submit">Não identificado</button>
+                                </form>
+                                {% endif %}
+                            {% endif %}
+                            <details>
+                                <summary>Detalhes técnicos</summary>
+                                <dl class="detalhe-tecnico">
+                                    <div><dt>Valor extraído</dt><dd>{{ campo.valor_extraido|mascarar_cpf|default:"Não identificado" }}</dd></div>
+                                    <div><dt>Valor validado</dt><dd>{{ campo.valor_validado|mascarar_cpf|default:"Ainda sem validação" }}</dd></div>
+                                    <div><dt>Documento-fonte</dt><dd>{{ documento.nome_original }}</dd></div>
+                                    <div><dt>Página</dt><dd>{% if campo.pagina %}{{ campo.pagina }}{% else %}Origem não determinada{% endif %}</dd></div>
+                                    <div><dt>Trecho</dt><dd>{% if campo.trecho %}{{ campo.trecho|mascarar_cpf }}{% else %}Origem não determinada{% endif %}</dd></div>
+                                    <div><dt>Método</dt><dd>{{ campo.metodo|default:"Não registrado" }}</dd></div>
+                                    <div><dt>Responsável</dt><dd>{% if campo.validado_por %}{{ campo.validado_por }}{% if campo.validado_em %} em {{ campo.validado_em|date:"d/m/Y H:i" }}{% endif %}{% else %}Ainda sem responsável{% endif %}</dd></div>
+                                    <div><dt>Versão</dt><dd>{{ termo.versao }}</dd></div>
+                                    <div><dt>Modalidade</dt><dd>{{ campo.modalidade_exibicao|default:"Ainda sem registro" }}</dd></div>
+                                    <div><dt>Justificativa</dt><dd>{{ campo.observacao|default:"Sem justificativa" }}</dd></div>
+                                </dl>
+                            </details>
+                        </div>
+                    </article>
+                    {% empty %}
+                    <p>Nenhum campo neste grupo.</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </details>
+    {% endfor %}
+</article>
+{% else %}
+<article class="cartao mb-3">
+    <h2 class="h5">Conferência das informações</h2>
+    <p class="mb-0">Processe o instrumento para exibir os campos extraídos.</p>
+</article>
+{% endif %}
+
+<article class="cartao mb-3" aria-label="Informações complementares">
+    <h2 class="h5">Informações complementares</h2>
+    <p class="ajuda-contextual">Cláusulas, obrigações, referências, penalidades, regras e evidências ficam recolhidas. Abra só o grupo que for conferir.</p>
+    {% if ficha %}
+    <details class="grupo-conferencia">
+        <summary>Evidências da classificação</summary>
+        <dl class="detalhe-tecnico">
+            <div><dt>Tipo identificado</dt><dd>{{ ficha.classificacao.tipo }}</dd></div>
+            <div><dt>Tipo documental</dt><dd>{{ ficha.classificacao.tipo_documental }}</dd></div>
+            <div><dt>Método</dt><dd>{{ ficha.classificacao.metodo }}</dd></div>
+            <div><dt>Estado</dt><dd>{% if ficha.classificacao.validada %}Validado{% else %}Aguardando validação humana{% endif %}</dd></div>
+            <div><dt>Confiança</dt><dd>{% if ficha.classificacao.confianca != None %}{{ ficha.classificacao.confianca }}{% else %}Não se aplica{% endif %}</dd></div>
+        </dl>
+        <p class="small texto-recolhido">{{ ficha.classificacao.fundamento|default:"Origem não determinada" }}</p>
+        <p class="small mb-0">Extração: {{ ficha.metadados.metodo }} · Captura: {{ ficha.metadados.capturado_em|date:"d/m/Y H:i" }}{% if ficha.metadados.versao %} · Versão {{ ficha.metadados.versao }}{% endif %}{% if ficha.metadados.prompt %} · {{ ficha.metadados.prompt }}{% endif %}{% if ficha.metadados.modelo %} · {{ ficha.metadados.modelo }}{% endif %}</p>
+    </details>
+    {% endif %}
+    {% for secao in complementos %}
+        <details class="grupo-conferencia">
+            <summary>{{ secao.titulo }}</summary>
+            <ul class="lista-complemento">
+                {% for linha in secao.linhas %}
+                <li>
+                    <strong>{{ linha.rotulo }}</strong>
+                    <span class="valor-integral">{{ linha.valor_extraido|mascarar_cpf|default:"Não identificado" }}</span>
+                    <span class="estado {{ linha.classe }}">{{ linha.situacao_rotulo }}</span>
+                    {% if linha.pagina %}
+                        <a href="#origem-documento" data-origem-pagina="{{ linha.pagina }}" data-origem-trecho="{{ linha.busca }}">Ver origem</a>
+                    {% else %}
+                        <span>Origem não determinada</span>
+                    {% endif %}
+                    <details>
+                        <summary>Detalhes técnicos</summary>
+                        <dl class="detalhe-tecnico">
+                            <div><dt>Documento-fonte</dt><dd>{{ linha.documento|default:"Não registrado" }}</dd></div>
+                            <div><dt>Página</dt><dd>{% if linha.pagina %}{{ linha.pagina }}{% else %}Origem não determinada{% endif %}</dd></div>
+                            <div><dt>Trecho</dt><dd>{% if linha.trecho %}{{ linha.trecho|mascarar_cpf }}{% else %}Origem não determinada{% endif %}</dd></div>
+                            <div><dt>Método</dt><dd>{{ linha.metodo|default:"Não registrado" }}</dd></div>
+                            <div><dt>Natureza</dt><dd>{{ linha.natureza|default:"Não registrada" }}</dd></div>
+                            <div><dt>Versão</dt><dd>{{ linha.versao|default:"—" }}</dd></div>
+                        </dl>
+                    </details>
+                </li>
+                {% endfor %}
+            </ul>
+        </details>
+    {% endfor %}
+    {% if termo %}
+    <details class="grupo-conferencia">
+        <summary>Referências identificadas no instrumento <span class="meta-grupo">{{ resumo.referencias }}</span></summary>
+        {% if preparacao.estado == "validado" %}
+        <p class="small">As referências abaixo já foram extraídas do instrumento. O tratamento continua na Base Normativa, sem nova conclusão automática.</p>
+        {% else %}
+        <p class="small">Somente identificação. O tratamento na Base Normativa é o Passo 2 e permanece indisponível.</p>
+        {% endif %}
+        {% if referencias %}
+        <div class="table-responsive">
+            <table class="table tabela-cge">
+                <thead><tr><th>Documento/Norma</th><th>Referência</th><th>Página</th><th>Trecho</th><th>Situação</th></tr></thead>
+                <tbody>
+                    {% for referencia in referencias %}
+                    <tr>
+                        <td>{{ referencia.item.tipo|default:"Norma" }}</td>
+                        <td>{{ referencia.item.texto }}</td>
+                        <td>{% if referencia.item.pagina %}{{ referencia.item.pagina }}{% else %}Origem não determinada{% endif %}</td>
+                        <td class="valor-integral">{% if referencia.item.trecho %}{{ referencia.item.trecho }}{% else %}Origem não determinada{% endif %}</td>
+                        <td>{{ referencia.situacao }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p>Nenhuma referência normativa identificada.</p>
+        {% endif %}
+        {% if preparacao.estado == "validado" %}
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'instrumentos:base_normativa' prestacao.pk %}">Tratar na Base Normativa</a>
+        {% else %}
+        <button class="btn btn-outline-secondary btn-sm" type="button" disabled>Tratar na Base Normativa — Passo 2</button>
+        {% endif %}
+    </details>
+    {% endif %}
+    {% if documento %}
+    <details class="grupo-conferencia" id="origem-documento">
+        <summary>Origem documental</summary>
+        <p class="ajuda-contextual">A página e o trecho abaixo vêm do documento armazenado. Se a origem não foi determinada, nenhum trecho é inventado.</p>
+        <pre id="origem-texto" class="mb-0 texto-extraido">Use Ver origem em um campo para carregar a página.</pre>
+    </details>
+    {% endif %}
+</article>
+
+{% if pode_preparar %}
+<div class="modal fade" id="gerir-documento" tabindex="-1" aria-labelledby="gerir-documento-titulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="gerir-documento-titulo">Gerenciar documento</h2>
+                <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="selecionar">
+                    <h3 class="h6">Selecionar documento existente</h3>
+                    <p class="ajuda-contextual">Usa um PDF já vinculado a esta prestação. Um instrumento validado não é substituído em silêncio.</p>
+                    <label class="form-label" for="documento-instrumento">Documento da prestação</label>
+                    <select class="form-select form-select-sm mb-2" id="documento-instrumento" name="documento" required>
+                        <option value="">Selecione</option>
+                        {% for item in documentos %}
+                            <option value="{{ item.pk }}" {% if documento and item.pk == documento.pk %}selected{% endif %}>{{ item.nome_original }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-outline-primary btn-sm" type="submit">Selecionar instrumento</button>
+                </form>
+                <form method="post" enctype="multipart/form-data" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="enviar">
+                    <h3 class="h6">Enviar novo PDF</h3>
+                    <p class="ajuda-contextual">O arquivo entra na prestação e a extração é executada em seguida. Uma versão congelada não é reescrita por este envio.</p>
+                    <label class="form-label" for="arquivo-instrumento">Arquivo PDF</label>
+                    <input class="form-control form-control-sm mb-2" id="arquivo-instrumento" type="file" name="arquivo" accept="application/pdf" required>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="confirmar_envio" value="1" id="ciente-envio" required>
+                        <label class="form-check-label" for="ciente-envio">Confirmo o envio e o processamento deste PDF.</label>
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm" type="submit">Enviar e processar</button>
+                </form>
+                {% if documento %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="processar">
+                    {% if termo %}<input type="hidden" name="reprocessar" value="1">{% endif %}
+                    <h3 class="h6">{% if termo %}Reprocessar instrumento{% else %}Processar instrumento{% endif %}</h3>
+                    <p class="ajuda-contextual">Relê o documento selecionado. Se a validação já foi concluída, reabra antes: a versão congelada não é apagada.</p>
+                    {% if termo %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="confirmar_reprocessar" value="1" id="ciente-reprocessar" required>
+                        <label class="form-check-label" for="ciente-reprocessar">Confirmo o reprocessamento. A versão congelada, se existir, permanece.</label>
+                    </div>
+                    {% endif %}
+                    <button class="btn btn-primary btn-sm" type="submit">{% if termo %}Reprocessar instrumento{% else %}Processar instrumento{% endif %}</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if termo and pode_alterar and not termo.congelado %}
+<div class="modal fade" id="lote-instrumento" tabindex="-1" aria-labelledby="lote-instrumento-titulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="lote-instrumento-titulo">Confirmar campos do instrumento</h2>
+                <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ elegiveis|length }} campo(s) identificado(s) e pendente(s) serão confirmados com o valor extraído.</p>
+                {% if elegiveis %}
+                <ul>
+                    {% for campo in elegiveis %}
+                        <li>{{ campo.rotulo }}: {{ campo.valor_extraido|mascarar_cpf }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>Nenhum campo elegível. Correções, ausências e divergências permanecem.</p>
+                {% endif %}
+                <p class="ajuda-contextual">Cada campo gera registro próprio de usuário, data, versão, valor extraído, valor validado e modalidade.</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="confirmar_lote">
+                    <input type="hidden" name="escopo" value="instrumento">
+                    <input type="hidden" name="confirmar_lote" value="1">
+                    <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                    <button class="btn btn-primary btn-sm" type="submit" {% if not elegiveis %}disabled{% endif %}>Confirmar estes campos</button>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-dismiss="modal">Cancelar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% for grupo in grupos_conferencia %}
+<div class="modal fade" id="lote-grupo-{{ forloop.counter }}" tabindex="-1" aria-labelledby="lote-grupo-titulo-{{ forloop.counter }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="lote-grupo-titulo-{{ forloop.counter }}">Confirmar campos de {{ grupo.titulo }}</h2>
+                <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ grupo.elegiveis|length }} campo(s) deste grupo serão confirmados. {{ grupo.preservados }} permanecem como estão.</p>
+                {% if grupo.elegiveis %}
+                <ul>
+                    {% for campo in grupo.elegiveis %}
+                        <li>{{ campo.rotulo }}: {{ campo.valor_extraido|mascarar_cpf }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="confirmar_lote">
+                    <input type="hidden" name="escopo" value="grupo">
+                    <input type="hidden" name="confirmar_lote" value="1">
+                    <input type="hidden" name="grupo" value="{{ grupo.ancora }}">
+                    <input type="hidden" name="filtro" value="{{ filtro_ativo }}">
+                    {% for campo in grupo.elegiveis %}
+                        <input type="hidden" name="campo" value="{{ campo.nome }}">
+                    {% endfor %}
+                    <button class="btn btn-primary btn-sm" type="submit" {% if not grupo.elegiveis %}disabled{% endif %}>Confirmar estes campos</button>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-dismiss="modal">Cancelar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    const botoes = document.querySelectorAll("[data-filtro-botao]");
+    const cartoes = document.querySelectorAll(".cartao-campo");
+    function aplicar(filtro) {
+        botoes.forEach(function (botao) {
+            botao.setAttribute("aria-pressed", botao.getAttribute("data-filtro-botao") === filtro ? "true" : "false");
+        });
+        cartoes.forEach(function (cartao) {
+            const visivel = filtro === "todos" || cartao.getAttribute("data-" + (filtro === "revisados" ? "revisado" : filtro === "pendentes" ? "pendente" : filtro === "ausentes" ? "ausente" : "divergente")) === "1";
+            cartao.hidden = !visivel;
+        });
+        document.querySelectorAll(".grupo-conferencia").forEach(function (grupo) {
+            const nota = grupo.querySelector(".grupo-vazio-filtro");
+            const visiveis = grupo.querySelectorAll(".cartao-campo:not([hidden])").length;
+            if (nota) nota.hidden = filtro === "todos" || visiveis > 0;
+            if (filtro !== "todos" && visiveis > 0) grupo.open = true;
+        });
+        document.querySelectorAll("input[name='filtro']").forEach(function (campo) {
+            campo.value = filtro === "todos" ? "" : filtro;
+        });
+    }
+    botoes.forEach(function (botao) {
+        botao.addEventListener("click", function () { aplicar(botao.getAttribute("data-filtro-botao")); });
+    });
+    const inicial = "{{ filtro_ativo|default:'todos'|escapejs }}";
+    if (botoes.length) aplicar(inicial || "todos");
+    const foco = document.querySelector("[data-foco='1']");
+    if (foco) {
+        foco.hidden = false;
+        const grupo = foco.closest("details");
+        if (grupo) grupo.open = true;
+        foco.focus();
+        foco.scrollIntoView({ block: "center" });
+    }
+})();
+</script>
+{% if documento %}
+<script>
+(function () {
+    const destino = document.getElementById("origem-texto");
+    const painel = document.getElementById("origem-documento");
+    if (!destino || !painel) return;
+    const base = "{% url 'documentos:texto_pagina' documento.pk 1 %}".replace(/\/1\/$/, "/");
+    function carregar(numero, trecho) {
+        destino.textContent = "Carregando a página…";
+        fetch(base + numero + "/", { headers: { "X-Requested-With": "fetch" } })
+            .then(function (resposta) { return resposta.json(); })
+            .then(function (dados) {
+                const texto = dados.texto || "Origem não determinada";
+                destino.textContent = "Página " + numero + "\n" + texto;
+                if (trecho && texto.indexOf(trecho) >= 0) {
+                    destino.textContent = "Página " + numero + " · trecho localizado\n" + texto;
+                }
+            })
+            .catch(function () { destino.textContent = "Origem não determinada"; });
+    }
+    document.querySelectorAll("[data-origem-pagina]").forEach(function (link) {
+        link.addEventListener("click", function () {
+            painel.open = true;
+            carregar(link.getAttribute("data-origem-pagina"), (link.getAttribute("data-origem-trecho") || "").slice(0, 80));
+        });
+    });
+    painel.addEventListener("toggle", function () {
+        if (painel.open && destino.textContent.indexOf("Use Ver origem") === 0) {
+            carregar({{ pagina_inicial|default:1 }}, "{{ trecho_inicial|escapejs }}");
+        }
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

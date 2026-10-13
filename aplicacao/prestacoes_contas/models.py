@@ -71,6 +71,15 @@ class PrestacaoContas(Rastreavel):
         on_delete=models.SET_NULL,
         related_name="prestacoes_criadas",
     )
+    analista_responsavel = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="analista responsável",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="prestacoes_responsaveis",
+        limit_choices_to={"perfil": "ANALISTA", "is_active": True},
+    )
 
     class Meta:
         verbose_name = "prestação de contas"
@@ -530,3 +539,50 @@ class Devolucao(Rastreavel):
 
     def __str__(self) -> str:
         return self.motivo[:80] or "Devolução"
+
+
+class HistoricoAtribuicaoPrestacao(models.Model):
+    """Histórico append-only de atribuição/redistribuição do analista responsável."""
+
+    prestacao = models.ForeignKey(
+        PrestacaoContas,
+        verbose_name="prestação de contas",
+        on_delete=models.CASCADE,
+        related_name="historico_atribuicoes",
+    )
+    analista_anterior = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="analista anterior",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="atribuicoes_anteriores",
+    )
+    analista_novo = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="novo analista",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="atribuicoes_recebidas",
+    )
+    alterado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="alterado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="atribuicoes_realizadas",
+    )
+    justificativa = models.TextField("justificativa", blank=True)
+    criado_em = models.DateTimeField("criado em", auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "histórico de atribuição"
+        verbose_name_plural = "históricos de atribuição"
+        ordering = ["-criado_em", "-id"]
+
+    def __str__(self) -> str:
+        anterior = self.analista_anterior.username if self.analista_anterior_id else "—"
+        novo = self.analista_novo.username if self.analista_novo_id else "—"
+        return f"{self.prestacao_id}: {anterior} → {novo}"

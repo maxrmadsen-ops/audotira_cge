@@ -1,0 +1,21 @@
+<nav class="nav-processo" aria-label="Etapas do processo">
+    <div class="macros">
+        {% for macro in navegacao %}
+        <section class="macroetapa{% if macro.atual %} macro-atual{% endif %}" aria-labelledby="macro-{{ macro.numero }}">
+            <h2 id="macro-{{ macro.numero }}">{{ macro.numero }} · {{ macro.titulo }}{% if macro.atual %} <span class="estado estado-aguardando">Etapa atual</span>{% endif %}</h2>
+            <ol>
+                {% for atividade in macro.atividades %}
+                <li class="{% if atividade.atual %}atividade-atual{% elif not atividade.disponivel %}futuro{% endif %}">
+                    {% if atividade.disponivel and not atividade.atual %}
+                        <a href="{{ atividade.url }}">{{ atividade.nome }}</a>
+                    {% else %}
+                        <span {% if atividade.atual %}aria-current="page"{% endif %}>{{ atividade.nome }}</span>
+                    {% endif %}
+                    <span class="estado {% if atividade.atual %}estado-aguardando{% else %}estado-nao-configurado{% endif %}">{{ atividade.estado }}</span>
+                </li>
+                {% endfor %}
+            </ol>
+        </section>
+        {% endfor %}
+    </div>
+</nav>

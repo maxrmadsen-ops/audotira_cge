@@ -52,7 +52,11 @@ class TesteDocumentos(TestCase):
             password="Isolada-apenas-no-teste",
             perfil=Usuario.Perfil.ADMINISTRADOR,
         )
-        self.prestacao = PrestacaoContas.objects.create(numero_processo="DEMO-DOC-001", demonstracao=True)
+        self.prestacao = PrestacaoContas.objects.create(
+            numero_processo="DEMO-DOC-001",
+            demonstracao=True,
+            analista_responsavel=self.analista,
+        )
         self.client.force_login(self.analista)
 
     def tearDown(self):

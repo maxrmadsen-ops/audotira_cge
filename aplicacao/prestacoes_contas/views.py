@@ -1,11 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views.generic import CreateView, ListView, UpdateView, View
 
 from aplicacao.entidades.models import Funcionario
+from aplicacao.prestacoes_contas.atribuicao import atribuir_analista
 from aplicacao.prestacoes_contas.auditoria_dominio import registrar_mutacao
 from aplicacao.prestacoes_contas.formularios import (
     FormularioContrapartida,
@@ -21,9 +24,18 @@ from aplicacao.prestacoes_contas.formularios import (
     FormularioPlano,
     FormularioPrestacao,
 )
+from aplicacao.prestacoes_contas.formularios_atribuicao import FormularioAtribuicaoAnalista
 from aplicacao.prestacoes_contas.linha_do_tempo import montar_linha_do_tempo
 from aplicacao.prestacoes_contas.models import PlanoTrabalho, PrestacaoContas
-from aplicacao.usuarios.acesso import PerfilExigidoMixin, pode_executar_analise
+from aplicacao.usuarios.acesso import (
+    PerfilExigidoMixin,
+    exigir_atuar_na_prestacao,
+    exigir_ver_prestacao,
+    pode_atuar_na_prestacao,
+    pode_distribuir_processos,
+    pode_executar_analise,
+    prestacoes_visiveis,
+)
 from aplicacao.usuarios.models import Usuario
 
 ABAS = (
@@ -53,7 +65,10 @@ class ListaPrestacoesView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        consulta = PrestacaoContas.objects.select_related("concedente", "beneficiario")
+        consulta = prestacoes_visiveis(
+            self.request.user,
+            PrestacaoContas.objects.select_related("concedente", "beneficiario", "analista_responsavel"),
+        )
         termo = self.request.GET.get("q", "").strip()
         situacao = self.request.GET.get("situacao", "").strip()
         fase = self.request.GET.get("fase", "").strip()
@@ -80,6 +95,7 @@ class ListaPrestacoesView(LoginRequiredMixin, ListView):
         contexto["situacoes"] = PrestacaoContas._meta.get_field("situacao").choices
         contexto["fases"] = PrestacaoContas._meta.get_field("fase").choices
         contexto["pode_alterar"] = pode_executar_analise(self.request.user)
+        contexto["pode_distribuir"] = pode_distribuir_processos(self.request.user)
         return contexto
 
 
@@ -90,9 +106,13 @@ class PrestacaoFormView(PerfilExigidoMixin):
 
     def form_valid(self, form):
         nova = self.object.pk is None if getattr(self, "object", None) else True
+        if not nova:
+            exigir_atuar_na_prestacao(self.request.user, self.object)
         prestacao = form.save(commit=False)
         if nova:
             prestacao.criado_por = self.request.user
+            if self.request.user.perfil == Usuario.Perfil.ANALISTA:
+                prestacao.analista_responsavel = self.request.user
         prestacao.save()
         form._salvar_instrumento(prestacao)
         registrar_mutacao(
@@ -118,6 +138,12 @@ class CriarPrestacaoView(PrestacaoFormView, CreateView):
 class EditarPrestacaoView(PrestacaoFormView, UpdateView):
     model = PrestacaoContas
 
+    def get_object(self, queryset=None):
+        prestacao = super().get_object(queryset)
+        exigir_ver_prestacao(self.request.user, prestacao)
+        exigir_atuar_na_prestacao(self.request.user, prestacao)
+        return prestacao
+
     def form_valid(self, form):
         self.object = self.get_object()
         return super().form_valid(form)
@@ -133,6 +159,7 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
         from django.shortcuts import render
 
         prestacao = self._prestacao(pk)
+        exigir_ver_prestacao(request.user, prestacao)
         aba = request.GET.get("aba", "geral")
         if aba not in {codigo for codigo, _ in ABAS}:
             aba = "geral"
@@ -140,7 +167,12 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
 
     def _prestacao(self, pk):
         return get_object_or_404(
-            PrestacaoContas.objects.select_related("concedente", "beneficiario", "criado_por").prefetch_related(
+            PrestacaoContas.objects.select_related(
+                "concedente",
+                "beneficiario",
+                "criado_por",
+                "analista_responsavel",
+            ).prefetch_related(
                 "instrumentos",
                 "planos__itens",
                 "planos__metas",
@@ -151,18 +183,31 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
                 "movimentacoes",
                 "contrapartidas",
                 "devolucoes",
+                "historico_atribuicoes__analista_anterior",
+                "historico_atribuicoes__analista_novo",
+                "historico_atribuicoes__alterado_por",
+                "diligencias",
+                "pareceres_finais",
             ),
             pk=pk,
         )
 
     def _contexto(self, request, prestacao, aba):
         plano = prestacao.planos.first()
+        pode_atuar = pode_atuar_na_prestacao(request.user, prestacao)
         contexto = {
             "prestacao": prestacao,
             "aba": aba,
             "abas": ABAS,
             "abas_preparadas": ABAS_PREPARADAS,
-            "pode_alterar": pode_executar_analise(request.user),
+            "pode_alterar": pode_atuar,
+            "pode_distribuir": pode_distribuir_processos(request.user),
+            "form_atribuicao": FormularioAtribuicaoAnalista(
+                initial={"analista": prestacao.analista_responsavel_id}
+            ),
+            "historico_atribuicoes": prestacao.historico_atribuicoes.all()[:20],
+            "diligencias": prestacao.diligencias.all()[:20],
+            "pareceres_finais": prestacao.pareceres_finais.all()[:10],
             "linha_do_tempo": montar_linha_do_tempo(prestacao),
             "plano": plano,
             "funcionarios": Funcionario.objects.filter(entidade=prestacao.beneficiario).select_related("pessoa")
@@ -204,6 +249,29 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
         return contexto
 
 
+class AtribuirAnalistaView(PerfilExigidoMixin, View):
+    perfis_permitidos = (Usuario.Perfil.ADMINISTRADOR, Usuario.Perfil.AUDITOR)
+
+    def post(self, request, pk):
+        prestacao = get_object_or_404(PrestacaoContas, pk=pk)
+        form = FormularioAtribuicaoAnalista(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Não foi possível atribuir o analista.")
+            return redirect("prestacoes_contas:detalhe", pk=pk)
+        try:
+            atribuir_analista(
+                prestacao=prestacao,
+                analista_novo=form.cleaned_data.get("analista"),
+                alterado_por=request.user,
+                justificativa=form.cleaned_data.get("justificativa") or "",
+                request=request,
+            )
+            messages.success(request, "Responsável pelo processo atualizado.")
+        except ValidationError as erro:
+            messages.error(request, "; ".join(erro.messages))
+        return redirect("prestacoes_contas:detalhe", pk=pk)
+
+
 class InclusaoNaPrestacaoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_ALTERACAO
     formulario = None
@@ -211,6 +279,8 @@ class InclusaoNaPrestacaoView(PerfilExigidoMixin, View):
 
     def post(self, request, pk):
         prestacao = get_object_or_404(PrestacaoContas, pk=pk)
+        exigir_ver_prestacao(request.user, prestacao)
+        exigir_atuar_na_prestacao(request.user, prestacao)
         formulario = self.construir_formulario(request, prestacao)
         if formulario.is_valid():
             instancia = self.salvar(formulario, prestacao)

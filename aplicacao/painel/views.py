@@ -24,6 +24,7 @@ from aplicacao.painel.consultas.abas import (
     montar_regras,
     montar_revisao,
 )
+from aplicacao.painel.consultas.escopo import filtros_com_escopo
 from aplicacao.painel.consultas.visao import descrever_campos, montar_visao, opcoes_de_filtro
 from aplicacao.painel.navegacao import MODULOS_POR_SLUG
 from aplicacao.painel.saude import coletar_saude
@@ -76,11 +77,11 @@ class CentralAnaliticaView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
-        filtros = FiltrosPainel.da_requisicao(self.request.GET)
+        filtros = filtros_com_escopo(self.request.user, FiltrosPainel.da_requisicao(self.request.GET))
         contexto["aba_atual"] = self.aba
         contexto["abas_painel"] = ABAS_PAINEL
         contexto["filtros"] = filtros
-        opcoes = opcoes_de_filtro(self.aba, filtros.origem)
+        opcoes = opcoes_de_filtro(self.aba, filtros.origem, usuario=self.request.user, filtros=filtros)
         contexto["campos_filtro"] = descrever_campos(self.aba, filtros, opcoes)
         contexto["painel"] = MONTADORES[self.aba](filtros)
         if self.aba == "visao":
@@ -141,9 +142,9 @@ class FinOpsView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
-        filtros = FiltrosPainel.da_requisicao(self.request.GET)
+        filtros = filtros_com_escopo(self.request.user, FiltrosPainel.da_requisicao(self.request.GET))
         contexto["filtros"] = filtros
-        opcoes = opcoes_de_filtro("finops", filtros.origem)
+        opcoes = opcoes_de_filtro("finops", filtros.origem, usuario=self.request.user, filtros=filtros)
         contexto["campos_filtro"] = descrever_campos("finops", filtros, opcoes)
         contexto["painel"] = montar_finops(filtros)
         return contexto

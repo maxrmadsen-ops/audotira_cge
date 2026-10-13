@@ -65,6 +65,12 @@ class OrigemConteudo(models.TextChoices):
     HUMANO = "humano", "Alterado por humano"
 
 
+class StatusParecerFinal(models.TextChoices):
+    RASCUNHO = "rascunho", "Rascunho"
+    EM_ELABORACAO = "em_elaboracao", "Em elaboração"
+    FINALIZADO = "finalizado", "Finalizado"
+
+
 ORDEM_SECAO = {tipo: indice for indice, tipo in enumerate(TipoSecao.values, start=1)}
 
 ENC_VEDADOS = frozenset({"APROVAR", "REPROVAR", "JULGAR_REGULAR", "JULGAR_IRREGULAR"})

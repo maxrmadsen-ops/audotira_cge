@@ -28,6 +28,13 @@
 <div class="row g-3">
     <div class="col-md-6">
         <article class="cartao">
+            <h2>Usuários operacionais</h2>
+            <p>Criar, editar, ativar e desativar usuários. Somente Administrador.</p>
+            <a class="btn btn-primary btn-sm" href="{% url 'usuarios:lista' %}">Gerenciar usuários</a>
+        </article>
+    </div>
+    <div class="col-md-6">
+        <article class="cartao">
             <h2>Saúde do Sistema</h2>
             <p>Verificação de aplicação, banco, Redis e worker.</p>
             <a class="btn btn-primary btn-sm" href="{% url 'painel:saude' %}">Abrir</a>

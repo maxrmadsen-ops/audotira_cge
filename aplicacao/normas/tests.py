@@ -177,7 +177,7 @@ class TesteNormas(TestCase):
 
     def test_permissao_e_auditoria_de_cadastro(self):
         self.client.force_login(self.consulta)
-        self.assertEqual(self.client.get(reverse("normas:lista")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("normas:lista")).status_code, 403)
         self.assertEqual(self.client.get(reverse("normas:criar")).status_code, 403)
         self.client.force_login(self.auditor)
         self.assertEqual(self.client.get(reverse("normas:criar")).status_code, 403)
@@ -232,6 +232,7 @@ class TesteNormas(TestCase):
         normas = self.client.get(reverse("painel:normas"))
         self.assertContains(normas, "Normas cadastradas")
         norma = self._norma_processada("20", date(2018, 1, 1), None, [LINHA])
+        self.client.force_login(self.auditor)
         resposta = self.client.post(
             reverse("normas:pesquisa"),
             {"texto": "relatorio anual alfa", "data_referencia": "2020-05-01"},

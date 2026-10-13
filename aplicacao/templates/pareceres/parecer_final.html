@@ -1,0 +1,141 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Parecer final · {{ prestacao.numero_processo }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / Parecer final
+</p>
+<h1 class="h3">Parecer final</h1>
+<p class="aviso-painel mb-3">
+    A sugestão gerada pelo sistema constitui apoio à análise.
+    A elaboração e validação do parecer permanecem sob responsabilidade humana.
+</p>
+
+{% if parecer %}
+<p class="mb-3">Versão {{ parecer.versao }} · {{ parecer.get_status_display }}
+    {% if parecer.autor %} · Autor: {{ parecer.autor.username }}{% endif %}
+</p>
+{% else %}
+<p class="texto-apoio mb-3">Nenhum parecer elaborado ainda neste processo.</p>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <article class="cartao h-100">
+            <h2>A) Sugestão da IA</h2>
+            <p class="texto-apoio">Somente apoio. Preservada exatamente como gerada. Não é decisão administrativa.</p>
+            {% if parecer and parecer.sugestao_ia %}
+                <pre class="texto-parecer">{{ parecer.sugestao_ia }}</pre>
+                <p class="small text-secondary">Gerada em: {{ parecer.sugestao_gerada_em|date:"d/m/Y H:i"|default:"—" }}</p>
+            {% else %}
+                <p class="estado-vazio">Sem sugestão registrada.</p>
+            {% endif %}
+            {% if pode_atuar %}
+            <form method="post" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="registrar_sugestao">
+                <label class="form-label" for="id_sugestao_ia">Registrar/atualizar sugestão de apoio</label>
+                <textarea class="form-control mb-2" id="id_sugestao_ia" name="sugestao_ia" rows="5">{% if parecer %}{{ parecer.sugestao_ia }}{% endif %}</textarea>
+                <button class="btn btn-outline-secondary btn-sm" type="submit">Salvar sugestão</button>
+            </form>
+            {% if parecer and parecer.sugestao_ia and parecer.status != "finalizado" %}
+            <form method="post" class="mt-2 d-inline">{% csrf_token %}
+                <input type="hidden" name="acao" value="aproveitar_integral">
+                <button class="btn btn-outline-primary btn-sm" type="submit">Aproveitar integralmente</button>
+            </form>
+            <form method="post" class="mt-2 d-inline">{% csrf_token %}
+                <input type="hidden" name="acao" value="aproveitar_parcial">
+                <button class="btn btn-outline-primary btn-sm" type="submit">Aproveitar parcialmente</button>
+            </form>
+            {% endif %}
+            {% endif %}
+        </article>
+    </div>
+    <div class="col-lg-4">
+        <article class="cartao h-100">
+            <h2>B) Texto do analista</h2>
+            <p class="texto-apoio">Área editável. Pode ignorar a sugestão e escrever parecer próprio.</p>
+            {% if pode_atuar %}
+                {% if not parecer or parecer.status != "finalizado" %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="salvar_analista">
+                <textarea class="form-control mb-2" name="texto_analista" rows="12">{% if parecer %}{{ parecer.texto_analista }}{% endif %}</textarea>
+                <button class="btn btn-primary btn-sm" type="submit">Salvar texto do analista</button>
+            </form>
+                {% elif parecer %}
+                <pre class="texto-parecer">{{ parecer.texto_analista|default:"—" }}</pre>
+                {% endif %}
+            {% elif parecer %}
+                <pre class="texto-parecer">{{ parecer.texto_analista|default:"—" }}</pre>
+            {% else %}
+                <p class="estado-vazio">Sem texto do analista.</p>
+            {% endif %}
+            {% if parecer and parecer.elaborada_em %}
+                <p class="small text-secondary mt-2 mb-0">Elaborado em: {{ parecer.elaborada_em|date:"d/m/Y H:i" }}</p>
+            {% endif %}
+        </article>
+    </div>
+    <div class="col-lg-4">
+        <article class="cartao h-100">
+            <h2>C) Versão final</h2>
+            <p class="texto-apoio">Versão efetivamente consolidada pelo analista. Nunca é gerada automaticamente como decisão.</p>
+            {% if parecer and parecer.texto_final %}
+                <pre class="texto-parecer">{{ parecer.texto_final }}</pre>
+                <p class="small text-secondary">Finalizada em: {{ parecer.finalizada_em|date:"d/m/Y H:i"|default:"—" }}</p>
+            {% else %}
+                <p class="estado-vazio">Ainda sem versão final.</p>
+            {% endif %}
+            {% if pode_atuar and parecer and parecer.status != "finalizado" %}
+            <form method="post" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="finalizar">
+                <label class="form-label" for="id_texto_final">Consolidar versão final</label>
+                <textarea class="form-control mb-2" id="id_texto_final" name="texto_final" rows="8">{% if parecer.texto_analista %}{{ parecer.texto_analista }}{% elif parecer.texto_final %}{{ parecer.texto_final }}{% endif %}</textarea>
+                <button class="btn btn-primary btn-sm" type="submit">Finalizar parecer</button>
+            </form>
+            {% elif pode_atuar and parecer and parecer.status == "finalizado" %}
+            <form method="post" class="mt-2">{% csrf_token %}
+                <input type="hidden" name="acao" value="nova_versao">
+                <button class="btn btn-outline-primary btn-sm" type="submit">Abrir nova versão</button>
+            </form>
+            {% elif pode_atuar and not parecer %}
+            <form method="post">{% csrf_token %}
+                <input type="hidden" name="acao" value="salvar_analista">
+                <input type="hidden" name="texto_analista" value="">
+                <button class="btn btn-outline-primary btn-sm" type="submit">Iniciar parecer</button>
+            </form>
+            {% endif %}
+        </article>
+    </div>
+</div>
+
+<article class="cartao mt-3">
+    <h2>Histórico / versionamento</h2>
+    <div class="table-responsive">
+        <table class="table table-sm tabela-cge mb-0">
+            <thead><tr><th>Quando</th><th>Autor</th><th>Ação</th><th>Observação</th></tr></thead>
+            <tbody>
+                {% for item in historico %}
+                <tr>
+                    <td>{{ item.criado_em|date:"d/m/Y H:i" }}</td>
+                    <td>{{ item.usuario.username|default:"—" }}</td>
+                    <td>{{ item.acao }}</td>
+                    <td>{{ item.observacao|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4">Sem histórico.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if versoes %}
+    <h3 class="h6 mt-3">Versões</h3>
+    <ul class="mb-0">
+        {% for v in versoes %}
+        <li>v{{ v.versao }} · {{ v.get_status_display }} · {{ v.autor.username|default:"—" }} · {{ v.atualizado_em|date:"d/m/Y H:i" }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</article>
+{% endblock %}

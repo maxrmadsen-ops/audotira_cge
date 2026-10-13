@@ -5,6 +5,7 @@ from aplicacao.usuarios.acesso import (
     pode_consultar,
     pode_executar_analise,
     pode_validar_analise,
+    possui_visao_transversal,
 )
 from aplicacao.usuarios.models import Usuario
 
@@ -17,24 +18,26 @@ class TestePerfis(TestCase):
             perfil=perfil,
         )
 
-    def test_perfil_padrao_e_consulta(self):
+    def test_perfil_padrao_e_analista(self):
         usuario = Usuario.objects.create_user(username="novo", password="Isolada-apenas-no-teste")
-        self.assertEqual(usuario.perfil, Usuario.Perfil.CONSULTA)
+        self.assertEqual(usuario.perfil, Usuario.Perfil.ANALISTA)
 
-    def test_quatro_perfis_existem(self):
+    def test_tres_perfis_operacionais_e_legado(self):
         self.assertEqual(
             set(Usuario.Perfil.values),
             {"ADMINISTRADOR", "AUDITOR", "ANALISTA", "CONSULTA"},
         )
+        self.assertEqual(Usuario.Perfil.CONSULTA.label, "Consulta (legado)")
 
-    def test_consulta_somente_leitura(self):
-        usuario = self.criar("consulta", Usuario.Perfil.CONSULTA)
+    def test_consulta_legado_somente_leitura(self):
+        usuario = self.criar("consulta-legado", Usuario.Perfil.CONSULTA)
         self.assertTrue(pode_consultar(usuario))
         self.assertFalse(pode_executar_analise(usuario))
         self.assertFalse(pode_validar_analise(usuario))
         self.assertFalse(pode_administrar(usuario))
+        self.assertTrue(possui_visao_transversal(usuario))
 
-    def test_analista_executa_sem_validar(self):
+    def test_analista_executa_sem_validar_catalogo(self):
         usuario = self.criar("analista", Usuario.Perfil.ANALISTA)
         self.assertTrue(pode_executar_analise(usuario))
         self.assertFalse(pode_validar_analise(usuario))
@@ -45,9 +48,11 @@ class TestePerfis(TestCase):
         self.assertTrue(pode_executar_analise(usuario))
         self.assertTrue(pode_validar_analise(usuario))
         self.assertFalse(pode_administrar(usuario))
+        self.assertTrue(possui_visao_transversal(usuario))
 
     def test_administrador_tem_acesso_completo(self):
         usuario = self.criar("admin", Usuario.Perfil.ADMINISTRADOR)
         self.assertTrue(pode_administrar(usuario))
         self.assertTrue(pode_validar_analise(usuario))
         self.assertTrue(pode_executar_analise(usuario))
+        self.assertTrue(possui_visao_transversal(usuario))

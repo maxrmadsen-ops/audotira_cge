@@ -7,14 +7,16 @@ from aplicacao.achados.escolhas import AcaoRevisao, Criticidade, NaturezaAchado,
 from aplicacao.achados.metricas import da_prestacao, indicadores_gerais
 from aplicacao.achados.models import Achado
 from aplicacao.achados.revisao import ErroRevisao, registrar_evidencia_humana, revisar
-from aplicacao.usuarios.acesso import pode_consultar
+from aplicacao.usuarios.acesso import exigir_atuar_na_prestacao, exigir_ver_prestacao, pode_consultar, prestacoes_visiveis
 
 
 class ListaAchadosView(LoginRequiredMixin, View):
     def get(self, request):
         if not pode_consultar(request.user):
             return redirect("painel:entrar")
-        consulta = Achado.objects.select_related("prestacao_contas")
+        consulta = Achado.objects.select_related("prestacao_contas").filter(
+            prestacao_contas__in=prestacoes_visiveis(request.user)
+        )
         filtros = {
             "prestacao": request.GET.get("prestacao", "").strip(),
             "categoria": request.GET.get("categoria", "").strip(),
@@ -69,11 +71,12 @@ class ListaAchadosView(LoginRequiredMixin, View):
 
 class DetalheAchadoView(LoginRequiredMixin, View):
     def get(self, request, pk):
-        achado = self._achado(pk)
+        achado = self._achado(request, pk)
         return render(request, "achados/detalhe.html", self._contexto(achado))
 
     def post(self, request, pk):
-        achado = self._achado(pk)
+        achado = self._achado(request, pk)
+        exigir_atuar_na_prestacao(request.user, achado.prestacao_contas)
         acao = request.POST.get("acao", "")
         try:
             if acao == "evidencia_humana":
@@ -104,8 +107,8 @@ class DetalheAchadoView(LoginRequiredMixin, View):
             messages.error(request, str(erro))
         return redirect("achados:detalhe", pk=achado.pk)
 
-    def _achado(self, pk):
-        return get_object_or_404(
+    def _achado(self, request, pk):
+        achado = get_object_or_404(
             Achado.objects.select_related("prestacao_contas", "analise").prefetch_related(
                 "vinculos_regra__regra",
                 "vinculos_regra__execucao",
@@ -118,6 +121,8 @@ class DetalheAchadoView(LoginRequiredMixin, View):
             ),
             pk=pk,
         )
+        exigir_ver_prestacao(request.user, achado.prestacao_contas)
+        return achado
 
     def _contexto(self, achado):
         evidencia_documento = next(

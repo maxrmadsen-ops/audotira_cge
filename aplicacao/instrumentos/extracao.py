@@ -49,6 +49,7 @@ INSTRUCAO = re.compile(
     re.IGNORECASE,
 )
 DINHEIRO = re.compile(r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})")
+TRECHO_ATE_PONTO = r"(?:[^\n.]|(?<=\d)\.(?=\d))+"
 NORMA = re.compile(
     r"((Lei Complementar|Lei Federal|Decreto|Resolu[cç][aã]o|Lei)\s+n[ºo°.]?\s*([\d.]+)\s*/\s*(\d{2,4}))",
     re.IGNORECASE,
@@ -320,21 +321,57 @@ def _objeto(texto: str) -> str:
     return " ".join(achado.group(1).split()) if achado else ""
 
 
+def _ate_ponto_frasal(texto: str, limite: int = 4000) -> str:
+    """Corta no ponto final. O ponto entre dígitos permanece, como em R$ 345.284,40."""
+    if not texto:
+        return ""
+    janela = texto[:limite]
+    for indice, caractere in enumerate(janela):
+        if caractere != ".":
+            continue
+        anterior = janela[indice - 1] if indice else ""
+        seguinte = janela[indice + 1] if indice + 1 < len(janela) else ""
+        if anterior.isdigit() and seguinte.isdigit():
+            continue
+        return janela[:indice]
+    return janela
+
+
+def _a_partir(texto: str, padrao: str, limite: int = 2000) -> str:
+    achado = re.search(padrao, texto, re.IGNORECASE)
+    if not achado:
+        return ""
+    return " ".join(_ate_ponto_frasal(texto[achado.start() :], limite).split())
+
+
+def _limitar_sem_cortar_dinheiro(texto: str, limite: int) -> str:
+    texto = " ".join((texto or "").split())
+    if len(texto) <= limite:
+        return texto
+    corte = texto.rfind(" ", 0, limite + 1)
+    if corte <= 0:
+        corte = limite
+    parcial = texto[:corte].rstrip()
+    if re.search(r"R\$\s*[\d.]*$", parcial):
+        parcial = re.sub(r"\s*R\$\s*[\d.]*$", "", parcial).rstrip()
+    return parcial[:limite]
+
+
 def _destinacao(texto: str) -> str:
-    achado = re.search(r"(Ser[aã]o destinados recursos financeiros[^.]{0,240})", texto, re.IGNORECASE)
-    return " ".join(achado.group(1).split()) if achado else ""
+    return _a_partir(texto, r"Ser[aã]o destinados recursos financeiros", 4000)
 
 
 def _fim_vigencia(texto: str):
     achado = re.search(
-        r"(fim de vig[eê]ncia em\s+(\d{1,2}\s+de\s+[A-Za-zçãé]+)\s+de\s+(\d{4})[^.]{0,120})",
+        r"fim de vig[eê]ncia em\s+(\d{1,2}\s+de\s+[A-Za-zçãé]+)\s+de\s+(\d{4})",
         texto,
         re.IGNORECASE,
     )
     if not achado:
         return None, ""
-    data = _data_extenso(achado.group(2) + " de " + achado.group(3))
-    return data, " ".join(achado.group(1).split())
+    data = _data_extenso(achado.group(1) + " de " + achado.group(2))
+    trecho = _limitar_sem_cortar_dinheiro(_ate_ponto_frasal(texto[achado.start() :], 500), 160)
+    return data, trecho
 
 
 def _data_assinatura(texto: str):
@@ -462,11 +499,15 @@ def _categoria(ordinal: str, titulo: str, corpo: str) -> str:
 
 def _regras_temporais(corpo: str) -> list[dict]:
     regras = []
-    meses = re.search(r"(\d+)\s+meses\s+(a partir d[eao]|durante|ap[óo]s)\s+([^\n.]+)", corpo, re.IGNORECASE)
+    meses = re.search(
+        rf"(\d+)\s+meses\s+(a partir d[eao]|durante|ap[óo]s)\s+({TRECHO_ATE_PONTO})",
+        corpo,
+        re.IGNORECASE,
+    )
     if meses:
         regras.append(_regra(int(meses.group(1)), UnidadeTemporal.MESES, _operador(meses.group(2)), meses.group(3), corpo))
     dias = re.search(
-        r"(\d+)\s+dias?(?:\s+(uteis|úteis|corridos))?\s+(ap[óo]s|antes de|at[ée]|dentro de)\s+([^\n.]+)",
+        rf"(\d+)\s+dias?(?:\s+(uteis|úteis|corridos))?\s+(ap[óo]s|antes de|at[ée]|dentro de)\s+({TRECHO_ATE_PONTO})",
         corpo,
         re.IGNORECASE,
     )
@@ -481,7 +522,7 @@ def _regras_temporais(corpo: str) -> list[dict]:
         operador = _operador(janela)
         inicio = max(0, achado.start() - 90)
         destino = janela[achado.end() - inicio :].strip(" ,.;")
-        regras.append(_regra(int(achado.group(1)), unidade, operador, destino[:160], janela))
+        regras.append(_regra(int(achado.group(1)), unidade, operador, _limitar_sem_cortar_dinheiro(destino, 160), janela))
     fim = re.search(r"fim de vig[eê]ncia em\s+(\d{1,2}\s+de\s+[A-Za-zçãé]+\s+de\s+\d{4})", corpo, re.IGNORECASE)
     if fim:
         regras.append(
@@ -525,10 +566,10 @@ def _regra(quantidade: int, unidade: str, operador: str, destino: str, trecho: s
         "quantidade": quantidade,
         "unidade": unidade,
         "operador": operador,
-        "evento_destino": " ".join(destino.split())[:160],
-        "evento_origem": " ".join(destino.split())[:160],
+        "evento_destino": _limitar_sem_cortar_dinheiro(destino, 160),
+        "evento_origem": _limitar_sem_cortar_dinheiro(destino, 160),
         "condicao": "",
-        "trecho": " ".join(trecho.split())[:1000],
+        "trecho": " ".join(trecho.split()),
         "data_calculada": None,
         "data_documental": None,
         "calculo": "Prazo relativo. Data não calculada: o marco não foi convertido em data absoluta.",
@@ -581,39 +622,27 @@ def _obrigacao(ordinal: str, corpo: str):
     elif re.search(r"prestacao de contas|prestação de contas", corpo, re.IGNORECASE):
         categoria = CategoriaObrigacao.PRESTACAO_CONTAS
         evidencia = "relatório"
-    condicao = ""
-    condicao_achado = re.search(
-        r"((?:enquanto|condicionad[ao]|em caso de|quando)[^.]{0,220})",
-        corpo,
-        re.IGNORECASE,
-    )
-    if condicao_achado:
-        condicao = " ".join(condicao_achado.group(1).split())
-    prazo = re.search(
-        r"((?:no prazo|prazo de|prazo m[aá]ximo|prazo m[ií]nimo)[^.]{0,160})",
-        corpo,
-        re.IGNORECASE,
-    )
     return {
         "sujeito": sujeito,
-        "texto": " ".join(corpo.split())[:2000],
+        "texto": " ".join(corpo.split()),
         "categoria": categoria,
         "evidencia_esperada": evidencia,
-        "condicao": condicao,
-        "prazo_texto": " ".join(prazo.group(1).split()) if prazo else "",
+        "condicao": _a_partir(corpo, r"(?:enquanto|condicionad[ao]|em caso de|quando)", 2000),
+        "prazo_texto": _limitar_sem_cortar_dinheiro(
+            _a_partir(corpo, r"(?:no prazo|prazo de|prazo m[aá]ximo|prazo m[ií]nimo)", 800),
+            255,
+        ),
     }
 
 
 def _aplicacao(ordinal: str, corpo: str):
     if ordinal != "SETIMA" and not re.search(r"da aplica[cç][aã]o financeira", corpo[:120], re.IGNORECASE):
         return None
-    rendimentos = re.search(r"(rendimentos[^.]{0,180})", corpo, re.IGNORECASE)
-    condicao = re.search(r"(enquanto[^.]{0,180})", corpo, re.IGNORECASE)
     return {
-        "texto": " ".join(corpo.split())[:2000],
+        "texto": " ".join(corpo.split()),
         "sujeito": _sujeito(corpo),
-        "condicao": " ".join(condicao.group(1).split()) if condicao else "",
-        "destinacao_rendimentos": " ".join(rendimentos.group(1).split()) if rendimentos else "",
+        "condicao": _a_partir(corpo, r"enquanto", 2000),
+        "destinacao_rendimentos": _a_partir(corpo, r"rendimentos", 2000),
         "evidencia_esperada": "comprovante de aplicação ou extrato",
     }
 
@@ -634,7 +663,7 @@ def _conta(corpo: str):
         "tipo_conta": "conta corrente" if re.search(r"conta corrente", corpo, re.IGNORECASE) else "",
         "agencia": agencia.group(1) if agencia else "",
         "numero_conta": numero.group(1) if numero else "",
-        "texto": " ".join(corpo.split())[:2000],
+        "texto": " ".join(corpo.split()),
         "evidencia_esperada": "extrato bancário",
     }
 

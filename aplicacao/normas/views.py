@@ -27,7 +27,6 @@ PERFIS_LEITURA = (
     Usuario.Perfil.ADMINISTRADOR,
     Usuario.Perfil.AUDITOR,
     Usuario.Perfil.ANALISTA,
-    Usuario.Perfil.CONSULTA,
 )
 PERFIS_EDICAO = (Usuario.Perfil.ADMINISTRADOR,)
 

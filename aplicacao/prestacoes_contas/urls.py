@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from aplicacao.prestacoes_contas.api import PrestacaoContasViewSet
 from aplicacao.prestacoes_contas.views import (
+    AtribuirAnalistaView,
     CriarPrestacaoView,
     DetalhePrestacaoView,
     EditarPrestacaoView,
@@ -30,6 +31,7 @@ urlpatterns = [
     path("prestacoes/nova/", CriarPrestacaoView.as_view(), name="nova"),
     path("prestacoes/<int:pk>/", DetalhePrestacaoView.as_view(), name="detalhe"),
     path("prestacoes/<int:pk>/editar/", EditarPrestacaoView.as_view(), name="editar"),
+    path("prestacoes/<int:pk>/atribuir/", AtribuirAnalistaView.as_view(), name="atribuir"),
     path("prestacoes/<int:pk>/plano/", IncluirPlanoView.as_view(), name="incluir_plano"),
     path("prestacoes/<int:pk>/itens/", IncluirItemView.as_view(), name="incluir_item"),
     path("prestacoes/<int:pk>/metas/", IncluirMetaView.as_view(), name="incluir_meta"),

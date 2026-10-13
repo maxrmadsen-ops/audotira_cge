@@ -5,6 +5,7 @@
 <div class="d-flex justify-content-between flex-wrap gap-2 align-items-start">
     <div>
         <h1 class="h3">{{ prestacao.numero_processo }}</h1>
+        <p class="mb-0"><a href="{% url 'instrumentos:preparacao' prestacao.pk %}">Preparar instrumento da parceria</a></p>
         {% if prestacao.demonstracao %}<p><span class="estado estado-aguardando">Dados de demonstração</span></p>{% endif %}
     </div>
     {% if pode_alterar %}
@@ -28,7 +29,69 @@
                 <p>Beneficiário: {{ prestacao.beneficiario|default:"Não informado" }}</p>
                 <p>Instrumento: {{ prestacao.numero_instrumento|default:"Não informado" }} {% if prestacao.tipo_instrumento %}· {{ prestacao.tipo_instrumento }}{% endif %}</p>
                 <p>Objeto: {{ prestacao.objeto|default:"Não informado" }}</p>
+                <p>Analista responsável: {% if prestacao.analista_responsavel %}{{ prestacao.analista_responsavel.username }}{% else %}Não atribuído{% endif %}</p>
                 <p class="mb-0">Situação: {{ prestacao.get_situacao_display }} · Fase: {{ prestacao.get_fase_display }}</p>
+            </article>
+            {% if pode_distribuir %}
+            <article class="cartao mt-3">
+                <h2>Distribuição do processo</h2>
+                <p class="texto-apoio">Administrador e Auditor podem atribuir ou redistribuir o analista responsável. A troca fica no histórico e na trilha de auditoria.</p>
+                <form method="post" action="{% url 'prestacoes_contas:atribuir' prestacao.pk %}">
+                    {% csrf_token %}
+                    {% include "prestacoes_contas/_campos.html" with form=form_atribuicao %}
+                    <button class="btn btn-primary btn-sm" type="submit">Salvar atribuição</button>
+                </form>
+            </article>
+            {% endif %}
+            <article class="cartao mt-3">
+                <h2>Histórico de atribuições</h2>
+                <div class="table-responsive">
+                    <table class="table table-sm tabela-cge mb-0">
+                        <thead><tr><th>Quando</th><th>Anterior</th><th>Novo</th><th>Por</th><th>Justificativa</th></tr></thead>
+                        <tbody>
+                            {% for item in historico_atribuicoes %}
+                            <tr>
+                                <td>{{ item.criado_em|date:"d/m/Y H:i" }}</td>
+                                <td>{{ item.analista_anterior.username|default:"—" }}</td>
+                                <td>{{ item.analista_novo.username|default:"—" }}</td>
+                                <td>{{ item.alterado_por.username|default:"—" }}</td>
+                                <td>{{ item.justificativa|default:"—" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5">Nenhuma atribuição registrada.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+            <article class="cartao mt-3">
+                <h2>Diligências</h2>
+                <p class="texto-apoio mb-2">Solicitações formais vinculadas a este processo. A resposta do beneficiário nunca é inventada pelo sistema.</p>
+                {% if pode_alterar %}
+                    <p class="mb-2"><a class="btn btn-primary btn-sm" href="{% url 'diligencias:nova' prestacao.pk %}">Nova diligência</a></p>
+                {% endif %}
+                <ul class="mb-0">
+                    {% for item in diligencias %}
+                    <li>
+                        <a href="{% url 'diligencias:detalhe' item.pk %}">{{ item.identificador }}</a>
+                        · {{ item.get_situacao_display }} · {{ item.get_motivo_display }}
+                    </li>
+                    {% empty %}
+                    <li>Nenhuma diligência aberta.</li>
+                    {% endfor %}
+                </ul>
+            </article>
+            <article class="cartao mt-3">
+                <h2>Parecer final</h2>
+                <p class="texto-apoio mb-2">A sugestão de IA, quando houver, permanece separada da versão do analista e da versão final.</p>
+                <p class="mb-2"><a class="btn btn-outline-primary btn-sm" href="{% url 'pareceres:parecer_final' prestacao.pk %}">Abrir parecer final</a></p>
+                <ul class="mb-0">
+                    {% for item in pareceres_finais %}
+                    <li>v{{ item.versao }} · {{ item.get_status_display }} · {{ item.autor.username|default:"—" }}</li>
+                    {% empty %}
+                    <li>Nenhum parecer final elaborado.</li>
+                    {% endfor %}
+                </ul>
             </article>
         </div>
         <div class="col-lg-5">

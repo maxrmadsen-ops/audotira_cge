@@ -48,6 +48,8 @@ class FiltrosPainel:
     modelo: int | None = None
     provedor: str = ""
     origem: str = ""
+    # Escopo de segurança por perfil. Não entra na querystring pública.
+    ids_prestacao: tuple[int, ...] | None = None
 
     @classmethod
     def da_requisicao(cls, dados) -> "FiltrosPainel":
@@ -79,6 +81,8 @@ class FiltrosPainel:
     def pares(self) -> list[tuple[str, str]]:
         saida = []
         for item in fields(self):
+            if item.name == "ids_prestacao":
+                continue
             valor = getattr(self, item.name)
             if valor in (None, ""):
                 continue

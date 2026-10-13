@@ -119,7 +119,7 @@ class TestePainelOnda9(TestCase):
 
     def test_filtros_globais_e_combinacao(self):
         cenario = self._cenario()
-        self.client.force_login(self.analista)
+        self.client.force_login(self.auditor)
         pagina = self.client.get(reverse("painel:achados"), {"prestacao": cenario["prestacao"].pk, "criticidade": "critica"})
         self.assertContains(pagina, "Filtros ativos")
         self.assertContains(pagina, cenario["achado"].codigo)

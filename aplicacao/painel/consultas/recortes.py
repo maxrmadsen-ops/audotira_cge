@@ -24,10 +24,18 @@ def _origem(qs: QuerySet, filtros: FiltrosPainel, campo: str = "demonstracao") -
     return qs
 
 
+def _escopo_prestacoes(qs: QuerySet, filtros: FiltrosPainel, campo: str) -> QuerySet:
+    """Restringe ao conjunto autorizado. None = visão transversal; () = vazio."""
+    if filtros.ids_prestacao is None:
+        return qs
+    return qs.filter(**{f"{campo}__in": filtros.ids_prestacao})
+
+
 def prestacoes(filtros: FiltrosPainel) -> QuerySet:
     from aplicacao.prestacoes_contas.models import PrestacaoContas
 
     qs = PrestacaoContas.objects.all()
+    qs = _escopo_prestacoes(qs, filtros, "pk")
     qs = _periodo(qs, filtros, "criado_em")
     qs = _origem(qs, filtros)
     if filtros.prestacao:
@@ -46,6 +54,7 @@ def prestacoes(filtros: FiltrosPainel) -> QuerySet:
 
 
 def _por_prestacao(qs: QuerySet, filtros: FiltrosPainel, relacao: str = "prestacao_contas") -> QuerySet:
+    qs = _escopo_prestacoes(qs, filtros, f"{relacao}_id")
     if filtros.prestacao:
         qs = qs.filter(**{f"{relacao}_id": filtros.prestacao})
     if filtros.situacao:
@@ -160,6 +169,7 @@ def usos(filtros: FiltrosPainel) -> QuerySet:
     from aplicacao.inteligencia_artificial.models import UsoInteligenciaArtificial
 
     qs = UsoInteligenciaArtificial.objects.all()
+    qs = _escopo_prestacoes(qs, filtros, "prestacao_contas_id")
     qs = _periodo(qs, filtros, "iniciada_em")
     if filtros.prestacao:
         qs = qs.filter(prestacao_contas_id=filtros.prestacao)

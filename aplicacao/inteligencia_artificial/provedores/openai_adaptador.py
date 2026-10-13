@@ -23,6 +23,15 @@ URL = "https://api.openai.com/v1/chat/completions"
 class ProvedorOpenAI(ProvedorInteligenciaArtificialBase):
     codigo = "openai"
 
+    def obter_modelo(self, identificador: str) -> str:
+        nome = (identificador or "").strip()
+        if nome and nome != "definido-no-ambiente":
+            return nome
+        padrao = (getattr(settings, "OPENAI_MODELO_PADRAO", "") or "").strip()
+        if not padrao:
+            raise ErroProvedor("model_not_found")
+        return padrao
+
     def disponibilidade(self) -> str:
         if not getattr(settings, "OPENAI_HABILITADO", False):
             return "nao_configurado"

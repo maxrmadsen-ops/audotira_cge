@@ -1,0 +1,96 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ diligencia.identificador }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / Diligências / {{ diligencia.identificador }}
+</p>
+<div class="d-flex justify-content-between flex-wrap gap-2 align-items-start mb-3">
+    <div>
+        <h1 class="h3">{{ diligencia.identificador }}</h1>
+        <p class="mb-0">Situação: <strong>{{ diligencia.get_situacao_display }}</strong></p>
+    </div>
+    {% if pode_atuar and diligencia.situacao != "encerrada" %}
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'diligencias:nova' prestacao.pk %}">Nova diligência</a>
+    {% endif %}
+</div>
+
+<article class="cartao mb-3">
+    <h2>Dados da diligência</h2>
+    <p>Motivo: {{ diligencia.get_motivo_display }}</p>
+    <p>Solicitante: {{ diligencia.solicitante.username|default:"—" }}</p>
+    <p>Aberta em: {{ diligencia.aberta_em|date:"d/m/Y H:i" }}</p>
+    <p>Prazo: {% if diligencia.prazo %}{{ diligencia.prazo|date:"d/m/Y" }}{% else %}Não informado{% endif %}</p>
+    <p>Descrição:</p>
+    <pre class="texto-parecer mb-0">{{ diligencia.descricao }}</pre>
+</article>
+
+<article class="cartao mb-3">
+    <h2>Documentos relacionados</h2>
+    <ul class="mb-0">
+        {% for doc in diligencia.documentos.all %}
+            <li><a href="{% url 'documentos:detalhe' doc.pk %}">{{ doc.nome_original }}</a></li>
+        {% empty %}
+            <li>Nenhum documento vinculado.</li>
+        {% endfor %}
+    </ul>
+</article>
+
+<article class="cartao mb-3">
+    <h2>Resposta / manifestação</h2>
+    {% if diligencia.resposta %}
+        <p>Respondida em: {{ diligencia.respondida_em|date:"d/m/Y H:i"|default:"—" }}</p>
+        <pre class="texto-parecer">{{ diligencia.resposta }}</pre>
+    {% else %}
+        <p class="texto-apoio">Nenhuma resposta registrada. Não fabricar conteúdo do beneficiário.</p>
+    {% endif %}
+    {% if pode_atuar and form_resposta and diligencia.situacao != "encerrada" %}
+        <form method="post" action="{% url 'diligencias:resposta' diligencia.pk %}" class="mt-3">
+            {% csrf_token %}
+            {% include "prestacoes_contas/_campos.html" with form=form_resposta %}
+            <button class="btn btn-primary btn-sm" type="submit">Registrar resposta recebida</button>
+        </form>
+    {% endif %}
+</article>
+
+{% if pode_atuar and form_encerrar and diligencia.situacao != "encerrada" %}
+<article class="cartao mb-3">
+    <h2>Encerrar diligência</h2>
+    <form method="post" action="{% url 'diligencias:encerrar' diligencia.pk %}">
+        {% csrf_token %}
+        {% include "prestacoes_contas/_campos.html" with form=form_encerrar %}
+        <button class="btn btn-outline-danger btn-sm" type="submit">Encerrar</button>
+    </form>
+</article>
+{% elif diligencia.situacao == "encerrada" %}
+<article class="cartao mb-3">
+    <h2>Encerramento</h2>
+    <p>Encerrada por: {{ diligencia.encerrada_por.username|default:"—" }}</p>
+    <p class="mb-0">Em: {{ diligencia.encerrada_em|date:"d/m/Y H:i"|default:"—" }}</p>
+</article>
+{% endif %}
+
+<article class="cartao">
+    <h2>Histórico</h2>
+    <div class="table-responsive">
+        <table class="table table-sm tabela-cge mb-0">
+            <thead>
+                <tr><th>Quando</th><th>Usuário</th><th>De</th><th>Para</th><th>Observação</th></tr>
+            </thead>
+            <tbody>
+                {% for item in diligencia.historico.all %}
+                <tr>
+                    <td>{{ item.criado_em|date:"d/m/Y H:i" }}</td>
+                    <td>{{ item.usuario.username|default:"—" }}</td>
+                    <td>{{ item.situacao_anterior|default:"—" }}</td>
+                    <td>{{ item.situacao_nova|default:"—" }}</td>
+                    <td>{{ item.observacao|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5">Sem histórico.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>
+{% endblock %}

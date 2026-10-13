@@ -26,7 +26,13 @@ Não registrar senha, chave de API, `Authorization`, documento completo, CPF, Gr
 
 ## Permissões
 
-Consulta lê. Analista colabora no que as ondas anteriores permitiram. Auditor tem a autoridade técnica já implementada, inclusive congelar Ground Truth e avaliação. Administrador administra a plataforma e não congela Ground Truth nem avaliação. Esta onda não altera essas regras.
+Três perfis operacionais: Administrador, Auditor e Analista. Detalhes e matriz em `PERFIS_E_RESPONSABILIDADE.md`.
+
+Administrador e Auditor têm visão transversal dos processos. O Analista vê e opera somente processos atribuídos a ele. A restrição vale no backend (URL, API e mutações), não só no menu.
+
+Consulta permanece como valor legado no banco (não atribuível; sem persona operacional). Administrador administra a plataforma e usuários. Auditor distribui/redistribui processos e não administra usuários. Congelamento de Ground Truth permanece com o Auditor, conforme ondas anteriores.
+
+O Painel 360° e as agregações respeitam o escopo do perfil: Analista vê apenas indicadores dos processos atribuídos a ele.
 
 ## IA
 

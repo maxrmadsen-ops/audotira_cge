@@ -10,7 +10,14 @@ from aplicacao.instrumentos.escolhas import SituacaoExpectativa, StatusCampo
 from aplicacao.instrumentos.extracao import extrair_termo
 from aplicacao.instrumentos.models import TermoCongelado
 from aplicacao.instrumentos.prompt_termo import PROMPT_SISTEMA, SCHEMA_SAIDA, garantir_prompt_termo, schema_aceita
-from aplicacao.instrumentos.servico import confirmar_campo, congelar_termo, corrigir_campo, estruturar_termo, abrir_nova_versao
+from aplicacao.instrumentos.servico import (
+    abrir_nova_versao,
+    confirmar_campo,
+    congelar_termo,
+    corrigir_campo,
+    estruturar_termo,
+    marcar_nao_identificado,
+)
 from aplicacao.inteligencia_artificial.guardrails import GUARDRAILS_ESTRUTURAIS
 from aplicacao.inteligencia_artificial.models import UsoInteligenciaArtificial, VersaoPromptInteligenciaArtificial
 from aplicacao.normas.models import Norma
@@ -49,7 +56,11 @@ class TesteTermoFomento(TestCase):
         self.consulta = Usuario.objects.create_user(username="consulta-termo", password="Isolada-apenas-no-teste", perfil=Usuario.Perfil.CONSULTA)
         self.administrador = Usuario.objects.create_user(username="admin-termo", password="Isolada-apenas-no-teste", perfil=Usuario.Perfil.ADMINISTRADOR)
         self.auditor = Usuario.objects.create_user(username="auditor-termo", password="Isolada-apenas-no-teste", perfil=Usuario.Perfil.AUDITOR)
-        self.prestacao = PrestacaoContas.objects.create(numero_processo="SINT-TERMO-001", demonstracao=False)
+        self.prestacao = PrestacaoContas.objects.create(
+            numero_processo="SINT-TERMO-001",
+            demonstracao=False,
+            analista_responsavel=self.analista,
+        )
         self.documento = Documento.objects.create(
             prestacao_contas=self.prestacao,
             nome_original="termo_sintetico.pdf",
@@ -211,7 +222,11 @@ class TesteTermoFomento(TestCase):
         self.assertEqual(campo.valor_extraido, "VARGEM")
 
     def test_demonstracao_fica_separada(self):
-        demo = PrestacaoContas.objects.create(numero_processo="DEMO-2024-001", demonstracao=True)
+        demo = PrestacaoContas.objects.create(
+            numero_processo="DEMO-2024-001",
+            demonstracao=True,
+            analista_responsavel=self.analista,
+        )
         documento = Documento.objects.create(
             prestacao_contas=demo,
             nome_original="demo.pdf",
@@ -285,6 +300,87 @@ class TesteTermoFomento(TestCase):
         self.assertEqual(lido["numero"], "100")
         self.assertEqual(lido["ano"], 2024)
         self.assertEqual(lido["municipio"], "OUTRO")
+
+    def test_ponto_de_milhar_nao_trunca_valor_monetario(self):
+        longo = "para a execução do objeto deste termo " * 12
+        frases = {
+            "345.284,40": f"Serão destinados recursos financeiros {longo}no montante de R$ 345.284,40.",
+            "43.160,55": "Serão destinados recursos financeiros no montante de R$ 43.160,55.",
+            "1.234.567,89": "Serão destinados recursos financeiros no montante de R$ 1.234.567,89.",
+        }
+        for token, frase in frases.items():
+            lido = extrair_termo(frase)
+            self.assertIn(f"R$ {token}", lido["destinacao_recursos"])
+            self.assertFalse(lido["destinacao_recursos"].endswith("R$ 345"))
+        completo = extrair_termo(
+            "Valor total: R$ 1.234.567,89, em 08 parcelas de R$ 43.160,55.\n" + frases["345.284,40"]
+        )
+        self.assertEqual(completo["valor_total"], Decimal("1234567.89"))
+        self.assertEqual(completo["valor_parcela"], Decimal("43160.55"))
+        self.assertIn("R$ 345.284,40", completo["destinacao_recursos"])
+        self.assertGreater(len(completo["destinacao_recursos"]), 240)
+
+    def test_truncamento_bloqueia_lote_e_preserva_validacao(self):
+        from aplicacao.instrumentos.conferencia import alerta_do_campo, campo_elegivel_lote, confirmar_lote
+
+        termo = estruturar_termo(self.documento)
+        objeto = termo.campos.get(nome="objeto")
+        extraido_objeto = objeto.valor_extraido
+        self.assertTrue(extraido_objeto)
+        self.assertEqual(objeto.status, StatusCampo.AGUARDANDO)
+        confirmar_campo(objeto, self.analista)
+        marcar_nao_identificado(termo.campos.get(nome="finalidade"), self.analista)
+        finalidade = termo.campos.get(nome="finalidade")
+        self.assertEqual(finalidade.valor_extraido, "")
+        self.assertEqual(finalidade.status, StatusCampo.NAO_IDENTIFICADO)
+        self.assertEqual(finalidade.validado_por, self.analista)
+
+        destinacao = termo.campos.get(nome="destinacao")
+        destinacao.valor_extraido = "Serão destinados recursos financeiros no montante de R$ 345"
+        destinacao.status = StatusCampo.AGUARDANDO
+        destinacao.save(update_fields=["valor_extraido", "status"])
+        termo.valor_total_texto = "345.284,40"
+        termo.save(update_fields=["valor_total_texto"])
+        termo.refresh_from_db()
+        destinacao.refresh_from_db()
+        self.assertIn("truncado", alerta_do_campo(termo, destinacao).lower())
+        self.assertFalse(campo_elegivel_lote(destinacao, termo))
+        valor = termo.campos.get(nome="valor_total")
+        self.assertFalse(campo_elegivel_lote(valor, termo))
+        municipio = termo.campos.get(nome="municipio")
+        texto_municipio = municipio.valor_extraido
+        marcar_nao_identificado(municipio, self.analista)
+        municipio.refresh_from_db()
+        self.assertEqual(municipio.valor_extraido, texto_municipio)
+        self.assertEqual(municipio.status, StatusCampo.NAO_IDENTIFICADO)
+        self.assertEqual(municipio.valor_validado, "")
+
+        self.client.force_login(self.analista)
+        resposta = self.client.post(
+            reverse("documentos:validar_campo_termo", kwargs={"pk": self.documento.pk, "campo_id": destinacao.pk}),
+            {"acao": "confirmar", "retorno": reverse("documentos:detalhe", kwargs={"pk": self.documento.pk})},
+        )
+        self.assertEqual(resposta.status_code, 302)
+        destinacao.refresh_from_db()
+        self.assertEqual(destinacao.status, StatusCampo.AGUARDANDO)
+        self.assertEqual(destinacao.valor_extraido, "Serão destinados recursos financeiros no montante de R$ 345")
+        self.assertEqual(destinacao.valor_validado, "")
+        confirmados = confirmar_lote(termo, self.analista, nomes=["destinacao", "objeto", "valor_total"])
+        self.assertEqual(confirmados, [])
+        objeto.refresh_from_db()
+        self.assertEqual(objeto.status, StatusCampo.VALIDADO)
+        self.assertEqual(objeto.valor_extraido, extraido_objeto)
+        self.assertEqual(objeto.valor_validado, extraido_objeto)
+
+        divergente = termo.campos.get(nome="destinacao")
+        divergente.valor_extraido = "Serão destinados recursos financeiros no montante de R$ 10,00."
+        divergente.save(update_fields=["valor_extraido"])
+        termo.valor_total = Decimal("345284.40")
+        termo.save(update_fields=["valor_total"])
+        divergente.termo = termo
+        self.assertIn("difere", alerta_do_campo(termo, divergente).lower())
+        self.assertFalse(campo_elegivel_lote(divergente, termo))
+        self.assertEqual(divergente.valor_validado, "")
 
     def test_redacao_narrativa_nao_calcula_prazo_nem_troca_a_sede(self):
         self.documento.paginas.update(

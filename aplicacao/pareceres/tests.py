@@ -45,6 +45,8 @@ class BasePreAnalise(TestCase):
         self.analista = UsuarioModelo.objects.create_user(username="analista-pa", password="Isolada-apenas-no-teste", perfil=Usuario.Perfil.ANALISTA)
         self.consulta = UsuarioModelo.objects.create_user(username="consulta-pa", password="Isolada-apenas-no-teste", perfil=Usuario.Perfil.CONSULTA)
         self.admin = UsuarioModelo.objects.create_user(username="admin-pa", password="Isolada-apenas-no-teste", perfil=Usuario.Perfil.ADMINISTRADOR)
+        self.prestacao.analista_responsavel = self.analista
+        self.prestacao.save(update_fields=["analista_responsavel"])
         documento = Documento.objects.create(
             prestacao_contas=self.prestacao,
             nome_original="Nota sintetica.pdf",

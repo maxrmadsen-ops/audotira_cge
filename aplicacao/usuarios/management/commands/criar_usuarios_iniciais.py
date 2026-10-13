@@ -11,7 +11,6 @@ USUARIOS_INICIAIS = (
     ("USUARIO_ADMIN", "USUARIO_ADMIN_SENHA", "admin", Usuario.Perfil.ADMINISTRADOR, True),
     ("USUARIO_AUDITOR", "USUARIO_AUDITOR_SENHA", "auditor", Usuario.Perfil.AUDITOR, False),
     ("USUARIO_ANALISTA", "USUARIO_ANALISTA_SENHA", "analista", Usuario.Perfil.ANALISTA, False),
-    ("USUARIO_CONSULTA", "USUARIO_CONSULTA_SENHA", "consulta", Usuario.Perfil.CONSULTA, False),
 )
 
 

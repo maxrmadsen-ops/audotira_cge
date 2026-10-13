@@ -25,7 +25,11 @@ class ErroRevisao(Exception):
 def pode_executar(usuario, acao: str, altera_classificacao: bool = False) -> bool:
     if not getattr(usuario, "is_authenticated", False):
         return False
-    if usuario.perfil == Usuario.Perfil.CONSULTA:
+    if usuario.perfil not in {
+        Usuario.Perfil.ADMINISTRADOR,
+        Usuario.Perfil.AUDITOR,
+        Usuario.Perfil.ANALISTA,
+    }:
         return False
     if acao in ACOES_AUDITOR or altera_classificacao:
         return usuario.perfil in {Usuario.Perfil.AUDITOR, Usuario.Perfil.ADMINISTRADOR}

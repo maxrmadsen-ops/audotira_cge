@@ -40,6 +40,16 @@ def chave_idempotencia(*partes) -> str:
     return hashlib.sha256(bruto.encode("utf-8")).hexdigest()
 
 
+def _chave_livre(chave: str) -> str:
+    if not UsoInteligenciaArtificial.objects.filter(chave_idempotencia=chave).exists():
+        return chave
+    for salto in range(1, 6):
+        candidata = chave_idempotencia(chave, "retentativa", timezone.now().isoformat(), salto)
+        if not UsoInteligenciaArtificial.objects.filter(chave_idempotencia=candidata).exists():
+            return candidata
+    return chave_idempotencia(chave, "retentativa", timezone.now().isoformat(), "extra")
+
+
 class GerenciadorInteligenciaArtificial:
     def __init__(self, principal, fallback=None, modelo_principal=None, modelo_fallback=None):
         self.principal = principal
@@ -80,6 +90,7 @@ class GerenciadorInteligenciaArtificial:
                 provedor=existente.provedor,
                 modelo=existente.identificador_modelo,
             )
+        chave = _chave_livre(chave)
         limite = LimiteConsumoInteligenciaArtificial.objects.filter(ativo=True, escopo="chamada").order_by("id").first()
         maximo = limite.max_caracteres_contexto if limite else int(getattr(settings, "IA_MAX_CARACTERES_CONTEXTO", 12000))
         if tentativas_provedor is not None:
@@ -133,7 +144,7 @@ class GerenciadorInteligenciaArtificial:
                     versao_prompt=versao_prompt,
                     laboratorio=laboratorio,
                     tentativa=tentativa,
-                    chave=chave if erro not in ERROS_COM_FALLBACK or self.fallback is None else chave_idempotencia(chave, "principal"),
+                    chave=_chave_livre(chave if erro not in ERROS_COM_FALLBACK or self.fallback is None else chave_idempotencia(chave, "principal")),
                     status=StatusUso.SUCESSO if erro == "" else StatusUso.ERRO_CONTROLADO,
                     erro=erro,
                     resposta=payload or _inconclusivo(erro or "Falha controlada."),
@@ -158,7 +169,7 @@ class GerenciadorInteligenciaArtificial:
                     versao_prompt=versao_prompt,
                     laboratorio=laboratorio,
                     tentativa=tentativa,
-                    chave=chave_idempotencia(chave, "principal") if self.fallback else chave,
+                    chave=_chave_livre(chave_idempotencia(chave, "principal") if self.fallback else chave),
                     status=StatusUso.ERRO_CONTROLADO,
                     erro=erro or "erro_tecnico",
                     resposta=_inconclusivo(erro or "Falha controlada."),
@@ -193,7 +204,7 @@ class GerenciadorInteligenciaArtificial:
                     versao_prompt=versao_prompt,
                     laboratorio=laboratorio,
                     tentativa=tentativa,
-                    chave=chave_idempotencia(chave, "fallback"),
+                    chave=_chave_livre(chave_idempotencia(chave, "fallback")),
                     status=StatusUso.SUCESSO if erro_fb == "" else StatusUso.ERRO_CONTROLADO,
                     erro=erro_fb,
                     resposta=payload_fb or _inconclusivo(erro_fb or "Fallback sem resposta válida."),

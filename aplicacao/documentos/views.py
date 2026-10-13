@@ -18,7 +18,15 @@ from aplicacao.documentos.tarefas import processar_documento_task
 from aplicacao.instrumentos.views import contexto_termo
 from aplicacao.documentos.validacao import ErroValidacaoDocumento
 from aplicacao.prestacoes_contas.models import PrestacaoContas, PrestacaoParcial
-from aplicacao.usuarios.acesso import PerfilExigidoMixin, pode_administrar, pode_executar_analise
+from aplicacao.usuarios.acesso import (
+    PerfilExigidoMixin,
+    exigir_atuar_na_prestacao,
+    exigir_ver_prestacao,
+    pode_administrar,
+    pode_atuar_na_prestacao,
+    pode_executar_analise,
+    prestacoes_visiveis,
+)
 from aplicacao.usuarios.models import Usuario
 
 PERFIS_ALTERACAO = (
@@ -34,6 +42,26 @@ ETAPAS_ABERTAS = {
     EtapaProcessamento.CLASSIFICANDO,
     EtapaProcessamento.EXTRAINDO_METADADOS,
 }
+
+
+def _documento_visivel(request, pk, *, ativos=True):
+    consulta = Documento.objects.select_related(
+        "prestacao_contas",
+        "prestacao_contas__analista_responsavel",
+        "prestacao_parcial",
+        "validado_por",
+    )
+    if ativos and not pode_administrar(request.user):
+        consulta = consulta.ativos()
+    documento = get_object_or_404(consulta, pk=pk)
+    exigir_ver_prestacao(request.user, documento.prestacao_contas)
+    return documento
+
+
+def _documento_para_atuar(request, pk):
+    documento = _documento_visivel(request, pk, ativos=True)
+    exigir_atuar_na_prestacao(request.user, documento.prestacao_contas)
+    return documento
 
 
 def contexto_aba(request, prestacao):
@@ -55,7 +83,8 @@ def contexto_aba(request, prestacao):
 
 class ListaDocumentosView(LoginRequiredMixin, View):
     def get(self, request):
-        base = Documento.objects.ativos()
+        prestacoes = prestacoes_visiveis(request.user)
+        base = Documento.objects.ativos().filter(prestacao_contas__in=prestacoes)
         consulta = filtrar_documentos(base, request.GET)
         return render(
             request,
@@ -79,6 +108,8 @@ class EnviarDocumentosView(PerfilExigidoMixin, View):
 
     def post(self, request, prestacao_pk):
         prestacao = get_object_or_404(PrestacaoContas, pk=prestacao_pk)
+        exigir_ver_prestacao(request.user, prestacao)
+        exigir_atuar_na_prestacao(request.user, prestacao)
         arquivos = request.FILES.getlist("arquivos")
         if not arquivos:
             messages.error(request, "Selecione ao menos um arquivo PDF.")
@@ -137,7 +168,7 @@ class DetalheDocumentoView(LoginRequiredMixin, View):
                 "ficha": montar_ficha(documento, contexto.get("termo"), dados),
                 "form_validacao": FormularioValidacao(documento=documento),
                 "form_reprocessamento": FormularioReprocessamento(),
-                "pode_alterar": pode_executar_analise(request.user),
+                "pode_alterar": pode_atuar_na_prestacao(request.user, documento.prestacao_contas),
                 "pode_excluir": pode_administrar(request.user),
                 "acompanhar": documento.etapa in ETAPAS_ABERTAS,
                 **contexto,
@@ -145,15 +176,12 @@ class DetalheDocumentoView(LoginRequiredMixin, View):
         )
 
     def _documento(self, request, pk):
-        consulta = Documento.objects.select_related("prestacao_contas", "prestacao_parcial", "validado_por")
-        if not pode_administrar(request.user):
-            consulta = consulta.ativos()
-        return get_object_or_404(consulta, pk=pk)
+        return _documento_visivel(request, pk, ativos=not pode_administrar(request.user))
 
 
 class ArquivoDocumentoView(LoginRequiredMixin, View):
     def get(self, request, pk):
-        documento = get_object_or_404(Documento.objects.ativos(), pk=pk)
+        documento = _documento_visivel(request, pk)
         try:
             caminho = ler_arquivo(documento.nome_armazenado)
         except ErroArmazenamento as exc:
@@ -166,11 +194,11 @@ class ArquivoDocumentoView(LoginRequiredMixin, View):
 
 class TextoPaginaView(LoginRequiredMixin, View):
     def get(self, request, pk, numero):
+        documento = _documento_visivel(request, pk)
         pagina = get_object_or_404(
             PaginaDocumento.objects.select_related("documento"),
-            documento_id=pk,
+            documento=documento,
             numero_pagina=numero,
-            documento__excluido_em__isnull=True,
         )
         return JsonResponse(
             {
@@ -186,7 +214,7 @@ class TextoPaginaView(LoginRequiredMixin, View):
 
 class StatusDocumentoView(LoginRequiredMixin, View):
     def get(self, request, pk):
-        documento = get_object_or_404(Documento.objects.ativos(), pk=pk)
+        documento = _documento_visivel(request, pk)
         return JsonResponse(
             {
                 "status": documento.status_processamento,
@@ -203,7 +231,7 @@ class ValidarDocumentoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_ALTERACAO
 
     def post(self, request, pk):
-        documento = get_object_or_404(Documento.objects.ativos(), pk=pk)
+        documento = _documento_para_atuar(request, pk)
         formulario = FormularioValidacao(request.POST, documento=documento)
         if not formulario.is_valid():
             messages.error(request, "Não foi possível validar a classificação.")
@@ -246,7 +274,7 @@ class ReprocessarDocumentoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_ALTERACAO
 
     def post(self, request, pk):
-        documento = get_object_or_404(Documento.objects.ativos(), pk=pk)
+        documento = _documento_para_atuar(request, pk)
         from aplicacao.instrumentos.servico import documento_congelado
 
         if documento_congelado(documento):
@@ -276,7 +304,7 @@ class ArquivarDocumentoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_ALTERACAO
 
     def post(self, request, pk):
-        documento = get_object_or_404(Documento.objects.ativos(), pk=pk)
+        documento = _documento_para_atuar(request, pk)
         documento.excluido_em = timezone.now()
         documento.status_processamento = StatusProcessamento.ARQUIVADO
         documento.save(update_fields=["excluido_em", "status_processamento", "atualizado_em"])

@@ -1,0 +1,13 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Preparação da análise · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho"><a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a> / Preparação da análise</p>
+<h1 class="h3">Preparação da análise</h1>
+<p class="small">Piloto: revisão humana obrigatória. Esta etapa poderá futuramente operar de forma automatizada ou integrada aos sistemas de origem, conforme regras de governança definidas pela CGE.</p>
+{% include "instrumentos/_navegacao_processo.html" %}
+<article class="cartao">
+    <h2>Instrumento da Parceria</h2>
+    <p>Selecione ou envie o instrumento e confira a ficha antes de concluir a validação.</p>
+    <p class="mb-0"><a class="btn btn-primary btn-sm" href="{% url 'instrumentos:instrumento' prestacao.pk %}">Abrir instrumento da parceria</a></p>
+</article>
+{% endblock %}

@@ -23,7 +23,7 @@
     <p class="small"><strong>Evidências da classificação</strong><br>{{ ficha.classificacao.fundamento|default:"Origem não determinada"|linebreaksbr }}</p>
     <p class="small mb-2">Extração: {{ ficha.metadados.metodo }} · Captura: {{ ficha.metadados.capturado_em|date:"d/m/Y H:i" }}{% if ficha.metadados.versao %} · Versão {{ ficha.metadados.versao }}{% endif %}{% if ficha.metadados.prompt %} · {{ ficha.metadados.prompt }}{% endif %}{% if ficha.metadados.modelo %} · {{ ficha.metadados.modelo }}{% endif %}</p>
     {% if ficha.classificacao.justificativa %}<p class="small">Justificativa da última classificação humana: {{ ficha.classificacao.justificativa }}</p>{% endif %}
-    {% if pode_alterar %}
+    {% if pode_alterar and form_validacao %}
         <div class="ficha-acoes-classificacao">
             <form method="post" action="{% url 'documentos:validar' documento.pk %}">
                 {% csrf_token %}
@@ -45,7 +45,8 @@
     {% endif %}
 
     {% for grupo in ficha.grupos %}
-        <h3 class="h5 mt-4">{{ grupo.titulo }}</h3>
+        <details class="mt-4"{% if not recolher_anexos or grupo.titulo in grupos_abertos %} open{% endif %}>
+        <summary><h3 class="h5 d-inline">{{ grupo.titulo }}</h3></summary>
         <div class="ficha-rolagem">
             <table class="ficha-tabela">
                 <thead>
@@ -67,11 +68,11 @@
                     {% for linha in grupo.linhas %}
                         <tr class="{{ linha.classe }}{% if linha.destaque %} ficha-destaque{% endif %}">
                             <th scope="row">{{ linha.rotulo }}{% if linha.natureza %}<span class="ficha-natureza">{{ linha.natureza }}</span>{% endif %}</th>
-                            <td>{{ linha.valor_extraido|mascarar_cpf|default:"Não identificado"|truncatechars:420 }}</td>
+                            <td class="valor-integral">{{ linha.valor_extraido|mascarar_cpf|default:"Não identificado" }}</td>
                             <td>{{ linha.valor_validado|mascarar_cpf|default:"Ainda sem validação" }}{% if linha.responsavel %}<span class="ficha-natureza">{{ linha.responsavel }} em {{ linha.validado_em|date:"d/m/Y H:i" }}{% if linha.observacao %} · {{ linha.observacao }}{% endif %} · versão {{ linha.versao|default:"—" }}</span>{% endif %}</td>
                             <td>{{ linha.documento }}</td>
                             <td>{% if linha.pagina %}{{ linha.pagina }}{% else %}Origem não determinada{% endif %}</td>
-                            <td>{% if linha.trecho %}{{ linha.trecho|mascarar_cpf|truncatechars:280 }}{% else %}Origem não determinada{% endif %}</td>
+                            <td class="valor-integral">{% if linha.trecho %}{{ linha.trecho|mascarar_cpf }}{% else %}Origem não determinada{% endif %}</td>
                             <td>{{ linha.metodo }}</td>
                             <td>{{ linha.capturado_em|date:"d/m/Y H:i" }}</td>
                             <td>{% if linha.confianca != None %}{{ linha.confianca }}{% else %}Não se aplica{% endif %}</td>
@@ -85,6 +86,7 @@
                                 {% if linha.campo_id and pode_alterar and termo and not termo.congelado %}
                                     <form method="post" action="{% url 'documentos:validar_campo_termo' documento.pk linha.campo_id %}">
                                         {% csrf_token %}
+                                        {% if retorno_validacao %}<input type="hidden" name="retorno" value="{{ retorno_validacao }}">{% endif %}
                                         <label class="visually-hidden" for="valor-ficha-{{ linha.campo_id }}">Valor validado de {{ linha.rotulo }}</label>
                                         <input class="form-control form-control-sm mb-1" id="valor-ficha-{{ linha.campo_id }}" name="valor_validado" value="{{ linha.valor_validado|default:linha.valor_extraido }}">
                                         <label class="visually-hidden" for="obs-ficha-{{ linha.campo_id }}">Justificativa de {{ linha.rotulo }}</label>
@@ -100,5 +102,6 @@
                 </tbody>
             </table>
         </div>
+        </details>
     {% endfor %}
 </section>

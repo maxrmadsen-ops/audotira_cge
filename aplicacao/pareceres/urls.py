@@ -1,6 +1,12 @@
 from django.urls import path
 
-from aplicacao.pareceres.views import DetalhePreAnaliseView, ExportarPreAnaliseView, GerarPreAnaliseView, ListaPreAnalisesView
+from aplicacao.pareceres.views import (
+    DetalhePreAnaliseView,
+    ExportarPreAnaliseView,
+    GerarPreAnaliseView,
+    ListaPreAnalisesView,
+    ParecerFinalView,
+)
 
 app_name = "pareceres"
 
@@ -9,4 +15,5 @@ urlpatterns = [
     path("pre-analises/<int:pk>/", DetalhePreAnaliseView.as_view(), name="detalhe"),
     path("pre-analises/<int:pk>/exportar/", ExportarPreAnaliseView.as_view(), name="exportar"),
     path("prestacoes/<int:prestacao_pk>/pre-analise/gerar/", GerarPreAnaliseView.as_view(), name="gerar"),
+    path("prestacoes/<int:prestacao_pk>/parecer-final/", ParecerFinalView.as_view(), name="parecer_final"),
 ]

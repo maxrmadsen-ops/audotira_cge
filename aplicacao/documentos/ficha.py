@@ -27,7 +27,7 @@ ROTULO = {
     "extraido": "Extraído",
     "aguardando_validacao": "Aguardando validação",
     "validado": "Validado",
-    "corrigido": "Corrigido",
+    "corrigido": "Corrigido pelo analista",
     "nao_identificado": "Não identificado",
     "nao_aplicavel": "Não aplicável",
     "obrigacao_prevista": "Obrigação prevista no instrumento",
@@ -136,7 +136,11 @@ def _grupos_termo(documento, termo, ocr: bool) -> list[dict]:
         if titulo == "Conta bancária e movimentação financeira":
             linhas.extend(_linhas_conta(documento, termo, ocr))
         grupos.append({"titulo": titulo, "linhas": linhas or [_vazia(documento, termo, ocr)]})
-    restantes = [_linha_campo(documento, termo, campo, ocr) for nome, campo in campos.items() if nome not in usados]
+    restantes = [
+        _linha_campo(documento, termo, campo, ocr)
+        for nome, campo in campos.items()
+        if nome not in usados and not nome.startswith("parte_") and not nome.startswith("idinst_") and nome != "unidade_identificacao"
+    ]
     if restantes:
         grupos.append({"titulo": "Outros dados extraídos", "linhas": restantes})
     grupos.extend(

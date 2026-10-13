@@ -26,6 +26,7 @@ class SituacaoNorma(models.TextChoices):
     REVOGADA = "revogada", "Revogada"
     SUBSTITUIDA = "substituida", "Substituída"
     ALTERADA = "alterada", "Alterada"
+    NAO_VERIFICADA = "nao_verificada", "Não verificada"
 
 
 class TipoRelacionamentoNorma(models.TextChoices):

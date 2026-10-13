@@ -9,13 +9,14 @@ class Usuario(AbstractUser):
         ADMINISTRADOR = "ADMINISTRADOR", "Administrador"
         AUDITOR = "AUDITOR", "Auditor"
         ANALISTA = "ANALISTA", "Analista"
-        CONSULTA = "CONSULTA", "Consulta"
+        # Legado: permanece no enum para registros históricos. Não atribuível.
+        CONSULTA = "CONSULTA", "Consulta (legado)"
 
     perfil = models.CharField(
         "perfil",
         max_length=20,
         choices=Perfil.choices,
-        default=Perfil.CONSULTA,
+        default=Perfil.ANALISTA,
     )
 
     class Meta:

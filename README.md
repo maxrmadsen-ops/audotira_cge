@@ -35,7 +35,10 @@ As credenciais efetivas ficam somente no `.env`, que não entra no Git. O `.env.
 | admin | ADMINISTRADOR |
 | auditor | AUDITOR |
 | analista | ANALISTA |
-| consulta | CONSULTA |
+
+Homologação: `adm_cedro`, `aud_ipe`, `ana_araucaria` (senha apenas via `SENHA_HOMOLOGACAO`).
+
+O valor legado `CONSULTA` permanece no banco para histórico, mas não é atribuível nem opera como persona do MVP.
 
 ## Repositório
 
@@ -47,6 +50,7 @@ O remoto previsto é `https://github.com/maxrmadsen-ops/audotira_cge.git`. O nom
 - [Instalação](documentacao/INSTALACAO.md)
 - [Administração](documentacao/ADMINISTRACAO.md)
 - [Usuário](documentacao/USUARIO.md)
+- [Preparação da análise](documentacao/PREPARACAO_ANALISE.md)
 - [Segurança](documentacao/SEGURANCA.md)
 - [Testes](documentacao/TESTES.md)
 - [Deploy](documentacao/DEPLOY.md)

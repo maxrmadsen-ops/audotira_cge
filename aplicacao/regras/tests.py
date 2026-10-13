@@ -121,6 +121,7 @@ class TesteMotorRegras(TestCase):
             data_inicio=date(2024, 1, 1),
             data_fim=date(2024, 12, 31),
             demonstracao=True,
+            analista_responsavel=self.usuario if self.usuario.perfil == Usuario.Perfil.ANALISTA else None,
         )
 
     def instrumento(self, prestacao, inicio=date(2024, 1, 1), fim=date(2024, 12, 31), valor=Decimal("1000.00")):

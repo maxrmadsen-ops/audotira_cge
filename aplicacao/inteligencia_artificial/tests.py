@@ -138,6 +138,12 @@ class TesteInteligenciaArtificial(TestCase):
                 self.assertNotIn("api.openai.com", texto)
                 self.assertNotIn("api.anthropic.com", texto)
 
+    def test_openai_usa_modelo_do_ambiente_quando_o_catalogo_e_placeholder(self):
+        with override_settings(OPENAI_MODELO_PADRAO="modelo-do-ambiente"):
+            self.assertEqual(ProvedorOpenAI().obter_modelo("definido-no-ambiente"), "modelo-do-ambiente")
+            self.assertEqual(ProvedorOpenAI().obter_modelo(""), "modelo-do-ambiente")
+        self.assertEqual(ProvedorOpenAI().obter_modelo("modelo-catalogado"), "modelo-catalogado")
+
     def test_openai_mockado_nao_chama_rede_sem_chave(self):
         with patch("urllib.request.urlopen") as urlopen:
             with self.assertRaises(ErroProvedor) as erro:
@@ -264,6 +270,17 @@ class TesteInteligenciaArtificial(TestCase):
         self.assertEqual(chamada.status, "erro_controlado")
         self.assertFalse(chamada.fallback_utilizado)
         self.assertEqual(chamada.resposta["resultado"], "INCONCLUSIVO")
+
+    def test_falha_anterior_nao_impede_nova_tentativa(self):
+        provedor = ProvedorInteligenciaArtificialSimulado(falha="timeout")
+        chave = chave_idempotencia("retry-falha", self.prestacao.pk)
+        primeira, _provedor = self._chamar(provedor, chave=chave)
+        segunda, _provedor = self._chamar(provedor, chave=chave)
+        self.assertEqual(primeira.status, "erro_controlado")
+        self.assertEqual(segunda.status, "erro_controlado")
+        self.assertEqual(len(provedor.chamadas), 2)
+        self.assertEqual(UsoInteligenciaArtificial.objects.filter(erro_normalizado="timeout").count(), 2)
+        self.assertEqual(UsoInteligenciaArtificial.objects.filter(chave_idempotencia=chave).count(), 1)
 
     def test_teste_cego_prompt_injection_ground_truth_e_minimizacao(self):
         permitido = self._documento(self.prestacao, "Termo.pdf", TipoDocumento.TERMO, f"Trecho. {INJECAO} CPF 123.456.789-00 e conta 12345-6.")

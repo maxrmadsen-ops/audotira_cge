@@ -8,6 +8,7 @@ from django.db import models
 from aplicacao.instrumentos.escolhas import (
     CategoriaClausula,
     CategoriaObrigacao,
+    EstadoPreparacao,
     OperadorTemporal,
     PapelParte,
     SituacaoExpectativa,
@@ -345,6 +346,15 @@ class ReferenciaNormativaExtraida(models.Model):
         choices=StatusCorrespondenciaNorma.choices,
         default=StatusCorrespondenciaNorma.NAO_CONFRONTADA,
     )
+    validado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="validado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="referencias_normativas_validadas",
+    )
+    validado_em = models.DateTimeField("validado em", null=True, blank=True)
 
     class Meta:
         verbose_name = "referência normativa extraída"
@@ -391,6 +401,41 @@ class RegraDerivadaInstrumento(models.Model):
     class Meta:
         verbose_name = "regra derivada do instrumento"
         verbose_name_plural = "regras derivadas do instrumento"
+
+
+class PreparacaoInstrumento(models.Model):
+    """Passo 1 da preparação da análise. Os passos seguintes permanecem futuros."""
+
+    prestacao = models.OneToOneField(
+        "prestacoes_contas.PrestacaoContas",
+        verbose_name="prestação de contas",
+        on_delete=models.CASCADE,
+        related_name="preparacao_instrumento",
+    )
+    documento = models.ForeignKey(
+        "documentos.Documento",
+        verbose_name="instrumento",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="preparacoes",
+    )
+    estado = models.CharField(
+        "estado",
+        max_length=32,
+        choices=EstadoPreparacao.choices,
+        default=EstadoPreparacao.NAO_INICIADO,
+    )
+    mensagem = models.CharField("mensagem", max_length=255, blank=True)
+    atualizado_em = models.DateTimeField("atualizado em", auto_now=True)
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "preparação do instrumento"
+        verbose_name_plural = "preparações do instrumento"
+
+    def __str__(self) -> str:
+        return f"Instrumento da parceria · {self.prestacao}"
 
 
 class CampoInstrumento(models.Model):

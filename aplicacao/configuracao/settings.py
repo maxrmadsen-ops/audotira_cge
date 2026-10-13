@@ -66,10 +66,10 @@ INSTALLED_APPS = [
     "aplicacao.inteligencia_artificial.apps.InteligenciaArtificialConfig",
     "aplicacao.achados.apps.AchadosConfig",
     "aplicacao.pareceres.apps.PareceresConfig",
+    "aplicacao.diligencias.apps.DiligenciasConfig",
     "aplicacao.avaliacao.apps.AvaliacaoConfig",
     "aplicacao.painel.apps.PainelConfig",
 ]
-
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",

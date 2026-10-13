@@ -1,0 +1,16 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}{{ titulo_pagina }} · CGE{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / {{ titulo_pagina }}
+</p>
+<h1 class="h3">{{ titulo_pagina }}</h1>
+<p class="texto-apoio">A diligência fica vinculada a este processo. O sistema não inventa resposta do beneficiário.</p>
+<form method="post" class="cartao" style="max-width: 40rem;">
+    {% csrf_token %}
+    {% include "prestacoes_contas/_campos.html" with form=form %}
+    <button class="btn btn-primary btn-sm" type="submit">Salvar diligência</button>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">Cancelar</a>
+</form>
+{% endblock %}
