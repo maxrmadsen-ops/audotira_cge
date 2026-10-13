@@ -116,9 +116,6 @@ def _situacao(referencias, norma) -> str:
 
 
 def montar_linhas(termo: TermoFomento) -> list[dict]:
-    complementar_referencias(termo)
-    referencias = list(termo.referencias_normativas.select_related("norma").order_by("id"))
-    associar_catalogo(referencias)
     referencias = list(termo.referencias_normativas.select_related("norma").order_by("id"))
     grupos: dict[tuple, list] = {}
     for referencia in referencias:

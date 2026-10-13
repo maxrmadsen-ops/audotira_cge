@@ -917,6 +917,9 @@ class TestePreparacaoInstrumento(TestCase):
         self.client.force_login(self.alheio)
         self.assertEqual(self.client.get(reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk})).status_code, 403)
         self.client.force_login(self.admin)
+        antes_refs = list(
+            termo.referencias_normativas.order_by("id").values_list("id", "texto", "status_correspondencia", "norma_id")
+        )
         pagina = self.client.get(reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}))
         self.assertContains(pagina, "Documentos normativos necessários")
         self.assertContains(pagina, "Lei nº 13.019/2014")
@@ -924,6 +927,10 @@ class TestePreparacaoInstrumento(TestCase):
         self.assertContains(pagina, "Não verificada")
         self.assertEqual(pagina.content.decode().count("Decreto nº 1010/2024"), 1)
         self.assertEqual(Norma.objects.count(), antes)
+        self.assertEqual(
+            list(termo.referencias_normativas.order_by("id").values_list("id", "texto", "status_correspondencia", "norma_id")),
+            antes_refs,
+        )
         lei = termo.referencias_normativas.get(texto="Lei nº 13.019/2014")
         self.assertIsNone(lei.norma_id)
         with tempfile.TemporaryDirectory() as pasta:
@@ -952,4 +959,4 @@ class TestePreparacaoInstrumento(TestCase):
         municipio.refresh_from_db()
         self.assertEqual(lei.validado_por, self.admin)
         self.assertEqual(municipio.valor_extraido, extraido)
-        self.assertEqual(termo.referencias_normativas.filter(texto="Decreto nº 1.010/2024", norma__numero="1.010").count(), 1)
+        self.assertIsNone(termo.referencias_normativas.get(texto="Decreto nº 1.010/2024").norma_id)
