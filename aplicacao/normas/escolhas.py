@@ -29,6 +29,15 @@ class SituacaoNorma(models.TextChoices):
     NAO_VERIFICADA = "nao_verificada", "Não verificada"
 
 
+class EstadoVerificacaoVigencia(models.TextChoices):
+    """Conferência humana do período. Não é a situação jurídica da norma."""
+
+    NAO_VERIFICADA = "nao_verificada", "Não verificada"
+    DATAS_INFORMADAS = "datas_informadas", "Datas informadas"
+    VERIFICADA = "verificada", "Vigência verificada"
+    DIVERGENCIA = "divergencia", "Divergência de vigência"
+
+
 class TipoRelacionamentoNorma(models.TextChoices):
     ALTERA = "altera", "Altera"
     REVOGA = "revoga", "Revoga"

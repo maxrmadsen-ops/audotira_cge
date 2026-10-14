@@ -630,8 +630,45 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 .cartao-campo:focus { outline: 2px solid var(--cge-verde-700); outline-offset: 2px; }
 .valor-integral, .valor-validado { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.35rem 0 0.5rem; }
 .valor-validado span { display: block; color: var(--cge-muted); font-size: 0.75rem; }
+.mensagem-base { margin: 0.2rem 0 0.7rem; }
+.resumo-base { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; margin: 0 0 0.8rem; }
+.resumo-base p { margin: 0; border: 1px solid var(--cge-borda); border-radius: 8px; background: #fff; padding: 0.35rem 0.6rem; }
+.resumo-base span { display: block; color: var(--cge-muted); font-size: 0.75rem; }
+.lista-normas { display: grid; gap: 0.6rem; }
+.norma-card { border: 1px solid var(--cge-borda); border-left-width: 4px; border-radius: 8px; background: #fff; padding: 0.7rem 0.8rem; }
+.norma-card.cinza { border-left-color: #8a93a0; }
+.norma-card.amarelo { border-left-color: var(--cge-dourado); }
+.norma-card.azul { border-left-color: #1d4e89; }
+.norma-card.vermelho { border-left-color: var(--cge-erro); }
+.norma-card header { display: flex; gap: 0.55rem; align-items: flex-start; }
+.norma-card h3 { font-size: 1rem; margin: 0; }
+.norma-status { margin: 0.2rem 0 0; font-weight: 650; }
+.norma-vigencia, .norma-motivo { margin: 0.15rem 0 0; color: var(--cge-muted); font-size: 0.85rem; }
+.norma-indicador { width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-top: 0.35rem; background: #8a93a0; flex: 0 0 auto; }
+.norma-card.amarelo .norma-indicador { background: var(--cge-dourado); }
+.norma-card.azul .norma-indicador { background: #1d4e89; }
+.norma-card.vermelho .norma-indicador { background: var(--cge-erro); }
+.norma-acoes, .norma-acoes form, .anexo-pdf { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.anexo-arquivo { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.anexo-nome { font-size: 0.85rem; overflow-wrap: anywhere; }
+.norma-card details { margin-top: 0.45rem; }
+.norma-card li { margin-bottom: 0.45rem; }
+.vigencia-form { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: end; }
 @media (max-width: 1100px) {
     .macros { grid-template-columns: 1fr; }
     .topo-instrumento { grid-template-columns: 1fr; }
+    .resumo-base { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+    .resumo-base { grid-template-columns: 1fr 1fr; }
+    .resumo-base p:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .mapa-etapas-compacto .macros { gap: 0.35rem; }
+    .mapa-etapas-compacto .macroetapa { padding: 0.4rem 0.6rem; }
+    .mapa-etapas-compacto .macroetapa h2 { margin-bottom: 0; font-size: 0.82rem; }
+    .mapa-etapas-compacto .macroetapa:not(.macro-atual) ol { display: none; }
+    .mapa-etapas-compacto .macro-atual h2 { margin-bottom: 0.35rem; }
+    .norma-card h3, .norma-status, .norma-vigencia, .anexo-nome { overflow-wrap: anywhere; }
+    .norma-acoes, .anexo-pdf, .vigencia-form { align-items: stretch; }
+    .norma-acoes .btn, .anexo-pdf .btn, .vigencia-form .btn { width: 100%; }
 }
 

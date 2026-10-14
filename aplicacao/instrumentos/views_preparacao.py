@@ -33,7 +33,18 @@ from aplicacao.instrumentos.preparacao import (
 )
 from aplicacao.instrumentos.servico import termo_do_documento
 from aplicacao.instrumentos.esquema_partes import ROTULO_UNIDADE, confirmar_parte, corrigir_atributo_parte, montar_unidades
-from aplicacao.instrumentos.base_normativa import montar_linhas, receber_documento, validar_referencia
+from aplicacao.instrumentos.base_normativa import (
+    grupo_da_referencia,
+    informar_datas,
+    mensagem_resumo,
+    montar_linhas,
+    receber_documento,
+    registrar_divergencia_vigencia,
+    resumo_linhas,
+    situacao_atual,
+    validar_referencia,
+    verificar_vigencia,
+)
 from aplicacao.instrumentos.estruturacao_partes import estruturar_partes
 from aplicacao.instrumentos.unidade_identificacao import confirmar_identificacao, corrigir_atributo_identificacao
 from aplicacao.instrumentos.unidade_objeto import (
@@ -503,43 +514,141 @@ class BaseNormativaView(_PreparacaoMixin, View):
             return redirect("instrumentos:base_normativa", pk=prestacao.pk)
         acao = request.POST.get("acao", "")
         try:
+            linha = grupo_da_referencia(termo, referencia)
+            anterior = situacao_atual(linha)
             if acao == "enviar_documento":
                 arquivo = request.FILES.get("arquivo")
                 if arquivo is None:
                     raise ValueError("Envie o PDF da norma.")
                 norma = receber_documento(termo, referencia, arquivo, request.user)
-                self._processar_norma(request, norma)
-                registrar_evento(
-                    evento=RegistroAuditoria.Evento.CRIACAO,
-                    descricao="Documento normativo recebido a partir da referência do instrumento",
-                    usuario=request.user,
-                    endereco_ip=obter_ip(request),
-                    caminho=request.path,
-                    detalhes={
-                        "prestacao": prestacao.pk,
-                        "referencia": referencia.pk,
-                        "norma": norma.pk,
-                        "hash_sha256": norma.hash_sha256,
-                        "vigencia": "nao_verificada",
-                    },
+                self._auditar_base(
+                    request,
+                    prestacao,
+                    referencia,
+                    norma,
+                    RegistroAuditoria.Evento.CRIACAO,
+                    "Documento normativo recebido a partir da referência do instrumento",
+                    acao,
+                    anterior,
+                    situacao_atual(grupo_da_referencia(termo, referencia)),
                 )
-                messages.success(request, "Documento recebido. A vigência permanece não verificada até conferência humana.")
+                messages.success(request, "Documento recebido. A vigência permanece não verificada e a conferência humana segue pendente.")
             elif acao == "validar":
                 validar_referencia(termo, referencia, request.user)
-                registrar_evento(
-                    evento=RegistroAuditoria.Evento.VALIDACAO_HUMANA,
-                    descricao="Referência normativa validada pelo usuário",
-                    usuario=request.user,
-                    endereco_ip=obter_ip(request),
-                    caminho=request.path,
-                    detalhes={"prestacao": prestacao.pk, "referencia": referencia.pk, "norma": referencia.norma_id},
+                referencia.refresh_from_db()
+                self._auditar_base(
+                    request,
+                    prestacao,
+                    referencia,
+                    referencia.norma,
+                    RegistroAuditoria.Evento.VALIDACAO_HUMANA,
+                    "Identificação da norma conferida pelo auditor",
+                    acao,
+                    anterior,
+                    situacao_atual(grupo_da_referencia(termo, referencia)),
                 )
-                messages.success(request, "Referência validada. A base normativa não foi concluída automaticamente.")
+                messages.success(request, "Identificação conferida. A vigência continua não verificada.")
+            elif acao == "informar_datas":
+                registro = informar_datas(
+                    termo,
+                    referencia,
+                    request.user,
+                    request.POST.get("inicio_vigencia", ""),
+                    request.POST.get("fim_vigencia", ""),
+                    request.POST.get("fonte_documental", ""),
+                )
+                self._auditar_base(
+                    request,
+                    prestacao,
+                    referencia,
+                    registro.norma,
+                    RegistroAuditoria.Evento.ALTERACAO,
+                    "Período de vigência informado, sem verificação conclusiva",
+                    acao,
+                    anterior,
+                    situacao_atual(grupo_da_referencia(termo, referencia)),
+                    registro,
+                )
+                messages.success(request, "Período informado. A vigência ainda não foi verificada.")
+            elif acao == "verificar_vigencia":
+                registro = verificar_vigencia(
+                    termo,
+                    referencia,
+                    request.user,
+                    request.POST.get("fundamentacao", ""),
+                    request.POST.get("data_referencia", ""),
+                )
+                self._auditar_base(
+                    request,
+                    prestacao,
+                    referencia,
+                    registro.norma,
+                    RegistroAuditoria.Evento.VALIDACAO_HUMANA,
+                    "Vigência verificada pelo auditor, sem concluir a aplicabilidade",
+                    acao,
+                    anterior,
+                    situacao_atual(grupo_da_referencia(termo, referencia)),
+                    registro,
+                )
+                messages.success(request, "Vigência verificada. A aplicabilidade ao instrumento não foi concluída automaticamente.")
+            elif acao == "registrar_divergencia_vigencia":
+                registro = registrar_divergencia_vigencia(
+                    termo,
+                    referencia,
+                    request.user,
+                    request.POST.get("motivo_divergencia", ""),
+                    request.POST.get("data_referencia", ""),
+                )
+                self._auditar_base(
+                    request,
+                    prestacao,
+                    referencia,
+                    registro.norma,
+                    RegistroAuditoria.Evento.VALIDACAO_HUMANA,
+                    "Divergência de vigência registrada pelo auditor",
+                    acao,
+                    anterior,
+                    situacao_atual(grupo_da_referencia(termo, referencia)),
+                    registro,
+                )
+                messages.success(request, "Divergência de vigência registrada.")
             else:
                 messages.error(request, "Ação não reconhecida.")
         except (ErroValidacaoDocumento, ValidationError, ValueError) as exc:
             messages.error(request, getattr(exc, "mensagem", None) or str(exc))
         return redirect("instrumentos:base_normativa", pk=prestacao.pk)
+
+    def _auditar_base(self, request, prestacao, referencia, norma, evento, descricao, acao, anterior, posterior, registro=None):
+        detalhes = {
+            "prestacao": prestacao.pk,
+            "referencia": referencia.pk,
+            "norma": getattr(norma, "pk", None),
+            "versao": getattr(norma, "versao", None),
+            "hash_sha256": getattr(norma, "hash_sha256", ""),
+            "acao": acao,
+            "situacao_anterior": anterior,
+            "situacao_posterior": posterior,
+        }
+        if registro is not None:
+            detalhes.update(
+                {
+                    "estado_vigencia": registro.estado,
+                    "versao_documento": registro.versao_documento,
+                    "hash_documento": registro.hash_sha256,
+                    "fonte_documental": registro.fonte_documental,
+                    "fundamentacao": registro.fundamentacao,
+                    "motivo_divergencia": registro.motivo_divergencia,
+                    "data_referencia": registro.data_referencia.isoformat() if registro.data_referencia else "",
+                }
+            )
+        registrar_evento(
+            evento=evento,
+            descricao=descricao,
+            usuario=request.user,
+            endereco_ip=obter_ip(request),
+            caminho=request.path,
+            detalhes=detalhes,
+        )
 
     def _processar_norma(self, request, norma):
         try:
@@ -552,12 +661,16 @@ class BaseNormativaView(_PreparacaoMixin, View):
     def _contexto(self, request, prestacao, preparacao):
         documento = preparacao.documento
         termo = termo_do_documento(documento) if documento else None
+        linhas = montar_linhas(termo) if termo else []
+        resumo = resumo_linhas(linhas)
         return {
             "prestacao": prestacao,
             "preparacao": preparacao,
             "termo": termo,
             "documento": documento,
-            "linhas": montar_linhas(termo) if termo else [],
+            "linhas": linhas,
+            "resumo_base": resumo,
+            "mensagem_base": mensagem_resumo(resumo),
             "navegacao": self._navegacao(prestacao, preparacao, "base"),
             "pode_alterar": pode_atuar_na_prestacao(request.user, prestacao),
         }

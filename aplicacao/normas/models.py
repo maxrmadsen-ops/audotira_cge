@@ -6,6 +6,7 @@ from pgvector.django import HnswIndex, VectorField
 
 from aplicacao.normas.escolhas import (
     Esfera,
+    EstadoVerificacaoVigencia,
     MetodoRecuperacao,
     MetodoSegmentacao,
     SituacaoNorma,
@@ -117,6 +118,70 @@ class RelacionamentoNorma(models.Model):
 
     def __str__(self) -> str:
         return f"{self.origem} {self.get_tipo_display()} {self.destino}"
+
+
+class VerificacaoVigencia(models.Model):
+    """Registro da análise sobre o período de uma versão da norma.
+
+    Não altera Norma.situacao e não conclui a aplicabilidade jurídica.
+    Cada linha permanece ligada à versão e ao hash usados naquela ação.
+    """
+
+    termo = models.ForeignKey(
+        "instrumentos.TermoFomento",
+        verbose_name="termo",
+        on_delete=models.CASCADE,
+        related_name="verificacoes_vigencia",
+    )
+    norma = models.ForeignKey(Norma, verbose_name="norma", on_delete=models.PROTECT, related_name="verificacoes_vigencia")
+    estado = models.CharField(
+        "estado da verificação",
+        max_length=20,
+        choices=EstadoVerificacaoVigencia.choices,
+        default=EstadoVerificacaoVigencia.NAO_VERIFICADA,
+    )
+    inicio_vigencia = models.DateField("início informado", null=True, blank=True)
+    fim_vigencia = models.DateField("fim informado", null=True, blank=True)
+    fonte_documental = models.TextField("fonte documental", blank=True)
+    data_referencia = models.DateField("data de referência da análise", null=True, blank=True)
+    fundamentacao = models.TextField("fundamentação", blank=True)
+    motivo_divergencia = models.TextField("motivo da divergência", blank=True)
+    versao_documento = models.PositiveIntegerField("versão do documento")
+    hash_sha256 = models.CharField("hash do documento", max_length=64)
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="registrado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="vigencias_registradas",
+    )
+    verificado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="verificado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="vigencias_verificadas",
+    )
+    verificado_em = models.DateTimeField("verificado em", null=True, blank=True)
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "verificação de vigência"
+        verbose_name_plural = "verificações de vigência"
+        ordering = ["-criado_em", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(fim_vigencia__isnull=True)
+                | models.Q(inicio_vigencia__isnull=True)
+                | models.Q(fim_vigencia__gte=models.F("inicio_vigencia")),
+                name="verificacao_vigencia_coerente",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_estado_display()} · {self.norma} v{self.versao_documento}"
 
 
 class AplicabilidadeNorma(models.Model):
