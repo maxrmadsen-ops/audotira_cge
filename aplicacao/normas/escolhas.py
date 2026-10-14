@@ -38,6 +38,25 @@ class EstadoVerificacaoVigencia(models.TextChoices):
     DIVERGENCIA = "divergencia", "Divergência de vigência"
 
 
+class NaturezaDocumentoNormativo(models.TextChoices):
+    PUBLICACAO_ORIGINAL = "publicacao_original", "Publicação original"
+    COMPILACAO_ATUALIZADA = "compilacao_atualizada", "Compilação atualizada"
+    REDACAO_HISTORICA = "redacao_historica", "Redação histórica"
+    OUTRO = "outro", "Outro documento oficial"
+
+
+class RedacaoRepresentada(models.TextChoices):
+    ORIGINAL = "original", "Redação original"
+    COMPILACAO = "compilacao", "Compilação atualizada"
+    HISTORICA = "historica", "Redação histórica com data de corte"
+    INDETERMINADA = "indeterminada", "Redação aplicável não determinada"
+
+
+class SituacaoConferenciaDocumento(models.TextChoices):
+    AGUARDANDO = "aguardando", "Aguardando conferência"
+    CONFERIDA = "conferida", "Identificação conferida"
+
+
 class TipoRelacionamentoNorma(models.TextChoices):
     ALTERA = "altera", "Altera"
     REVOGA = "revoga", "Revoga"

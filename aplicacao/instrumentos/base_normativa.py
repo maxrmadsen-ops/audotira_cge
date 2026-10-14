@@ -5,6 +5,7 @@ das citações. Não inventa vigência, não confirma o instrumento e não chama
 """
 
 import re
+from datetime import date
 
 from django.db import transaction
 from django.db.models import Q
@@ -17,9 +18,16 @@ from aplicacao.instrumentos.escolhas import StatusCorrespondenciaNorma
 from aplicacao.instrumentos.extracao import _normas
 from aplicacao.instrumentos.models import ReferenciaNormativaExtraida, TermoFomento
 from aplicacao.normas.armazenamento import armazenar_pdf
-from aplicacao.normas.escolhas import Esfera, EstadoVerificacaoVigencia, SituacaoNorma, TipoNorma
-from aplicacao.normas.models import Norma, VerificacaoVigencia
-from aplicacao.normas.servico import criar_nova_versao
+from aplicacao.normas.escolhas import (
+    Esfera,
+    EstadoVerificacaoVigencia,
+    NaturezaDocumentoNormativo,
+    RedacaoRepresentada,
+    SituacaoConferenciaDocumento,
+    SituacaoNorma,
+    TipoNorma,
+)
+from aplicacao.normas.models import DocumentoNormativo, Norma, VerificacaoVigencia
 
 _POLITICA = re.compile(r"\b(Pol[ií]tica\s+de\s+[A-ZÁÉÍÓÚÂÊÔÃÕ][^,.;\n]{2,60})")
 
@@ -223,7 +231,16 @@ def _ids_cadeia(norma) -> list[int]:
 def _verificacao_atual(termo, norma):
     if norma is None:
         return None
-    return VerificacaoVigencia.objects.filter(termo=termo, norma=norma).order_by("-id").first()
+    return (
+        VerificacaoVigencia.objects.filter(termo=termo, norma=norma)
+        .select_related("documento")
+        .order_by("-id")
+        .first()
+    )
+
+
+def _evidencia_substituida(registro) -> bool:
+    return bool(registro and registro.documento_id and registro.documento.substituido_em is not None)
 
 
 def _verificacoes_da_cadeia(termo, norma) -> list:
@@ -231,9 +248,32 @@ def _verificacoes_da_cadeia(termo, norma) -> list:
         return []
     return list(
         VerificacaoVigencia.objects.filter(termo=termo, norma_id__in=_ids_cadeia(norma))
-        .select_related("criado_por", "verificado_por", "norma")
+        .select_related("criado_por", "verificado_por", "norma", "documento")
         .order_by("-id")
     )
+
+
+def _documentos_atuais(norma) -> list:
+    if norma is None:
+        return []
+    return [item for item in norma.documentos.all() if item.substituido_em is None]
+
+
+def _anteriores(documento, por_id: dict) -> list:
+    saida = []
+    atual = por_id.get(documento.documento_anterior_id)
+    vistos = set()
+    while atual is not None and atual.pk not in vistos:
+        saida.append(atual)
+        vistos.add(atual.pk)
+        atual = por_id.get(atual.documento_anterior_id)
+    return saida
+
+
+def _rotulo_documentos(quantidade: int) -> str:
+    if quantidade == 1:
+        return "1 documento oficial"
+    return f"{quantidade} documentos oficiais"
 
 
 def _rotulo_vigencia(registro) -> str:
@@ -266,7 +306,9 @@ def _historico(referencias: list) -> list:
 
 
 def montar_linhas(termo: TermoFomento) -> list[dict]:
-    referencias = list(termo.referencias_normativas.select_related("norma").order_by("id"))
+    referencias = list(
+        termo.referencias_normativas.select_related("norma").prefetch_related("norma__documentos").order_by("id")
+    )
     data = _data_instrumento(termo)
     linhas = []
     for grupo in consolidar_referencias(referencias):
@@ -275,9 +317,19 @@ def montar_linhas(termo: TermoFomento) -> list[dict]:
         normas = [item.norma for item in itens if item.norma_id and item.norma.desativada_em is None]
         distintas = {norma.pk for norma in normas}
         norma = normas[0] if normas else None
-        documento_disponivel = bool(norma and (norma.arquivo or "").strip())
+        por_id = {item.pk: item for item in norma.documentos.all()} if norma is not None else {}
+        documentos = []
+        for item in _documentos_atuais(norma):
+            item.anteriores = _anteriores(item, por_id)
+            documentos.append(item)
+        documento_disponivel = bool(documentos) or bool(norma and (norma.arquivo or "").strip())
         validada = all(item.validado_por_id for item in itens) and documento_disponivel
         verificacao = _verificacao_atual(termo, norma)
+        reavaliacao = _evidencia_substituida(verificacao)
+        if reavaliacao:
+            verificacao_exibida = None
+        else:
+            verificacao_exibida = verificacao
         inconsistente = grupo["ambigua"] or len(distintas) > 1
         if inconsistente:
             indicador = "vermelho"
@@ -309,11 +361,15 @@ def montar_linhas(termo: TermoFomento) -> list[dict]:
                 "catalogo": "Correspondente" if norma else "Não confrontada com o catálogo",
                 "documento": "Disponível" if documento_disponivel else "Ausente",
                 "documento_disponivel": documento_disponivel,
-                "vigencia": _rotulo_vigencia(verificacao),
-                "estado_vigencia": verificacao.estado if verificacao else EstadoVerificacaoVigencia.NAO_VERIFICADA,
-                "periodo": _periodo(verificacao),
-                "fonte_vigencia": verificacao.fonte_documental if verificacao else "",
-                "motivo_vigencia": verificacao.motivo_divergencia if verificacao else "",
+                "documentos": documentos,
+                "documentos_rotulo": _rotulo_documentos(len(documentos)),
+                "legado": norma if norma is not None and (norma.arquivo or "").strip() else None,
+                "vigencia": _rotulo_vigencia(verificacao_exibida),
+                "estado_vigencia": verificacao_exibida.estado if verificacao_exibida else EstadoVerificacaoVigencia.NAO_VERIFICADA,
+                "periodo": _periodo(verificacao_exibida),
+                "fonte_vigencia": verificacao_exibida.fonte_documental if verificacao_exibida else "",
+                "motivo_vigencia": verificacao_exibida.motivo_divergencia if verificacao_exibida else "",
+                "reavaliacao_vigencia": reavaliacao,
                 "verificacoes": _verificacoes_da_cadeia(termo, norma),
                 "situacao": situacao,
                 "validada": validada,
@@ -381,16 +437,83 @@ def _situacao_grupo(linha: dict) -> str:
     return "documento_ausente"
 
 
-def receber_documento(termo: TermoFomento, referencia: ReferenciaNormativaExtraida, arquivo, usuario) -> Norma:
-    if referencia.termo_id != termo.pk:
-        raise ValueError("A referência não pertence a este instrumento.")
-    linha = grupo_da_referencia(termo, referencia)
-    if linha["ambigua"]:
-        raise ValueError("A referência é ambígua e não foi consolidada. Nenhum documento foi gravado.")
-    conteudo = arquivo.read()
-    info = validar_envio(arquivo.name, conteudo, arquivo.content_type or "")
+def _escolha(valor: str, opcoes, mensagem: str) -> str:
+    texto = (valor or "").strip()
+    if texto not in opcoes.values:
+        raise ValueError(mensagem)
+    return texto
+
+
+def _parse_data(valor: str):
+    texto = (valor or "").strip()
+    if not texto:
+        return None
+    iso = parse_date(texto)
+    if iso is not None:
+        return iso
+    partes = texto.split("/")
+    if len(partes) != 3 or not all(parte.isdigit() for parte in partes):
+        return None
+    dia, mes, ano = partes
+    if len(ano) != 4:
+        return None
+    try:
+        return date(int(ano), int(mes), int(dia))
+    except ValueError:
+        return None
+
+
+def _data_obrigatoria(valor: str, mensagem: str):
+    data = _parse_data(valor)
+    if data is None:
+        raise ValueError(mensagem)
+    return data
+
+
+def _metadados_documento(natureza: str, redacao: str, fonte: str, identificacao: str, data_obtencao: str, data_corte: str, limitacao: str) -> dict:
+    natureza_ok = _escolha(natureza, NaturezaDocumentoNormativo, "Informe a natureza documental.")
+    redacao_ok = _escolha(redacao, RedacaoRepresentada, "Informe a redação representada.")
+    fonte_ok = " ".join((fonte or "").split())
+    identificacao_ok = " ".join((identificacao or "").split())
+    if not fonte_ok:
+        raise ValueError("Informe a fonte oficial.")
+    if not identificacao_ok:
+        raise ValueError("Informe a identificação do documento.")
+    obtencao = _data_obrigatoria(data_obtencao, "Informe a data de obtenção.")
+    corte = _parse_data(data_corte) if (data_corte or "").strip() else None
+    if (data_corte or "").strip() and corte is None:
+        raise ValueError("A data de corte informada é inválida.")
+    if redacao_ok == RedacaoRepresentada.HISTORICA and corte is None:
+        raise ValueError("A redação histórica exige a data de corte comprovada no documento.")
+    return {
+        "natureza": natureza_ok,
+        "redacao": redacao_ok,
+        "fonte": fonte_ok[:300],
+        "identificacao": identificacao_ok[:300],
+        "data_obtencao": obtencao,
+        "data_corte": corte,
+        "limitacao": (limitacao or "").strip(),
+    }
+
+
+def _gravar_arquivo(documento: DocumentoNormativo, conteudo: bytes, nome: str, info: dict) -> None:
+    documento.arquivo = armazenar_pdf(documento.pk, conteudo, pasta="documentos")
+    documento.hash_sha256 = info["hash_sha256"]
+    documento.nome_original = (nome or "documento.pdf")[:255]
+    documento.save(update_fields=["arquivo", "hash_sha256", "nome_original"])
+
+
+def _vincular_referencias(linha: dict, norma: Norma) -> None:
+    for item in linha["referencias"]:
+        item.norma = norma
+        item.status_correspondencia = StatusCorrespondenciaNorma.CORRESPONDENTE
+        item.save(update_fields=["norma", "status_correspondencia"])
+
+
+def _norma_do_grupo_ou_nova(termo, referencia, linha, usuario) -> Norma:
+    if linha["norma"] is not None:
+        return linha["norma"]
     tipo = _tipo_catalogo(linha["tipo"]) or TipoNorma.OUTRO
-    ano = _ano_canonico(linha["referencias"])
     esfera = ""
     for item in linha["referencias"]:
         if _esfera(item.esfera) == "federal":
@@ -399,46 +522,100 @@ def receber_documento(termo: TermoFomento, referencia: ReferenciaNormativaExtrai
         if _esfera(item.esfera) in {choice for choice, _rotulo in Esfera.choices}:
             esfera = _esfera(item.esfera)
             break
+    return Norma.objects.create(
+        tipo_norma=tipo,
+        numero=(linha["numero"] or "")[:40],
+        ano=_ano_canonico(linha["referencias"]),
+        titulo=(referencia.texto or "Norma citada no instrumento")[:300],
+        esfera=esfera,
+        situacao=SituacaoNorma.NAO_VERIFICADA,
+        criado_por=usuario,
+    )
+
+
+def adicionar_documento(
+    termo: TermoFomento,
+    referencia: ReferenciaNormativaExtraida,
+    arquivo,
+    usuario,
+    *,
+    natureza: str,
+    redacao: str,
+    fonte: str,
+    identificacao: str,
+    data_obtencao: str,
+    data_corte: str = "",
+    limitacao: str = "",
+) -> DocumentoNormativo:
+    if referencia.termo_id != termo.pk:
+        raise ValueError("A referência não pertence a este instrumento.")
+    linha = grupo_da_referencia(termo, referencia)
+    if linha["ambigua"]:
+        raise ValueError("A referência é ambígua e não foi consolidada. Nenhum documento foi gravado.")
+    conteudo = arquivo.read()
+    info = validar_envio(arquivo.name, conteudo, arquivo.content_type or "")
+    metadados = _metadados_documento(natureza, redacao, fonte, identificacao, data_obtencao, data_corte, limitacao)
     with transaction.atomic():
-        anterior = linha["norma"]
-        if anterior is not None:
-            norma = criar_nova_versao(
-                anterior,
-                usuario=usuario,
-                conteudo=conteudo,
-                nome_original=arquivo.name,
-                dados={
-                    "situacao": SituacaoNorma.NAO_VERIFICADA,
-                    "inicio_vigencia": None,
-                    "fim_vigencia": None,
-                    "titulo": (referencia.texto or anterior.titulo)[:300],
-                },
-            )
-        else:
-            norma = Norma.objects.create(
-                tipo_norma=tipo,
-                numero=(linha["numero"] or "")[:40],
-                ano=ano,
-                titulo=(referencia.texto or "Norma citada no instrumento")[:300],
-                esfera=esfera,
-                situacao=SituacaoNorma.NAO_VERIFICADA,
-                fonte="Instrumento da parceria",
-                hash_sha256=info["hash_sha256"],
-                nome_original=arquivo.name,
-                criado_por=usuario,
-            )
-            norma.arquivo = armazenar_pdf(norma.pk, conteudo)
-            norma.save(update_fields=["arquivo", "atualizado_em"])
-        for item in linha["referencias"]:
-            item.norma = norma
-            item.status_correspondencia = StatusCorrespondenciaNorma.CORRESPONDENTE
-            if anterior is not None:
-                item.validado_por = None
-                item.validado_em = None
-                item.save(update_fields=["norma", "status_correspondencia", "validado_por", "validado_em"])
-            else:
-                item.save(update_fields=["norma", "status_correspondencia"])
-    return norma
+        norma = _norma_do_grupo_ou_nova(termo, referencia, linha, usuario)
+        documento = DocumentoNormativo.objects.create(
+            norma=norma,
+            versao=1,
+            hash_sha256=info["hash_sha256"],
+            nome_original=(arquivo.name or "documento.pdf")[:255],
+            situacao_conferencia=SituacaoConferenciaDocumento.AGUARDANDO,
+            criado_por=usuario,
+            **metadados,
+        )
+        _gravar_arquivo(documento, conteudo, arquivo.name, info)
+        _vincular_referencias(linha, norma)
+    return documento
+
+
+def substituir_documento(termo: TermoFomento, referencia: ReferenciaNormativaExtraida, documento_id: str, arquivo, usuario) -> DocumentoNormativo:
+    if referencia.termo_id != termo.pk:
+        raise ValueError("A referência não pertence a este instrumento.")
+    linha = grupo_da_referencia(termo, referencia)
+    norma = linha["norma"]
+    anterior = next((item for item in linha["documentos"] if str(item.pk) == str(documento_id or "").strip()), None)
+    if norma is None or anterior is None:
+        raise ValueError("Selecione o documento oficial que será substituído.")
+    conteudo = arquivo.read()
+    info = validar_envio(arquivo.name, conteudo, arquivo.content_type or "")
+    with transaction.atomic():
+        novo = DocumentoNormativo.objects.create(
+            norma=norma,
+            natureza=anterior.natureza,
+            redacao=anterior.redacao,
+            fonte=anterior.fonte,
+            identificacao=anterior.identificacao,
+            data_obtencao=timezone.localdate(),
+            data_corte=anterior.data_corte,
+            limitacao=anterior.limitacao,
+            versao=anterior.versao + 1,
+            documento_anterior=anterior,
+            hash_sha256=info["hash_sha256"],
+            nome_original=(arquivo.name or "documento.pdf")[:255],
+            situacao_conferencia=SituacaoConferenciaDocumento.AGUARDANDO,
+            criado_por=usuario,
+        )
+        _gravar_arquivo(novo, conteudo, arquivo.name, info)
+        anterior.substituido_em = timezone.now()
+        anterior.save(update_fields=["substituido_em"])
+    return novo
+
+
+def conferir_documento(termo: TermoFomento, referencia: ReferenciaNormativaExtraida, documento_id: str, usuario) -> DocumentoNormativo:
+    if referencia.termo_id != termo.pk:
+        raise ValueError("A referência não pertence a este instrumento.")
+    linha = grupo_da_referencia(termo, referencia)
+    documento = next((item for item in linha["documentos"] if str(item.pk) == str(documento_id or "").strip()), None)
+    if documento is None:
+        raise ValueError("Selecione o documento oficial que será conferido.")
+    documento.situacao_conferencia = SituacaoConferenciaDocumento.CONFERIDA
+    documento.conferido_por = usuario
+    documento.conferido_em = timezone.now()
+    documento.save(update_fields=["situacao_conferencia", "conferido_por", "conferido_em"])
+    return documento
 
 
 def validar_referencia(termo: TermoFomento, referencia: ReferenciaNormativaExtraida, usuario) -> None:
@@ -454,13 +631,32 @@ def validar_referencia(termo: TermoFomento, referencia: ReferenciaNormativaExtra
         item.save(update_fields=["validado_por", "validado_em"])
 
 
-def _norma_do_grupo(termo: TermoFomento, referencia: ReferenciaNormativaExtraida) -> Norma:
+def _norma_do_grupo(termo: TermoFomento, referencia: ReferenciaNormativaExtraida) -> tuple[Norma, dict]:
     if referencia.termo_id != termo.pk:
         raise ValueError("A referência não pertence a este instrumento.")
-    norma = grupo_da_referencia(termo, referencia)["norma"]
-    if norma is None or not (norma.arquivo or "").strip():
+    linha = grupo_da_referencia(termo, referencia)
+    norma = linha["norma"]
+    if norma is None or not linha["documento_disponivel"]:
         raise ValueError("Envie o documento da norma antes de tratar a vigência.")
-    return norma
+    return norma, linha
+
+
+def _evidencia(linha: dict, documento_id: str):
+    atuais = linha["documentos"]
+    if not atuais:
+        return None
+    if len(atuais) == 1 and not (documento_id or "").strip():
+        return atuais[0]
+    escolhido = next((item for item in atuais if str(item.pk) == str(documento_id or "").strip()), None)
+    if escolhido is None:
+        raise ValueError("Informe o documento oficial usado como evidência.")
+    return escolhido
+
+
+def _campos_evidencia(norma: Norma, evidencia) -> dict:
+    if evidencia is None:
+        return {"documento": None, "versao_documento": norma.versao, "hash_sha256": norma.hash_sha256}
+    return {"documento": evidencia, "versao_documento": evidencia.versao, "hash_sha256": evidencia.hash_sha256}
 
 
 def informar_datas(
@@ -470,12 +666,14 @@ def informar_datas(
     inicio: str,
     fim: str = "",
     fonte: str = "",
+    documento_id: str = "",
 ) -> VerificacaoVigencia:
-    norma = _norma_do_grupo(termo, referencia)
-    inicio_data = parse_date(inicio or "")
+    norma, linha = _norma_do_grupo(termo, referencia)
+    evidencia = _evidencia(linha, documento_id)
+    inicio_data = _parse_data(inicio or "")
     if inicio_data is None:
         raise ValueError("Informe a data inicial do período.")
-    fim_data = parse_date(fim) if (fim or "").strip() else None
+    fim_data = _parse_data(fim) if (fim or "").strip() else None
     if (fim or "").strip() and fim_data is None:
         raise ValueError("A data final informada é inválida.")
     if fim_data and fim_data < inicio_data:
@@ -489,9 +687,8 @@ def informar_datas(
         inicio_vigencia=inicio_data,
         fim_vigencia=fim_data,
         fonte_documental=fonte.strip(),
-        versao_documento=norma.versao,
-        hash_sha256=norma.hash_sha256,
         criado_por=usuario,
+        **_campos_evidencia(norma, evidencia),
     )
 
 
@@ -502,13 +699,13 @@ def verificar_vigencia(
     fundamentacao: str,
     data_referencia: str,
 ) -> VerificacaoVigencia:
-    norma = _norma_do_grupo(termo, referencia)
+    norma, _linha = _norma_do_grupo(termo, referencia)
     atual = _verificacao_atual(termo, norma)
-    if atual is None or atual.estado != EstadoVerificacaoVigencia.DATAS_INFORMADAS or atual.inicio_vigencia is None:
+    if atual is None or _evidencia_substituida(atual) or atual.estado != EstadoVerificacaoVigencia.DATAS_INFORMADAS or atual.inicio_vigencia is None:
         raise ValueError("Informe o período antes de verificar a vigência.")
     if not (fundamentacao or "").strip() or not (data_referencia or "").strip():
         raise ValueError("A verificação exige fundamentação e data de referência.")
-    referencia_data = parse_date(data_referencia)
+    referencia_data = _parse_data(data_referencia)
     if referencia_data is None:
         raise ValueError("A data de referência é inválida.")
     return VerificacaoVigencia.objects.create(
@@ -520,11 +717,10 @@ def verificar_vigencia(
         fonte_documental=atual.fonte_documental,
         data_referencia=referencia_data,
         fundamentacao=fundamentacao.strip(),
-        versao_documento=norma.versao,
-        hash_sha256=norma.hash_sha256,
         criado_por=usuario,
         verificado_por=usuario,
         verificado_em=timezone.now(),
+        **_campos_evidencia(norma, atual.documento),
     )
 
 
@@ -534,28 +730,30 @@ def registrar_divergencia_vigencia(
     usuario,
     motivo: str,
     data_referencia: str = "",
+    documento_id: str = "",
 ) -> VerificacaoVigencia:
-    norma = _norma_do_grupo(termo, referencia)
+    norma, linha = _norma_do_grupo(termo, referencia)
     if not (motivo or "").strip():
         raise ValueError("Informe o motivo da divergência de vigência.")
-    referencia_data = parse_date(data_referencia) if (data_referencia or "").strip() else None
+    referencia_data = _parse_data(data_referencia) if (data_referencia or "").strip() else None
     if (data_referencia or "").strip() and referencia_data is None:
         raise ValueError("A data de referência é inválida.")
     atual = _verificacao_atual(termo, norma)
+    evidencia = atual.documento if atual and atual.documento_id and atual.documento.substituido_em is None else _evidencia(linha, documento_id)
+    periodo = atual if atual and not _evidencia_substituida(atual) else None
     return VerificacaoVigencia.objects.create(
         termo=termo,
         norma=norma,
         estado=EstadoVerificacaoVigencia.DIVERGENCIA,
-        inicio_vigencia=atual.inicio_vigencia if atual else None,
-        fim_vigencia=atual.fim_vigencia if atual else None,
-        fonte_documental=atual.fonte_documental if atual else "",
+        inicio_vigencia=periodo.inicio_vigencia if periodo else None,
+        fim_vigencia=periodo.fim_vigencia if periodo else None,
+        fonte_documental=periodo.fonte_documental if periodo else "",
         data_referencia=referencia_data,
         motivo_divergencia=motivo.strip(),
-        versao_documento=norma.versao,
-        hash_sha256=norma.hash_sha256,
         criado_por=usuario,
         verificado_por=usuario,
         verificado_em=timezone.now(),
+        **_campos_evidencia(norma, evidencia),
     )
 
 

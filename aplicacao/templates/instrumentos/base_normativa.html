@@ -39,23 +39,14 @@
                     <h3>{{ linha.tipo }} {{ linha.numero }}/{{ linha.ano }}</h3>
                     <p class="norma-status">{{ linha.situacao }}</p>
                     <p class="norma-vigencia">{{ linha.vigencia }}</p>
+                    {% if linha.documentos %}<p class="norma-vigencia">{{ linha.documentos_rotulo }}</p>{% endif %}
+                    {% if linha.reavaliacao_vigencia %}<p class="norma-motivo">O documento usado como evidência foi substituído. A verificação anterior permanece no histórico.</p>{% endif %}
                 </div>
             </header>
             {% if linha.motivo %}<p class="norma-motivo">{{ linha.motivo }}</p>{% endif %}
             <div class="norma-acoes">
-                {% if linha.norma and linha.norma.arquivo %}
-                <a class="btn btn-outline-primary btn-sm" href="{% url 'normas:arquivo' linha.norma.pk %}">Consultar PDF</a>
-                {% endif %}
-                {% if pode_alterar and not linha.documento_disponivel and not linha.ambigua %}
-                <form class="anexo-pdf" method="post" enctype="multipart/form-data" data-anexo>
-                    {% csrf_token %}
-                    <input type="hidden" name="acao" value="enviar_documento">
-                    <input type="hidden" name="referencia" value="{{ linha.referencia.pk }}">
-                    <input id="arquivo-{{ linha.referencia.pk }}" class="anexo-arquivo" type="file" name="arquivo" accept="application/pdf" required>
-                    <button class="btn btn-outline-primary btn-sm" type="button" data-anexo-escolher>Anexar PDF</button>
-                    <span class="anexo-nome" data-anexo-nome hidden></span>
-                    <button class="btn btn-primary btn-sm" type="submit" data-anexo-confirmar hidden>Confirmar envio</button>
-                </form>
+                {% if linha.legado and not linha.documentos %}
+                <a class="btn btn-outline-primary btn-sm" href="{% url 'normas:arquivo' linha.legado.pk %}">Consultar PDF</a>
                 {% endif %}
                 {% if pode_alterar and linha.documento_disponivel and not linha.validada %}
                 <form method="post">
@@ -86,32 +77,145 @@
                     {% if linha.data_instrumento != "Não identificada" %}
                     <div><dt>Data do instrumento</dt><dd>{{ linha.data_instrumento }}</dd></div>
                     {% endif %}
-                    {% if linha.norma %}
+                    {% if linha.norma and linha.norma.arquivo and not linha.documentos %}
                     <div><dt>Versão</dt><dd>{{ linha.norma.versao }}</dd></div>
                     <div><dt>Hash</dt><dd>{{ linha.norma.hash_sha256 }}</dd></div>
                     {% endif %}
                 </dl>
-                {% if pode_alterar and linha.documento_disponivel %}
-                <form class="anexo-pdf mt-2" method="post" enctype="multipart/form-data" data-anexo>
+                <h4>Documentos oficiais</h4>
+                {% if linha.legado %}
+                <section class="documento-oficial">
+                    <h4>Documento anterior · versão {{ linha.legado.versao }}</h4>
+                    <dl class="detalhe-tecnico">
+                        <div><dt>Natureza</dt><dd>Não informada no registro anterior</dd></div>
+                        <div><dt>Fonte oficial</dt><dd>{% if linha.legado.fonte %}{{ linha.legado.fonte }}{% else %}Não informada{% endif %}</dd></div>
+                        <div><dt>Redação representada</dt><dd>Não informada no registro anterior</dd></div>
+                        <div><dt>Data de obtenção</dt><dd>Não informada</dd></div>
+                        <div><dt>Data de corte</dt><dd>Não identificada</dd></div>
+                        <div><dt>Hash</dt><dd>{{ linha.legado.hash_sha256 }}</dd></div>
+                        <div><dt>Conferência</dt><dd>Não registrada neste arquivo</dd></div>
+                        <div><dt>Limitações</dt><dd>Arquivo do cadastro anterior, disponível somente para leitura.</dd></div>
+                    </dl>
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'normas:arquivo' linha.legado.pk %}">Consultar PDF</a>
+                </section>
+                {% endif %}
+                {% for documento in linha.documentos %}
+                <section class="documento-oficial">
+                    <h4>{{ documento.get_natureza_display }} · versão {{ documento.versao }}</h4>
+                    <dl class="detalhe-tecnico">
+                        <div><dt>Fonte oficial</dt><dd>{{ documento.fonte }}</dd></div>
+                        <div><dt>Identificação</dt><dd>{{ documento.identificacao }}</dd></div>
+                        <div><dt>Redação representada</dt><dd>{{ documento.get_redacao_display }}</dd></div>
+                        <div><dt>Data de obtenção</dt><dd>{{ documento.data_obtencao|date:"d/m/Y" }}</dd></div>
+                        <div><dt>Data de corte</dt><dd>{% if documento.data_corte %}{{ documento.data_corte|date:"d/m/Y" }}{% else %}Não identificada{% endif %}</dd></div>
+                        <div><dt>Hash</dt><dd>{{ documento.hash_sha256 }}</dd></div>
+                        <div><dt>Conferência</dt><dd>{{ documento.get_situacao_conferencia_display }}</dd></div>
+                        {% if documento.limitacao %}<div><dt>Limitações</dt><dd>{{ documento.limitacao }}</dd></div>{% endif %}
+                    </dl>
+                    <div class="norma-acoes">
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'normas:arquivo_documento' documento.pk %}">Consultar PDF</a>
+                        {% if pode_alterar and documento.situacao_conferencia != "conferida" %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="conferir_documento">
+                            <input type="hidden" name="referencia" value="{{ linha.referencia.pk }}">
+                            <input type="hidden" name="documento" value="{{ documento.pk }}">
+                            <button class="btn btn-outline-primary btn-sm" type="submit">Conferir identificação documental</button>
+                        </form>
+                        {% endif %}
+                        {% if pode_alterar %}
+                        <form class="anexo-pdf" method="post" enctype="multipart/form-data" data-anexo>
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="substituir_documento">
+                            <input type="hidden" name="referencia" value="{{ linha.referencia.pk }}">
+                            <input type="hidden" name="documento" value="{{ documento.pk }}">
+                            <input id="substituir-{{ documento.pk }}" class="anexo-arquivo" type="file" name="arquivo" accept="application/pdf" required>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" data-anexo-escolher>Substituir documento</button>
+                            <span class="anexo-nome" data-anexo-nome hidden></span>
+                            <button class="btn btn-outline-secondary btn-sm" type="submit" data-anexo-confirmar hidden>Confirmar substituição</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% for anterior in documento.anteriores %}
+                    <p class="small">Versão {{ anterior.versao }} preservada · {{ anterior.get_situacao_conferencia_display }} · {{ anterior.hash_sha256 }}</p>
+                    {% endfor %}
+                </section>
+                {% empty %}
+                {% if not linha.legado %}<p class="small">Nenhum documento oficial associado.</p>{% endif %}
+                {% endfor %}
+                {% if pode_alterar and not linha.ambigua %}
+                <form class="anexo-pdf vigencia-form mt-2" method="post" enctype="multipart/form-data" data-anexo>
                     {% csrf_token %}
-                    <input type="hidden" name="acao" value="enviar_documento">
+                    <input type="hidden" name="acao" value="adicionar_documento">
                     <input type="hidden" name="referencia" value="{{ linha.referencia.pk }}">
-                    <input id="substituir-{{ linha.referencia.pk }}" class="anexo-arquivo" type="file" name="arquivo" accept="application/pdf" required>
-                    <button class="btn btn-outline-secondary btn-sm" type="button" data-anexo-escolher>Substituir PDF</button>
+                    <label class="campo-normativo" for="natureza-{{ linha.referencia.pk }}">
+                        <span>Natureza</span>
+                        <select id="natureza-{{ linha.referencia.pk }}" name="natureza" required>
+                            <option value="">Selecione</option>
+                            {% for valor, rotulo in naturezas_documento %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    <label class="campo-normativo" for="redacao-{{ linha.referencia.pk }}">
+                        <span>Redação representada</span>
+                        <select id="redacao-{{ linha.referencia.pk }}" name="redacao" required>
+                            <option value="">Selecione</option>
+                            {% for valor, rotulo in redacoes_documento %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    <label class="campo-normativo" for="fonte-oficial-{{ linha.referencia.pk }}">
+                        <span>Fonte oficial</span>
+                        <input id="fonte-oficial-{{ linha.referencia.pk }}" type="text" name="fonte" maxlength="300" required>
+                    </label>
+                    <label class="campo-normativo" for="identificacao-{{ linha.referencia.pk }}">
+                        <span>Identificação</span>
+                        <input id="identificacao-{{ linha.referencia.pk }}" type="text" name="identificacao" maxlength="300" required>
+                    </label>
+                    <label class="campo-normativo" for="obtencao-{{ linha.referencia.pk }}">
+                        <span>Data de obtenção</span>
+                        <input id="obtencao-{{ linha.referencia.pk }}" class="campo-data" type="text" name="data_obtencao" inputmode="numeric" placeholder="DD/MM/AAAA" maxlength="10" autocomplete="off" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" required>
+                    </label>
+                    <label class="campo-normativo" for="corte-{{ linha.referencia.pk }}">
+                        <span>Data de corte</span>
+                        <input id="corte-{{ linha.referencia.pk }}" class="campo-data" type="text" name="data_corte" inputmode="numeric" placeholder="DD/MM/AAAA" maxlength="10" autocomplete="off" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}">
+                    </label>
+                    <label class="campo-normativo campo-largo" for="limitacao-{{ linha.referencia.pk }}">
+                        <span>Limitações</span>
+                        <input id="limitacao-{{ linha.referencia.pk }}" type="text" name="limitacao" maxlength="500">
+                    </label>
+                    <input id="arquivo-{{ linha.referencia.pk }}" class="anexo-arquivo" type="file" name="arquivo" accept="application/pdf" required>
+                    <button class="btn btn-outline-primary btn-sm" type="button" data-anexo-escolher>Adicionar documento oficial</button>
                     <span class="anexo-nome" data-anexo-nome hidden></span>
-                    <button class="btn btn-outline-secondary btn-sm" type="submit" data-anexo-confirmar hidden>Confirmar substituição</button>
+                    <button class="btn btn-primary btn-sm" type="submit" data-anexo-confirmar hidden>Confirmar documento</button>
                 </form>
+                {% endif %}
+                {% if pode_alterar and linha.documento_disponivel %}
                 <h4>Vigência</h4>
                 <form method="post" class="mt-2 vigencia-form">
                     {% csrf_token %}
                     <input type="hidden" name="acao" value="informar_datas">
                     <input type="hidden" name="referencia" value="{{ linha.referencia.pk }}">
-                    <label for="inicio-{{ linha.referencia.pk }}">Início da vigência</label>
-                    <input id="inicio-{{ linha.referencia.pk }}" type="date" name="inicio_vigencia" required>
-                    <label for="fim-{{ linha.referencia.pk }}">Fim da vigência</label>
-                    <input id="fim-{{ linha.referencia.pk }}" type="date" name="fim_vigencia">
-                    <label for="fonte-{{ linha.referencia.pk }}">Fonte documental</label>
-                    <input id="fonte-{{ linha.referencia.pk }}" type="text" name="fonte_documental" maxlength="500" required>
+                    {% if linha.documentos|length > 1 %}
+                    <label class="campo-normativo campo-largo" for="evidencia-{{ linha.referencia.pk }}">
+                        <span>Documento usado como evidência</span>
+                        <select id="evidencia-{{ linha.referencia.pk }}" name="documento" required>
+                            {% for documento in linha.documentos %}<option value="{{ documento.pk }}">{{ documento.get_natureza_display }} · versão {{ documento.versao }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    {% elif linha.documentos %}
+                    <input type="hidden" name="documento" value="{{ linha.documentos.0.pk }}">
+                    {% endif %}
+                    <label class="campo-normativo" for="inicio-{{ linha.referencia.pk }}">
+                        <span>Início da vigência</span>
+                        <input id="inicio-{{ linha.referencia.pk }}" class="campo-data" type="text" name="inicio_vigencia" inputmode="numeric" placeholder="DD/MM/AAAA" maxlength="10" autocomplete="off" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" required>
+                    </label>
+                    <label class="campo-normativo" for="fim-{{ linha.referencia.pk }}">
+                        <span>Fim da vigência</span>
+                        <input id="fim-{{ linha.referencia.pk }}" class="campo-data" type="text" name="fim_vigencia" inputmode="numeric" placeholder="DD/MM/AAAA" maxlength="10" autocomplete="off" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}">
+                    </label>
+                    <label class="campo-normativo campo-largo" for="fonte-{{ linha.referencia.pk }}">
+                        <span>Fonte documental</span>
+                        <input id="fonte-{{ linha.referencia.pk }}" type="text" name="fonte_documental" maxlength="500" required>
+                    </label>
                     <button class="btn btn-outline-secondary btn-sm" type="submit">Informar período</button>
                 </form>
                 {% if linha.estado_vigencia == "datas_informadas" %}
@@ -119,11 +223,15 @@
                     {% csrf_token %}
                     <input type="hidden" name="acao" value="verificar_vigencia">
                     <input type="hidden" name="referencia" value="{{ linha.referencia.pk }}">
-                    <label for="referencia-{{ linha.referencia.pk }}">Data de referência da análise</label>
-                    <input id="referencia-{{ linha.referencia.pk }}" type="date" name="data_referencia" required>
-                    <p class="small">Data do instrumento: {{ linha.data_instrumento }}</p>
-                    <label for="fundamentacao-{{ linha.referencia.pk }}">Fundamentação</label>
-                    <textarea id="fundamentacao-{{ linha.referencia.pk }}" name="fundamentacao" rows="3" required></textarea>
+                    <label class="campo-normativo" for="referencia-{{ linha.referencia.pk }}">
+                        <span>Data de referência da análise</span>
+                        <input id="referencia-{{ linha.referencia.pk }}" class="campo-data" type="text" name="data_referencia" inputmode="numeric" placeholder="DD/MM/AAAA" maxlength="10" autocomplete="off" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" required>
+                    </label>
+                    <p class="small campo-largo">Data do instrumento: {{ linha.data_instrumento }}</p>
+                    <label class="campo-normativo campo-largo" for="fundamentacao-{{ linha.referencia.pk }}">
+                        <span>Fundamentação</span>
+                        <textarea id="fundamentacao-{{ linha.referencia.pk }}" name="fundamentacao" rows="3" required></textarea>
+                    </label>
                     <button class="btn btn-outline-secondary btn-sm" type="submit">Verificar vigência</button>
                 </form>
                 {% endif %}
@@ -131,16 +239,30 @@
                     {% csrf_token %}
                     <input type="hidden" name="acao" value="registrar_divergencia_vigencia">
                     <input type="hidden" name="referencia" value="{{ linha.referencia.pk }}">
-                    <label for="motivo-{{ linha.referencia.pk }}">Motivo da divergência de vigência</label>
-                    <textarea id="motivo-{{ linha.referencia.pk }}" name="motivo_divergencia" rows="2" required></textarea>
-                    <label for="referencia-divergencia-{{ linha.referencia.pk }}">Data de referência</label>
-                    <input id="referencia-divergencia-{{ linha.referencia.pk }}" type="date" name="data_referencia">
+                    {% if linha.documentos|length > 1 %}
+                    <label class="campo-normativo campo-largo" for="evidencia-divergencia-{{ linha.referencia.pk }}">
+                        <span>Documento usado como evidência</span>
+                        <select id="evidencia-divergencia-{{ linha.referencia.pk }}" name="documento" required>
+                            {% for documento in linha.documentos %}<option value="{{ documento.pk }}">{{ documento.get_natureza_display }} · versão {{ documento.versao }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    {% elif linha.documentos %}
+                    <input type="hidden" name="documento" value="{{ linha.documentos.0.pk }}">
+                    {% endif %}
+                    <label class="campo-normativo campo-largo" for="motivo-{{ linha.referencia.pk }}">
+                        <span>Motivo da divergência de vigência</span>
+                        <textarea id="motivo-{{ linha.referencia.pk }}" name="motivo_divergencia" rows="2" required></textarea>
+                    </label>
+                    <label class="campo-normativo" for="referencia-divergencia-{{ linha.referencia.pk }}">
+                        <span>Data de referência</span>
+                        <input id="referencia-divergencia-{{ linha.referencia.pk }}" class="campo-data" type="text" name="data_referencia" inputmode="numeric" placeholder="DD/MM/AAAA" maxlength="10" autocomplete="off" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}">
+                    </label>
                     <button class="btn btn-outline-secondary btn-sm" type="submit">Registrar divergência</button>
                 </form>
                 {% endif %}
                 <h4>Verificações de vigência</h4>
                 {% for item in linha.verificacoes %}
-                <p class="small">{{ item.get_estado_display }} · versão {{ item.versao_documento }}{% if item.inicio_vigencia %} · {{ item.inicio_vigencia|date:"d/m/Y" }}{% if item.fim_vigencia %} — {{ item.fim_vigencia|date:"d/m/Y" }}{% endif %}{% endif %}{% if item.fonte_documental %} · {{ item.fonte_documental }}{% endif %}{% if item.data_referencia %} · referência {{ item.data_referencia|date:"d/m/Y" }}{% endif %}{% if item.fundamentacao %} · {{ item.fundamentacao }}{% endif %}{% if item.motivo_divergencia %} · {{ item.motivo_divergencia }}{% endif %} · {{ item.hash_sha256 }}</p>
+                <p class="small">{{ item.get_estado_display }} · versão {{ item.versao_documento }}{% if item.documento_id %} · documento {{ item.documento_id }}{% endif %}{% if item.inicio_vigencia %} · {{ item.inicio_vigencia|date:"d/m/Y" }}{% if item.fim_vigencia %} — {{ item.fim_vigencia|date:"d/m/Y" }}{% endif %}{% endif %}{% if item.fonte_documental %} · {{ item.fonte_documental }}{% endif %}{% if item.data_referencia %} · referência {{ item.data_referencia|date:"d/m/Y" }}{% endif %}{% if item.fundamentacao %} · {{ item.fundamentacao }}{% endif %}{% if item.motivo_divergencia %} · {{ item.motivo_divergencia }}{% endif %} · {{ item.hash_sha256 }}</p>
                 {% empty %}
                 <p class="small">Nenhuma verificação de vigência.</p>
                 {% endfor %}
@@ -149,9 +271,9 @@
                 <ul>
                     {% for evento in linha.historico %}
                     <li>
-                        <p>{{ evento.get_evento_display }} · {{ evento.data_hora }} · {% if evento.usuario %}{{ evento.usuario.username }}{% else %}sem usuário{% endif %}</p>
+                        <p>{{ evento.get_evento_display }} · {{ evento.data_hora|date:"d/m/Y H:i" }} · {% if evento.usuario %}{{ evento.usuario.username }}{% else %}sem usuário{% endif %}</p>
                         <p class="small">{{ evento.descricao }}</p>
-                        <p class="small">Norma {{ evento.detalhes.norma }} · versão {{ evento.detalhes.versao }} · hash {{ evento.detalhes.hash_sha256 }}</p>
+                        <p class="small">{% if evento.detalhes.documento %}Documento {{ evento.detalhes.documento }} · versão {% firstof evento.detalhes.versao_documento evento.detalhes.versao %} · hash {{ evento.detalhes.hash_documento|default:evento.detalhes.hash_sha256 }}{% else %}Norma {{ evento.detalhes.norma }} · versão {{ evento.detalhes.versao }} · hash {{ evento.detalhes.hash_sha256 }}{% endif %}</p>
                         <p class="small">{{ evento.detalhes.situacao_anterior }} → {{ evento.detalhes.situacao_posterior }}</p>
                     </li>
                     {% endfor %}

@@ -34,17 +34,20 @@ from aplicacao.instrumentos.preparacao import (
 from aplicacao.instrumentos.servico import termo_do_documento
 from aplicacao.instrumentos.esquema_partes import ROTULO_UNIDADE, confirmar_parte, corrigir_atributo_parte, montar_unidades
 from aplicacao.instrumentos.base_normativa import (
+    adicionar_documento,
+    conferir_documento,
     grupo_da_referencia,
     informar_datas,
     mensagem_resumo,
     montar_linhas,
-    receber_documento,
     registrar_divergencia_vigencia,
     resumo_linhas,
     situacao_atual,
+    substituir_documento,
     validar_referencia,
     verificar_vigencia,
 )
+from aplicacao.normas.escolhas import NaturezaDocumentoNormativo, RedacaoRepresentada
 from aplicacao.instrumentos.estruturacao_partes import estruturar_partes
 from aplicacao.instrumentos.unidade_identificacao import confirmar_identificacao, corrigir_atributo_identificacao
 from aplicacao.instrumentos.unidade_objeto import (
@@ -516,23 +519,75 @@ class BaseNormativaView(_PreparacaoMixin, View):
         try:
             linha = grupo_da_referencia(termo, referencia)
             anterior = situacao_atual(linha)
-            if acao == "enviar_documento":
+            if acao == "adicionar_documento":
                 arquivo = request.FILES.get("arquivo")
                 if arquivo is None:
                     raise ValueError("Envie o PDF da norma.")
-                norma = receber_documento(termo, referencia, arquivo, request.user)
+                documento = adicionar_documento(
+                    termo,
+                    referencia,
+                    arquivo,
+                    request.user,
+                    natureza=request.POST.get("natureza", ""),
+                    redacao=request.POST.get("redacao", ""),
+                    fonte=request.POST.get("fonte", ""),
+                    identificacao=request.POST.get("identificacao", ""),
+                    data_obtencao=request.POST.get("data_obtencao", ""),
+                    data_corte=request.POST.get("data_corte", ""),
+                    limitacao=request.POST.get("limitacao", ""),
+                )
                 self._auditar_base(
                     request,
                     prestacao,
                     referencia,
-                    norma,
+                    documento.norma,
                     RegistroAuditoria.Evento.CRIACAO,
-                    "Documento normativo recebido a partir da referência do instrumento",
+                    "Documento oficial acrescentado à norma",
                     acao,
                     anterior,
                     situacao_atual(grupo_da_referencia(termo, referencia)),
+                    documento=documento,
                 )
-                messages.success(request, "Documento recebido. A vigência permanece não verificada e a conferência humana segue pendente.")
+                messages.success(request, "Documento oficial acrescentado. A conferência deste documento segue pendente.")
+            elif acao == "substituir_documento":
+                arquivo = request.FILES.get("arquivo")
+                if arquivo is None:
+                    raise ValueError("Envie o PDF da norma.")
+                documento = substituir_documento(
+                    termo,
+                    referencia,
+                    request.POST.get("documento", ""),
+                    arquivo,
+                    request.user,
+                )
+                self._auditar_base(
+                    request,
+                    prestacao,
+                    referencia,
+                    documento.norma,
+                    RegistroAuditoria.Evento.CRIACAO,
+                    "Nova versão do documento oficial armazenada",
+                    acao,
+                    anterior,
+                    situacao_atual(grupo_da_referencia(termo, referencia)),
+                    documento=documento,
+                )
+                messages.success(request, "Nova versão armazenada. A versão anterior e as verificações históricas permanecem.")
+            elif acao == "conferir_documento":
+                documento = conferir_documento(termo, referencia, request.POST.get("documento", ""), request.user)
+                self._auditar_base(
+                    request,
+                    prestacao,
+                    referencia,
+                    documento.norma,
+                    RegistroAuditoria.Evento.VALIDACAO_HUMANA,
+                    "Identificação do documento oficial conferida nesta versão",
+                    acao,
+                    anterior,
+                    situacao_atual(grupo_da_referencia(termo, referencia)),
+                    documento=documento,
+                )
+                messages.success(request, "Identificação do documento conferida nesta versão.")
             elif acao == "validar":
                 validar_referencia(termo, referencia, request.user)
                 referencia.refresh_from_db()
@@ -556,6 +611,7 @@ class BaseNormativaView(_PreparacaoMixin, View):
                     request.POST.get("inicio_vigencia", ""),
                     request.POST.get("fim_vigencia", ""),
                     request.POST.get("fonte_documental", ""),
+                    request.POST.get("documento", ""),
                 )
                 self._auditar_base(
                     request,
@@ -598,6 +654,7 @@ class BaseNormativaView(_PreparacaoMixin, View):
                     request.user,
                     request.POST.get("motivo_divergencia", ""),
                     request.POST.get("data_referencia", ""),
+                    request.POST.get("documento", ""),
                 )
                 self._auditar_base(
                     request,
@@ -618,7 +675,7 @@ class BaseNormativaView(_PreparacaoMixin, View):
             messages.error(request, getattr(exc, "mensagem", None) or str(exc))
         return redirect("instrumentos:base_normativa", pk=prestacao.pk)
 
-    def _auditar_base(self, request, prestacao, referencia, norma, evento, descricao, acao, anterior, posterior, registro=None):
+    def _auditar_base(self, request, prestacao, referencia, norma, evento, descricao, acao, anterior, posterior, registro=None, documento=None):
         detalhes = {
             "prestacao": prestacao.pk,
             "referencia": referencia.pk,
@@ -629,16 +686,29 @@ class BaseNormativaView(_PreparacaoMixin, View):
             "situacao_anterior": anterior,
             "situacao_posterior": posterior,
         }
+        if documento is not None:
+            detalhes.update(
+                {
+                    "documento": documento.pk,
+                    "versao": documento.versao,
+                    "hash_sha256": documento.hash_sha256,
+                    "natureza": documento.natureza,
+                    "redacao": documento.redacao,
+                }
+            )
         if registro is not None:
             detalhes.update(
                 {
                     "estado_vigencia": registro.estado,
+                    "versao": registro.versao_documento,
                     "versao_documento": registro.versao_documento,
+                    "hash_sha256": registro.hash_sha256,
                     "hash_documento": registro.hash_sha256,
                     "fonte_documental": registro.fonte_documental,
                     "fundamentacao": registro.fundamentacao,
                     "motivo_divergencia": registro.motivo_divergencia,
                     "data_referencia": registro.data_referencia.isoformat() if registro.data_referencia else "",
+                    "documento": registro.documento_id,
                 }
             )
         registrar_evento(
@@ -673,4 +743,6 @@ class BaseNormativaView(_PreparacaoMixin, View):
             "mensagem_base": mensagem_resumo(resumo),
             "navegacao": self._navegacao(prestacao, preparacao, "base"),
             "pode_alterar": pode_atuar_na_prestacao(request.user, prestacao),
+            "naturezas_documento": NaturezaDocumentoNormativo.choices,
+            "redacoes_documento": RedacaoRepresentada.choices,
         }

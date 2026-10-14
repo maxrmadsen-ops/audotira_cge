@@ -19,8 +19,11 @@ def caminho_seguro(relativo: str) -> Path:
     return destino
 
 
-def armazenar_pdf(norma_id: int, conteudo: bytes) -> str:
-    relativo = f"{int(norma_id)}/{uuid.uuid4().hex}.pdf"
+def armazenar_pdf(norma_id: int, conteudo: bytes, *, pasta: str = "") -> str:
+    prefixo = str(int(norma_id))
+    if pasta:
+        prefixo = f"{pasta.strip('/')}/{prefixo}"
+    relativo = f"{prefixo}/{uuid.uuid4().hex}.pdf"
     destino = caminho_seguro(relativo)
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_bytes(conteudo)

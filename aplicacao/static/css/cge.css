@@ -651,9 +651,16 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 .norma-acoes, .norma-acoes form, .anexo-pdf { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
 .anexo-arquivo { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .anexo-nome { font-size: 0.85rem; overflow-wrap: anywhere; }
+.documento-oficial { margin: 0.55rem 0; padding-top: 0.45rem; border-top: 1px solid var(--cge-borda); }
+.documento-oficial h4 { font-size: 0.95rem; margin: 0 0 0.25rem; }
 .norma-card details { margin-top: 0.45rem; }
 .norma-card li { margin-bottom: 0.45rem; }
-.vigencia-form { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: end; }
+.vigencia-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.55rem 0.7rem; align-items: end; }
+.campo-normativo { display: grid; gap: 0.15rem; min-width: 0; margin: 0; }
+.campo-normativo span { color: var(--cge-muted); font-size: 0.75rem; }
+.campo-normativo input, .campo-normativo select, .campo-normativo textarea { width: 100%; min-width: 0; font: inherit; }
+.campo-largo { grid-column: 1 / -1; }
+.vigencia-form > .btn { width: auto; justify-self: start; }
 @media (max-width: 1100px) {
     .macros { grid-template-columns: 1fr; }
     .topo-instrumento { grid-template-columns: 1fr; }
@@ -668,7 +675,13 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     .mapa-etapas-compacto .macroetapa:not(.macro-atual) ol { display: none; }
     .mapa-etapas-compacto .macro-atual h2 { margin-bottom: 0.35rem; }
     .norma-card h3, .norma-status, .norma-vigencia, .anexo-nome { overflow-wrap: anywhere; }
-    .norma-acoes, .anexo-pdf, .vigencia-form { align-items: stretch; }
-    .norma-acoes .btn, .anexo-pdf .btn, .vigencia-form .btn { width: 100%; }
+    .norma-acoes, .anexo-pdf, .vigencia-form, .norma-acoes form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+        width: 100%;
+    }
+    .norma-acoes > a.btn, .norma-acoes > form, .norma-acoes .btn, .anexo-pdf .btn, .vigencia-form .btn,
+    .campo-normativo, .campo-normativo input, .campo-normativo select, .campo-normativo textarea { width: 100%; max-width: 100%; min-width: 0; }
 }
 

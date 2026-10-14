@@ -9,6 +9,9 @@ from aplicacao.normas.escolhas import (
     EstadoVerificacaoVigencia,
     MetodoRecuperacao,
     MetodoSegmentacao,
+    NaturezaDocumentoNormativo,
+    RedacaoRepresentada,
+    SituacaoConferenciaDocumento,
     SituacaoNorma,
     StatusProcessamentoNorma,
     TipoNorma,
@@ -120,6 +123,79 @@ class RelacionamentoNorma(models.Model):
         return f"{self.origem} {self.get_tipo_display()} {self.destino}"
 
 
+class DocumentoNormativo(models.Model):
+    """Arquivo oficial associado a uma norma. Não é a identidade jurídica nem a vigência."""
+
+    norma = models.ForeignKey(Norma, verbose_name="norma", on_delete=models.CASCADE, related_name="documentos")
+    natureza = models.CharField("natureza documental", max_length=30, choices=NaturezaDocumentoNormativo.choices)
+    redacao = models.CharField("redação representada", max_length=20, choices=RedacaoRepresentada.choices)
+    fonte = models.CharField("fonte oficial", max_length=300)
+    identificacao = models.CharField("identificação do documento", max_length=300)
+    data_obtencao = models.DateField("data de obtenção")
+    data_corte = models.DateField("data de corte", null=True, blank=True)
+    limitacao = models.TextField("limitações documentais", blank=True)
+    arquivo = models.CharField("arquivo", max_length=255, blank=True)
+    nome_original = models.CharField("nome original", max_length=255, blank=True)
+    hash_sha256 = models.CharField("hash SHA-256", max_length=64, db_index=True)
+    versao = models.PositiveIntegerField("versão documental", default=1)
+    documento_anterior = models.ForeignKey(
+        "self",
+        verbose_name="versão anterior",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="versoes_seguintes",
+    )
+    substituido_em = models.DateTimeField("substituído em", null=True, blank=True, db_index=True)
+    situacao_conferencia = models.CharField(
+        "situação da conferência",
+        max_length=20,
+        choices=SituacaoConferenciaDocumento.choices,
+        default=SituacaoConferenciaDocumento.AGUARDANDO,
+    )
+    conferido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="conferido por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="documentos_normativos_conferidos",
+    )
+    conferido_em = models.DateTimeField("conferido em", null=True, blank=True)
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="criado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="documentos_normativos_criados",
+    )
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "documento normativo"
+        verbose_name_plural = "documentos normativos"
+        ordering = ["norma", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(redacao=RedacaoRepresentada.HISTORICA) | models.Q(data_corte__isnull=False),
+                name="documento_historico_com_corte",
+            ),
+            models.UniqueConstraint(
+                fields=["documento_anterior"],
+                condition=models.Q(documento_anterior__isnull=False),
+                name="documento_normativo_sucessor_unico",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.norma} · {self.get_natureza_display()} v{self.versao}"
+
+    @property
+    def atual(self) -> bool:
+        return self.substituido_em is None
+
+
 class VerificacaoVigencia(models.Model):
     """Registro da análise sobre o período de uma versão da norma.
 
@@ -134,6 +210,14 @@ class VerificacaoVigencia(models.Model):
         related_name="verificacoes_vigencia",
     )
     norma = models.ForeignKey(Norma, verbose_name="norma", on_delete=models.PROTECT, related_name="verificacoes_vigencia")
+    documento = models.ForeignKey(
+        DocumentoNormativo,
+        verbose_name="documento usado como evidência",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="verificacoes_como_evidencia",
+    )
     estado = models.CharField(
         "estado da verificação",
         max_length=20,

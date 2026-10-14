@@ -31,6 +31,21 @@ CLÁUSULA QUINTA — DA VIGÊNCIA
 A vigência será de 6 meses a partir da assinatura.
 Fundamentação: Lei nº 13.019/2014.
 """
+def dados_documento(referencia, nome, conteudo, **extras):
+    dados = {
+        "acao": "adicionar_documento",
+        "referencia": referencia.pk,
+        "natureza": "publicacao_original",
+        "redacao": "original",
+        "fonte": "Diário Oficial de teste",
+        "identificacao": "Edição sintética",
+        "data_obtencao": "2014-08-01",
+        "arquivo": SimpleUploadedFile(nome, conteudo, content_type="application/pdf"),
+    }
+    dados.update(extras)
+    return dados
+
+
 PROIBIDOS = ("929", "2022TR0929", "SCC 3350", "Vargem", "APAE", "FCEE")
 FONTES = (
     "aplicacao/instrumentos/extracao.py",
@@ -940,11 +955,7 @@ class TestePreparacaoInstrumento(TestCase):
                 with patch("aplicacao.normas.tarefas.processar_norma_task.delay") as atraso:
                     resposta = self.client.post(
                         reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}),
-                        {
-                            "acao": "enviar_documento",
-                            "referencia": lei.pk,
-                            "arquivo": SimpleUploadedFile("lei.pdf", b"%PDF-1.4\n%%EOF", content_type="application/pdf"),
-                        },
+                        dados_documento(lei, "lei.pdf", b"%PDF-1.4\n%%EOF"),
                     )
         self.assertEqual(resposta.status_code, 302)
         atraso.assert_not_called()
@@ -1032,11 +1043,7 @@ class TesteConsolidacaoBaseNormativa(TestCase):
             with override_settings(NORMAS_RAIZ=pasta):
                 self.client.post(
                     reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}),
-                    {
-                        "acao": "enviar_documento",
-                        "referencia": curto.pk,
-                        "arquivo": SimpleUploadedFile("ambiguo.pdf", b"%PDF-1.4\nambiguo\n%%EOF", content_type="application/pdf"),
-                    },
+                    dados_documento(curto, "ambiguo.pdf", b"%PDF-1.4\nambiguo\n%%EOF"),
                 )
         curto.refresh_from_db()
         self.assertEqual(Norma.objects.count(), antes_normas)
@@ -1055,8 +1062,8 @@ class TesteConsolidacaoBaseNormativa(TestCase):
         self.assertContains(pagina, "Nenhum documento normativo foi anexado.")
         self.assertContains(pagina, "Documento pendente")
         self.assertContains(pagina, "Não verificada")
-        self.assertContains(pagina, "Anexar PDF")
-        self.assertContains(pagina, "Confirmar envio")
+        self.assertContains(pagina, "Adicionar documento oficial")
+        self.assertContains(pagina, "Confirmar documento")
         self.assertNotContains(pagina, "Não identificado")
         self.assertContains(pagina, "Esfera")
         self.assertContains(pagina, "federal")
@@ -1093,7 +1100,7 @@ class TesteConsolidacaoBaseNormativa(TestCase):
                 with patch("aplicacao.normas.tarefas.processar_norma_task.delay") as tarefa:
                     resposta = self.client.post(
                         reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}),
-                        {"acao": "enviar_documento", "referencia": referencia.pk, "arquivo": SimpleUploadedFile("decreto.pdf", b"%PDF-1.4\nprimeiro\n%%EOF", content_type="application/pdf")},
+                        dados_documento(referencia, "decreto.pdf", b"%PDF-1.4\nprimeiro\n%%EOF"),
                     )
         self.assertEqual(resposta.status_code, 302)
         tarefa.assert_not_called()
@@ -1143,30 +1150,89 @@ class TesteConsolidacaoBaseNormativa(TestCase):
         self.assertContains(pagina, "Datas informadas")
         self.assertNotContains(pagina, "fora da vigência registrada")
         self.assertNotContains(pagina, "inaplicável")
-        hash_anterior = referencia.norma.hash_sha256
+        from aplicacao.normas.escolhas import SituacaoConferenciaDocumento
+        from aplicacao.normas.models import DocumentoNormativo
+
+        primeiro = referencia.norma.documentos.get()
+        hash_anterior = primeiro.hash_sha256
+        self.client.post(
+            reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}),
+            {"acao": "conferir_documento", "referencia": referencia.pk, "documento": primeiro.pk},
+        )
+        referencia.refresh_from_db()
+        primeiro.refresh_from_db()
+        self.assertEqual(referencia.validado_por, self.admin)
+        self.assertEqual(primeiro.conferido_por, self.admin)
         with tempfile.TemporaryDirectory() as pasta:
             with override_settings(NORMAS_RAIZ=pasta):
-                self.client.post(
-                    reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}),
-                    {"acao": "enviar_documento", "referencia": referencia.pk, "arquivo": SimpleUploadedFile("decreto-v2.pdf", b"%PDF-1.4\nsegundo\n%%EOF", content_type="application/pdf")},
-                )
+                with patch("aplicacao.normas.tarefas.processar_norma_task.delay") as tarefa:
+                    self.client.post(
+                        reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}),
+                        dados_documento(
+                            referencia,
+                            "compilacao.pdf",
+                            b"%PDF-1.4\nsegundo\n%%EOF",
+                            natureza="compilacao_atualizada",
+                            redacao="indeterminada",
+                            fonte="Câmara dos Deputados de teste",
+                            identificacao="Compilação sintética",
+                            limitacao="A data de corte não está declarada.",
+                            data_obtencao="14/10/2026",
+                        ),
+                    )
+        tarefa.assert_not_called()
         referencia.refresh_from_db()
         par.refresh_from_db()
-        self.assertEqual(referencia.norma.versao, 2)
-        self.assertIsNone(referencia.validado_por_id)
-        self.assertIsNone(par.validado_por_id)
+        primeiro.refresh_from_db()
+        self.assertEqual(referencia.norma.versao, 1)
+        self.assertEqual(referencia.norma_id, par.norma_id)
+        self.assertEqual(referencia.validado_por, self.admin)
+        self.assertEqual(par.validado_por, self.admin)
         self.assertIsNone(referencia.norma.inicio_vigencia)
-        self.assertNotEqual(referencia.norma.hash_sha256, hash_anterior)
-        self.assertIsNotNone(referencia.norma.norma_anterior_id)
-        self.assertIsNotNone(referencia.norma.norma_anterior.desativada_em)
-        self.assertEqual(VerificacaoVigencia.objects.get(norma=referencia.norma.norma_anterior).hash_sha256, hash_anterior)
-        self.assertFalse(VerificacaoVigencia.objects.filter(norma=referencia.norma).exists())
-        substituida = self.client.get(reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}))
-        self.assertContains(substituida, "Não verificada")
-        self.assertContains(substituida, hash_anterior)
+        self.assertFalse(referencia.norma.arquivo)
+        atuais = list(DocumentoNormativo.objects.filter(norma=referencia.norma, substituido_em__isnull=True).order_by("id"))
+        self.assertEqual(len(atuais), 2)
+        self.assertEqual(primeiro.situacao_conferencia, SituacaoConferenciaDocumento.CONFERIDA)
+        self.assertEqual(atuais[1].situacao_conferencia, SituacaoConferenciaDocumento.AGUARDANDO)
+        self.assertIsNone(atuais[1].conferido_por_id)
+        self.assertEqual(VerificacaoVigencia.objects.get(norma=referencia.norma).documento_id, primeiro.pk)
+        self.assertEqual(VerificacaoVigencia.objects.get(norma=referencia.norma).hash_sha256, hash_anterior)
+        self.assertEqual(atuais[1].data_obtencao, date(2026, 10, 14))
+        self.assertEqual(TrechoNormativo.objects.count(), 0)
+        preservado = RegistroAuditoria.objects.create(
+            usuario=self.admin,
+            evento=RegistroAuditoria.Evento.VALIDACAO_HUMANA,
+            descricao="Verificação histórica preservada",
+            detalhes={
+                "referencia": referencia.pk,
+                "norma": referencia.norma_id,
+                "versao": 1,
+                "hash_sha256": "",
+                "versao_documento": 1,
+                "hash_documento": hash_anterior,
+                "documento": primeiro.pk,
+                "acao": "verificar_vigencia",
+            },
+        )
+        convivem = self.client.get(reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}))
+        self.assertContains(convivem, "DD/MM/AAAA")
+        self.assertNotContains(convivem, 'type="date"')
+        self.assertContains(convivem, f"Documento {primeiro.pk} · versão 1 · hash {hash_anterior}")
+        preservado.refresh_from_db()
+        self.assertEqual(preservado.detalhes["hash_sha256"], "")
+        self.assertEqual(preservado.detalhes["hash_documento"], hash_anterior)
+        evidencia = RegistroAuditoria.objects.filter(detalhes__acao="informar_datas", detalhes__referencia=referencia.pk).order_by("-id").first()
+        self.assertEqual(evidencia.detalhes["documento"], primeiro.pk)
+        self.assertEqual(evidencia.detalhes["versao"], primeiro.versao)
+        self.assertEqual(evidencia.detalhes["hash_sha256"], hash_anterior)
+        self.assertContains(convivem, "Datas informadas")
+        self.assertContains(convivem, "Publicação original")
+        self.assertContains(convivem, "Compilação atualizada")
+        self.assertContains(convivem, "2 documentos oficiais")
+        self.assertContains(convivem, hash_anterior)
         evento = RegistroAuditoria.objects.filter(evento=RegistroAuditoria.Evento.CRIACAO, detalhes__referencia=referencia.pk).order_by("-data_hora").first()
-        self.assertEqual(evento.detalhes["versao"], 2)
-        self.assertEqual(evento.detalhes["hash_sha256"], referencia.norma.hash_sha256)
+        self.assertEqual(evento.detalhes["versao"], 1)
+        self.assertEqual(evento.detalhes["hash_sha256"], atuais[1].hash_sha256)
         self.assertIn("situacao_anterior", evento.detalhes)
         self.assertIn("situacao_posterior", evento.detalhes)
         self.termo.refresh_from_db()
@@ -1187,8 +1253,8 @@ class TesteConsolidacaoBaseNormativa(TestCase):
         self.client.force_login(auditor)
         pagina = self.client.get(url)
         self.assertEqual(pagina.status_code, 200)
-        self.assertContains(pagina, "Anexar PDF")
-        self.assertContains(pagina, "Confirmar envio")
+        self.assertContains(pagina, "Adicionar documento oficial")
+        self.assertContains(pagina, "Confirmar documento")
         self.assertContains(pagina, 'class="anexo-arquivo"')
         self.client.post(url, {"acao": "validar", "referencia": self.termo.referencias_normativas.first().pk})
         self.termo.referencias_normativas.first().refresh_from_db()
@@ -1212,7 +1278,7 @@ class TesteConsolidacaoBaseNormativa(TestCase):
             with override_settings(NORMAS_RAIZ=pasta):
                 self.client.post(
                     url,
-                    {"acao": "enviar_documento", "referencia": referencia.pk, "arquivo": SimpleUploadedFile("decreto.pdf", b"%PDF-1.4\nperiodo\n%%EOF", content_type="application/pdf")},
+                    dados_documento(referencia, "decreto.pdf", b"%PDF-1.4\nperiodo\n%%EOF"),
                 )
                 referencia.refresh_from_db()
                 referencia.norma.situacao = SituacaoNorma.VIGENTE
@@ -1252,7 +1318,8 @@ class TesteConsolidacaoBaseNormativa(TestCase):
                 self.assertIsNotNone(verificada.verificado_em)
                 self.assertEqual(str(verificada.data_referencia), "2024-06-01")
                 self.assertEqual(verificada.versao_documento, 1)
-                self.assertEqual(verificada.hash_sha256, referencia.norma.hash_sha256)
+                self.assertEqual(verificada.hash_sha256, referencia.norma.documentos.get().hash_sha256)
+                self.assertEqual(verificada.documento_id, referencia.norma.documentos.get().pk)
                 self.assertEqual(referencia.norma.situacao, SituacaoNorma.VIGENTE)
                 self.assertEqual(str(referencia.norma.inicio_vigencia), "1999-01-01")
                 self.assertEqual(AplicabilidadeNorma.objects.count(), 0)
@@ -1280,17 +1347,52 @@ class TesteConsolidacaoBaseNormativa(TestCase):
                 pagina = self.client.get(url)
                 self.assertContains(pagina, "Divergência de vigência")
                 self.assertContains(pagina, "Identificação conferida")
-                hash_anterior = referencia.norma.hash_sha256
-                norma_anterior_id = referencia.norma_id
+                from aplicacao.normas.models import DocumentoNormativo
+
+                documento = referencia.norma.documentos.get()
+                self.client.post(url, {"acao": "conferir_documento", "referencia": referencia.pk, "documento": documento.pk})
                 self.client.post(
                     url,
-                    {"acao": "enviar_documento", "referencia": referencia.pk, "arquivo": SimpleUploadedFile("decreto-v2.pdf", b"%PDF-1.4\nsubstituto\n%%EOF", content_type="application/pdf")},
+                    dados_documento(
+                        referencia,
+                        "outro.pdf",
+                        b"%PDF-1.4\noutro\n%%EOF",
+                        natureza="outro",
+                        redacao="indeterminada",
+                        fonte="Órgão oficial de teste",
+                        identificacao="Outro documento oficial",
+                    ),
+                )
+                outro = DocumentoNormativo.objects.get(identificacao="Outro documento oficial")
+                hash_outro = outro.hash_sha256
+                hash_anterior = documento.hash_sha256
+                norma_id = referencia.norma_id
+                self.client.post(
+                    url,
+                    {
+                        "acao": "substituir_documento",
+                        "referencia": referencia.pk,
+                        "documento": documento.pk,
+                        "arquivo": SimpleUploadedFile("decreto-v2.pdf", b"%PDF-1.4\nsubstituto\n%%EOF", content_type="application/pdf"),
+                    },
                 )
         referencia.refresh_from_db()
-        self.assertEqual(referencia.norma.versao, 2)
-        self.assertIsNone(referencia.validado_por_id)
-        self.assertFalse(VerificacaoVigencia.objects.filter(norma=referencia.norma).exists())
-        historico = list(VerificacaoVigencia.objects.filter(norma_id=norma_anterior_id).order_by("id"))
+        documento.refresh_from_db()
+        novo = DocumentoNormativo.objects.get(documento_anterior=documento)
+        self.assertEqual(referencia.norma_id, norma_id)
+        self.assertEqual(referencia.norma.versao, 1)
+        self.assertEqual(referencia.validado_por, self.admin)
+        self.assertEqual(novo.versao, 2)
+        self.assertEqual(novo.documento_anterior_id, documento.pk)
+        self.assertIsNotNone(documento.substituido_em)
+        self.assertEqual(documento.conferido_por, self.admin)
+        self.assertIsNone(novo.conferido_por_id)
+        outro.refresh_from_db()
+        self.assertIsNone(outro.substituido_em)
+        self.assertEqual(outro.versao, 1)
+        self.assertEqual(outro.hash_sha256, hash_outro)
+        self.assertFalse(VerificacaoVigencia.objects.filter(documento=novo).exists())
+        historico = list(VerificacaoVigencia.objects.filter(norma_id=norma_id).order_by("id"))
         self.assertEqual([item.estado for item in historico], [
             EstadoVerificacaoVigencia.DATAS_INFORMADAS,
             EstadoVerificacaoVigencia.VERIFICADA,
@@ -1299,8 +1401,12 @@ class TesteConsolidacaoBaseNormativa(TestCase):
         self.assertTrue(all(item.hash_sha256 == hash_anterior and item.versao_documento == 1 for item in historico))
         atual = self.client.get(url)
         self.assertContains(atual, "Não verificada")
+        self.assertContains(atual, "O documento usado como evidência foi substituído.")
         self.assertContains(atual, hash_anterior)
         self.assertContains(atual, "O art. 2º informa o período.")
+        self.assertEqual(self.termo.referencias_normativas.count(), 11)
+        self.assertEqual(referencia.ano, "11")
+        self.assertEqual(referencia.texto, "Decreto nº 127/11")
         antes = VerificacaoVigencia.objects.count()
         with CaptureQueriesContext(connection) as consultas:
             self.client.get(url)
@@ -1317,3 +1423,47 @@ class TesteConsolidacaoBaseNormativa(TestCase):
         self.assertEqual(self.termo.hash_congelado, "abc123")
         self.assertEqual(self.campo.valor_extraido, "texto original")
         self.assertEqual(self.campo.status, StatusCampo.VALIDADO)
+
+    def test_documento_anterior_aparece_sem_converter_o_arquivo(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from aplicacao.instrumentos.escolhas import StatusCorrespondenciaNorma
+        from aplicacao.normas.escolhas import TipoNorma
+        from aplicacao.normas.models import DocumentoNormativo, Norma
+
+        referencia = self.termo.referencias_normativas.get(texto="Lei nº 13.019/2014")
+        norma = Norma.objects.create(
+            tipo_norma=TipoNorma.LEI,
+            numero="13.019",
+            ano=2014,
+            titulo="Lei citada no instrumento",
+            situacao=SituacaoNorma.NAO_VERIFICADA,
+            fonte="Cadastro anterior",
+            arquivo="catalogo/anterior.pdf",
+            nome_original="anterior.pdf",
+            hash_sha256="d" * 64,
+        )
+        referencia.norma = norma
+        referencia.status_correspondencia = StatusCorrespondenciaNorma.CORRESPONDENTE
+        referencia.save(update_fields=["norma", "status_correspondencia"])
+        self.client.force_login(self.admin)
+        with CaptureQueriesContext(connection) as consultas:
+            pagina = self.client.get(reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}))
+        self.assertContains(pagina, "Documento anterior")
+        self.assertContains(pagina, "Cadastro anterior")
+        self.assertContains(pagina, "d" * 64)
+        self.assertContains(pagina, "Não informada no registro anterior")
+        self.assertContains(pagina, "disponível somente para leitura")
+        self.assertEqual(DocumentoNormativo.objects.count(), 0)
+        escritas = [
+            consulta for consulta in consultas
+            if consulta["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))
+            and any(tabela in consulta["sql"] for tabela in ("instrumentos_", "normas_", "documentos_", "prestacoes_contas_"))
+        ]
+        self.assertEqual(escritas, [])
+        norma.refresh_from_db()
+        referencia.refresh_from_db()
+        self.assertEqual(norma.arquivo, "catalogo/anterior.pdf")
+        self.assertEqual(norma.hash_sha256, "d" * 64)
+        self.assertEqual(referencia.texto, "Lei nº 13.019/2014")

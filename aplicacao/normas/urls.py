@@ -12,6 +12,7 @@ urlpatterns = [
     path("normas/<int:pk>/", views.DetalheNormaView.as_view(), name="detalhe"),
     path("normas/<int:pk>/editar/", views.EditarNormaView.as_view(), name="editar"),
     path("normas/<int:pk>/arquivo/", views.ArquivoNormaView.as_view(), name="arquivo"),
+    path("normas/documentos/<int:pk>/arquivo/", views.ArquivoDocumentoNormativoView.as_view(), name="arquivo_documento"),
     path("normas/<int:pk>/nova-versao/", views.NovaVersaoView.as_view(), name="nova_versao"),
     path("normas/<int:pk>/reprocessar/", views.ReprocessarNormaView.as_view(), name="reprocessar"),
     path("normas/<int:pk>/desativar/", views.DesativarNormaView.as_view(), name="desativar"),

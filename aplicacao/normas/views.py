@@ -16,7 +16,7 @@ from aplicacao.normas.formularios import (
     FormularioPesquisaNormativa,
     FormularioRelacionamento,
 )
-from aplicacao.normas.models import ConsultaNormativa, Norma, ReprocessamentoNorma, ResultadoConsultaNormativa
+from aplicacao.normas.models import ConsultaNormativa, DocumentoNormativo, Norma, ReprocessamentoNorma, ResultadoConsultaNormativa
 from aplicacao.normas.recuperador import RecuperadorNormativo
 from aplicacao.normas.servico import criar_nova_versao
 from aplicacao.normas.tarefas import processar_norma_task
@@ -301,6 +301,18 @@ class ArquivoNormaView(PerfilExigidoMixin, DetailView):
         caminho = ler_arquivo(norma.arquivo)
         resposta = FileResponse(caminho.open("rb"), content_type="application/pdf")
         resposta["Content-Disposition"] = f'inline; filename="{norma.nome_original or "norma.pdf"}"'
+        return resposta
+
+
+class ArquivoDocumentoNormativoView(PerfilExigidoMixin, DetailView):
+    model = DocumentoNormativo
+    perfis_permitidos = PERFIS_LEITURA
+
+    def get(self, request, *args, **kwargs):
+        documento = self.get_object()
+        caminho = ler_arquivo(documento.arquivo)
+        resposta = FileResponse(caminho.open("rb"), content_type="application/pdf")
+        resposta["Content-Disposition"] = f'inline; filename="{documento.nome_original or "documento.pdf"}"'
         return resposta
 
 
