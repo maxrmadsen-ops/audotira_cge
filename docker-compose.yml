@@ -1,9 +1,10 @@
-name: cge
+# Ambiente da POC. Não usar no diretório /max/auditoria_cge.
+name: cge_poc
 
 services:
   cge_banco:
     image: pgvector/pgvector:pg16
-    container_name: cge_banco
+    container_name: cge_poc_banco
     hostname: cge_banco
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -23,7 +24,7 @@ services:
 
   cge_redis:
     image: redis:7-alpine
-    container_name: cge_redis
+    container_name: cge_poc_redis
     hostname: cge_redis
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -42,8 +43,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: cge_aplicacao:onda10-rc1
-    container_name: cge_web
+    image: cge_aplicacao:poc
+    container_name: cge_poc_web
     hostname: cge_web
     env_file:
       - .env
@@ -70,11 +71,8 @@ services:
     restart: unless-stopped
 
   cge_worker:
-    image: cge_aplicacao:onda10-rc1
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: cge_worker
+    image: cge_aplicacao:poc
+    container_name: cge_poc_worker
     hostname: cge_worker
     env_file:
       - .env
@@ -87,7 +85,7 @@ services:
         condition: service_healthy
       cge_redis:
         condition: service_healthy
-    command: ["celery", "-A", "aplicacao.configuracao", "worker", "--loglevel=info", "--concurrency=2"]
+    command: ["celery", "-A", "aplicacao.configuracao", "worker", "--loglevel=info", "--concurrency=1"]
     healthcheck:
       test: ["CMD", "python", "/app/docker/verificar_worker.py"]
       interval: 30s
@@ -97,11 +95,8 @@ services:
     restart: unless-stopped
 
   cge_agendador:
-    image: cge_aplicacao:onda10-rc1
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: cge_agendador
+    image: cge_aplicacao:poc
+    container_name: cge_poc_agendador
     hostname: cge_agendador
     env_file:
       - .env
@@ -132,10 +127,10 @@ services:
 
   cge_nginx:
     image: nginx:1.27-alpine
-    container_name: cge_nginx
+    container_name: cge_poc_nginx
     hostname: cge_nginx
     ports:
-      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "127.0.0.1:8008:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - cge_static:/var/www/static:ro
@@ -154,19 +149,19 @@ services:
 
 networks:
   cge_rede:
-    name: cge_rede
+    name: cge_poc_rede
     driver: bridge
 
 volumes:
   cge_postgres_dados:
-    name: cge_postgres_dados
+    name: cge_poc_postgres_dados
   cge_redis_dados:
-    name: cge_redis_dados
+    name: cge_poc_redis_dados
   cge_static:
-    name: cge_static
+    name: cge_poc_static
   cge_arquivos:
-    name: cge_arquivos
+    name: cge_poc_arquivos
   cge_midia:
-    name: cge_midia
+    name: cge_poc_midia
   cge_celery_agenda:
-    name: cge_celery_agenda
+    name: cge_poc_celery_agenda
