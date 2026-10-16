@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views import View
 
@@ -53,7 +53,9 @@ class RevisaoPlanoView(LoginRequiredMixin, View):
     def get(self, request, pk, plano_pk):
         prestacao, plano = self._carregar(request, pk, plano_pk)
         exigir_ver_prestacao(request.user, prestacao)
-        return render(request, "prestacoes_contas/revisao_plano.html", self._contexto(request, prestacao, plano))
+        from aplicacao.prestacoes_contas.apresentacao_plano import url_workspace
+
+        return redirect(url_workspace(prestacao, plano, request.GET))
 
     def post(self, request, pk, plano_pk):
         prestacao, plano = self._carregar(request, pk, plano_pk)
@@ -74,7 +76,9 @@ class RevisaoPlanoView(LoginRequiredMixin, View):
             messages.error(request, "Ação de revisão não reconhecida.")
         else:
             tratado(request, prestacao, plano)
-        return redirect("prestacoes_contas:revisao_plano", pk=prestacao.pk, plano_pk=plano.pk)
+        from aplicacao.prestacoes_contas.apresentacao_plano import url_workspace
+
+        return redirect(url_workspace(prestacao, plano, request.POST, acao=acao))
 
     def _carregar(self, request, pk, plano_pk):
         prestacao = get_object_or_404(PrestacaoContas, pk=pk)

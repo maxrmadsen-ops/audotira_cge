@@ -1,0 +1,9 @@
+<div id="plano-pdf-tela" class="plano-pdf" data-arquivo="{% url 'documentos:arquivo' plano.documento.pk %}" data-pagina="{{ pagina_pdf }}">
+    <div class="plano-pdf-comandos">
+        <button class="btn btn-outline-primary btn-sm" id="plano-pdf-anterior" type="button">Página anterior</button>
+        <span id="plano-pdf-rotulo">Página {{ pagina_pdf }}</span>
+        <button class="btn btn-outline-primary btn-sm" id="plano-pdf-proxima" type="button">Próxima página</button>
+    </div>
+    <canvas id="plano-pdf-canvas" aria-label="Página do plano de trabalho"></canvas>
+    <p class="plano-recorte mb-0">O leitor desenha o arquivo nesta tela. A proteção que impede incorporar o endereço do sistema em outra página permanece ativa.</p>
+</div>

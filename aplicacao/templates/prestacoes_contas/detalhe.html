@@ -124,35 +124,18 @@
     {% endif %}
 {% elif aba == "plano" %}
     {% if plano %}
-        <article class="cartao mb-3">
-            <h2>{{ plano.titulo }}</h2>
-            <p class="mb-2">Versão {{ plano.versao }} · Confirmado: {% if plano.valor_previsto != None %}R$ {{ plano.valor_previsto }}{% else %}Nenhum item confirmado{% endif %} · Extraído: {% if plano.valor_extraido != None %}R$ {{ plano.valor_extraido }}{% else %}—{% endif %}</p>
-            <p class="mb-0"><a href="{% url 'prestacoes_contas:revisao_plano' prestacao.pk plano.pk %}">Revisar extração do plano</a></p>
-        </article>
-        <div class="table-responsive cartao p-0 mb-3">
-            <table class="table tabela-cge mb-0">
-                <thead><tr><th>Item</th><th>Natureza</th><th>Revisão</th><th>Previsto</th><th>Realizado</th></tr></thead>
-                <tbody>
-                    {% for item in plano.itens.all %}
-                        <tr>
-                            <td>{{ item.descricao }}</td>
-                            <td>{{ item.get_natureza_display }}</td>
-                            <td><span class="estado {% if item.status_revisao == 'aguardando_validacao' %}estado-aguardando{% else %}estado-operacional{% endif %}">{{ item.get_status_revisao_display }}</span></td>
-                            <td>{% if item.valor_previsto != None %}R$ {{ item.valor_previsto }}{% else %}—{% endif %}</td>
-                            <td>{% if item.valor_realizado != None %}R$ {{ item.valor_realizado }}{% else %}—{% endif %}</td>
-                        </tr>
-                    {% empty %}<tr><td colspan="5">Nenhum item previsto.</td></tr>{% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <ul>{% for meta in plano.metas.all %}<li>{{ meta.descricao }}</li>{% empty %}<li>Nenhuma meta.</li>{% endfor %}</ul>
+        {% include "prestacoes_contas/_plano_workspace.html" %}
     {% else %}
         <p>Nenhum plano de trabalho registrado.</p>
     {% endif %}
     {% if pode_alterar %}
-        <form class="cartao mb-3" method="post" action="{% url 'prestacoes_contas:incluir_plano' prestacao.pk %}">{% csrf_token %}<h2>Novo plano</h2>{% include "prestacoes_contas/_campos.html" with form=form_plano %}<button class="btn btn-primary btn-sm" type="submit">Incluir plano</button></form>
-        <form class="cartao mb-3" method="post" action="{% url 'prestacoes_contas:incluir_item' prestacao.pk %}">{% csrf_token %}<h2>Item previsto</h2>{% include "prestacoes_contas/_campos.html" with form=form_item %}<button class="btn btn-primary btn-sm" type="submit">Incluir item</button></form>
-        <form class="cartao" method="post" action="{% url 'prestacoes_contas:incluir_meta' prestacao.pk %}">{% csrf_token %}<h2>Meta</h2>{% include "prestacoes_contas/_campos.html" with form=form_meta %}<button class="btn btn-primary btn-sm" type="submit">Incluir meta</button></form>
+        <details class="cartao plano-manual mt-3">
+            <summary>Adicionar manualmente</summary>
+            <p class="plano-recorte">Use estes formulários só para incluir um plano, item ou meta que não veio do documento. A extração já registrada não precisa ser digitada de novo.</p>
+            <form class="mb-3" method="post" action="{% url 'prestacoes_contas:incluir_plano' prestacao.pk %}">{% csrf_token %}<h2>Novo plano</h2>{% include "prestacoes_contas/_campos.html" with form=form_plano %}<button class="btn btn-primary btn-sm" type="submit">Incluir plano</button></form>
+            <form class="mb-3" method="post" action="{% url 'prestacoes_contas:incluir_item' prestacao.pk %}">{% csrf_token %}<h2>Item previsto</h2>{% include "prestacoes_contas/_campos.html" with form=form_item %}<button class="btn btn-primary btn-sm" type="submit">Incluir item</button></form>
+            <form method="post" action="{% url 'prestacoes_contas:incluir_meta' prestacao.pk %}">{% csrf_token %}<h2>Meta</h2>{% include "prestacoes_contas/_campos.html" with form=form_meta %}<button class="btn btn-primary btn-sm" type="submit">Incluir meta</button></form>
+        </details>
     {% endif %}
 {% elif aba == "financeiro" %}
     <div class="row g-3">
