@@ -24,12 +24,12 @@ MESES = (
     "Dezembro",
 )
 _ITEM = re.compile(
-    r"Material/Servi[cç]o/Obra\s+(?P<descricao>.*?)\s*"
-    r"Classifica[cç][aã]o Or[cç]ament[aá]ria\s+(?P<classificacao>.*?)\s*"
-    r"Tipo Despesa\s+(?P<tipo>.*?)\s*"
-    r"Recurso\s+(?P<recurso>.*?)\s*"
-    r"Unidade Medida\s+(?P<unidade>.*?)\s*"
-    r"Quantidade\s+(?P<quantidade>[\d.]+,\d{2})\s+(?P<unitario>[\d.]+,\d{2})\s*"
+    r"Material/Servi[cç]o/Obra\s*(?P<descricao>.*?)\s*"
+    r"Classifica[cç][aã]o Or[cç]ament[aá]ria\s*(?P<classificacao>.*?)\s*"
+    r"Tipo Despesa\s*(?P<tipo>.*?)\s*"
+    r"Recurso\s*(?P<recurso>.*?)\s*"
+    r"Unidade Medida\s*(?P<unidade>.*?)\s*"
+    r"Quantidade\s*(?P<quantidade>[\d.]+,\d{2})\s+(?P<unitario>[\d.]+,\d{2})\s*"
     r"Valor Unit[aá]rio \(R\$\)\s*"
     r"Valor Total \(R\$\)\s+(?P<total>[\d.]+,\d{2})",
     re.DOTALL,
@@ -48,13 +48,80 @@ _ROTULOS_RECURSO = (
 )
 
 
+_ROTULOS_SOLTOS = (
+    "Data Início Execução",
+    "Data Término Execução",
+    "Data Inicio Execucao",
+    "Data Termino Execucao",
+    "Objetivo/Resultados Esperados",
+    "Objetivo/Resultados",
+    "Objeto/Finalidade",
+    "Descrição da Realidade",
+    "Descricao da Realidade",
+    "Classificação Orçamentária",
+    "Classificacao Orcamentaria",
+    "Material/Serviço/Obra",
+    "Material/Servico/Obra",
+    "Valor Contrapartida Financeira (R$)",
+    "Valor Contrapartida Bens e Serviços (R$)",
+    "Valor Contrapartida (R$)",
+    "Valor Unitário (R$)",
+    "Valor Total (R$)",
+    "Valor Global (R$)",
+    "Valor Repasse (R$)",
+    "Programa Transferência",
+    "Instrumento Transferência",
+    "Forma de Execução",
+    "Parametros de Aferição",
+    "Unidade Gestora",
+    "Unidade Medida",
+    "Público Alvo",
+    "Tipo Despesa",
+    "Data Início",
+    "Data Fim",
+    "Data Situação",
+    "Quantidade",
+    "Proponente",
+    "Transferência",
+    "Recurso",
+    "Descrição",
+    "Situação",
+    "Título",
+    "Gestão",
+    "Agência",
+    "Ano",
+)
+
+
+def separar_rotulos(texto: str) -> str:
+    """Alguns PDFs colam o rótulo no valor. O espaço só entra depois de um rótulo conhecido."""
+
+    if not texto:
+        return ""
+    for rotulo in sorted(_ROTULOS_SOLTOS, key=len, reverse=True):
+        inicio = 0
+        while True:
+            posicao = texto.find(rotulo, inicio)
+            if posicao < 0:
+                break
+            fim = posicao + len(rotulo)
+            anterior = texto[posicao - 1] if posicao else ""
+            seguinte = texto[fim] if fim < len(texto) else ""
+            if anterior.isalpha() or not seguinte or seguinte.isspace() or not (seguinte.isupper() or seguinte.isdigit()):
+                inicio = fim
+                continue
+            texto = texto[:fim] + " " + texto[fim:]
+            inicio = fim + 1
+    return texto
+
+
 def extrair_plano(paginas: list[dict], caminho=None) -> dict:
     """Lê páginas já decodificadas. `caminho` refina os recursos pela posição visual."""
 
     textos = []
     for pagina in paginas:
         texto, _ = decodificar_uso_privado(pagina.get("texto_extraido") or "")
-        textos.append({"numero_pagina": pagina["numero_pagina"], "texto": texto})
+        textos.append({"numero_pagina": pagina["numero_pagina"], "texto": separar_rotulos(texto)})
     identificacao = _identificacao(textos)
     metas = _metas(textos)
     itens = _itens(textos)
@@ -235,7 +302,7 @@ def _identificacao(paginas: list[dict]) -> dict:
         "situacao": _entre(texto, "Situação", "Data Situação"),
     }
     datas = re.search(
-        r"Data In[ií]cio Execu[cç][aã]o\s+Data T[eé]rmino Execu[cç][aã]o\s*(\d{2}/\d{2}/\d{4})\s+(\d{2}/\d{2}/\d{4})",
+        r"Data In[ií]cio Execu[cç][aã]o\s*Data T[eé]rmino Execu[cç][aã]o\s*(\d{2}/\d{2}/\d{4})\s*(\d{2}/\d{2}/\d{4})",
         texto,
     )
     if datas:
@@ -259,7 +326,7 @@ def _metas(paginas: list[dict]) -> list[dict]:
         descricao = _entre(texto, "Descrição", "Data Início")
         if not descricao or len(descricao) < 8:
             continue
-        datas = re.search(r"Data In[ií]cio\s+(\d{2}/\d{2}/\d{4})\s+Data Fim\s+(\d{2}/\d{2}/\d{4})", texto)
+        datas = re.search(r"Data In[ií]cio\s*(\d{2}/\d{2}/\d{4})\s*Data Fim\s*(\d{2}/\d{2}/\d{4})", texto)
         forma = _entre(texto, "Forma de Execução", "Parametros")
         parametros = _entre(texto, "Parametros  de Aferição", "Etapas") or _entre(texto, "Parametros de Aferição", "Etapas")
         etapas = ""
@@ -316,7 +383,7 @@ def _cronograma(paginas: list[dict]) -> list[dict]:
     for pagina in paginas:
         if "Cronograma" not in pagina["texto"]:
             continue
-        anos = [int(ano) for ano in re.findall(r"Ano\s+(20\d{2})", pagina["texto"])]
+        anos = [int(ano) for ano in re.findall(r"(?<![A-Za-zÀ-ÿ])Ano\s*(20\d{2})", pagina["texto"])]
         meses = list(_MES.finditer(pagina["texto"]))
         if not anos or not meses:
             continue
