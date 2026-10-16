@@ -31,6 +31,12 @@ class NaturezaItem(models.TextChoices):
     OUTRO = "outro", "Outro"
 
 
+class StatusRevisaoPlano(models.TextChoices):
+    AGUARDANDO = "aguardando_validacao", "Aguardando revisão"
+    CONFIRMADO = "confirmado", "Confirmado"
+    CORRIGIDO = "corrigido", "Corrigido"
+
+
 class TipoPrestacaoParcial(models.TextChoices):
     PARCIAL = "parcial", "Parcial"
     FINAL = "final", "Final"

@@ -39,6 +39,7 @@ def executar_pipeline(documento_id: int, usuario_id: int | None = None, reproces
         _marcar(documento, etapa=EtapaProcessamento.EXTRAINDO_METADADOS)
         _substituir_dados(documento)
         _estruturar_termo(documento)
+        _estruturar_plano(documento)
         if documento.classificacao_validada:
             _marcar(documento, StatusProcessamento.VALIDADO, EtapaProcessamento.CONCLUIDO, "")
             resultado = "sucesso"
@@ -153,6 +154,8 @@ def _estruturar_termo(documento: Documento) -> None:
     from aplicacao.instrumentos.models import TermoCongelado
     from aplicacao.instrumentos.servico import estruturar_termo
 
+    if documento.tipo_documento == TipoDocumento.PLANO_TRABALHO:
+        return
     texto = "\n".join(documento.paginas.values_list("texto_extraido", flat=True))
     if documento.tipo_documento != TipoDocumento.TERMO and "termo de fomento" not in _normalizar(texto):
         return
@@ -160,6 +163,15 @@ def _estruturar_termo(documento: Documento) -> None:
         estruturar_termo(documento)
     except TermoCongelado:
         return
+
+
+def _estruturar_plano(documento: Documento) -> None:
+    from aplicacao.documentos.escolhas import TipoDocumento
+    from aplicacao.prestacoes_contas.extracao_plano import estruturar_plano
+
+    if documento.tipo_documento != TipoDocumento.PLANO_TRABALHO:
+        return
+    estruturar_plano(documento)
 
 
 def _falhar(documento: Documento, usuario, mensagem: str, reprocessamento_id: int | None) -> None:

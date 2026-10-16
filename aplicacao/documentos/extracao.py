@@ -1,6 +1,7 @@
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
+from aplicacao.documentos.codificacao import decodificar_uso_privado
 from aplicacao.documentos.escolhas import MetodoExtracao
 from aplicacao.documentos.ocr import ServicoOCR
 from aplicacao.documentos.qualidade import avaliar_qualidade
@@ -34,6 +35,7 @@ class ExtratorPDF:
             texto_nativo = pagina.extract_text() or ""
         except Exception:
             texto_nativo = ""
+        texto_nativo, _recuperado = decodificar_uso_privado(texto_nativo)
         qualidade, necessita_ocr = avaliar_qualidade(texto_nativo)
         texto_ocr = ""
         caixas: list[dict] = []

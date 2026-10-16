@@ -15,6 +15,7 @@ from aplicacao.prestacoes_contas.escolhas import (
     TipoInstrumento,
     TipoMovimentacao,
     TipoPrestacaoParcial,
+    StatusRevisaoPlano,
 )
 
 ZERO = Decimal("0.00")
@@ -117,7 +118,13 @@ class PrestacaoContas(Rastreavel):
 
     @property
     def valor_previsto(self) -> Decimal | None:
-        total_itens = _soma(ItemPlanoTrabalho.objects.filter(plano__prestacao=self), "valor_previsto")
+        total_itens = _soma(
+            ItemPlanoTrabalho.objects.filter(
+                plano__prestacao=self,
+                status_revisao__in=(StatusRevisaoPlano.CONFIRMADO, StatusRevisaoPlano.CORRIGIDO),
+            ),
+            "valor_previsto",
+        )
         if total_itens is not None:
             return total_itens
         instrumento = self.instrumento_principal
@@ -196,6 +203,47 @@ class PlanoTrabalho(Rastreavel):
     versao = models.PositiveIntegerField("versão", default=1)
     vigencia_inicio = models.DateField("início da vigência", null=True, blank=True)
     vigencia_fim = models.DateField("fim da vigência", null=True, blank=True)
+    documento = models.ForeignKey(
+        "documentos.Documento",
+        verbose_name="documento de origem",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="planos_extraidos",
+    )
+    objeto = models.TextField("objeto", blank=True)
+    finalidade = models.TextField("finalidade", blank=True)
+    transferencia = models.CharField("transferência", max_length=40, blank=True)
+    proponente = models.CharField("proponente", max_length=255, blank=True)
+    unidade_gestora = models.CharField("unidade gestora", max_length=255, blank=True)
+    publico_alvo = models.CharField("público alvo", max_length=255, blank=True)
+    situacao_informada = models.CharField("situação informada no documento", max_length=80, blank=True)
+    valor_global = DinheiroField("valor global informado", null=True, blank=True)
+    valor_repasse = DinheiroField("valor de repasse informado", null=True, blank=True)
+    valor_contrapartida = DinheiroField("valor de contrapartida informado", null=True, blank=True)
+    status_revisao = models.CharField(
+        "revisão",
+        max_length=30,
+        choices=StatusRevisaoPlano.choices,
+        default=StatusRevisaoPlano.CONFIRMADO,
+    )
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="revisado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="planos_revisados",
+    )
+    revisado_em = models.DateTimeField("revisado em", null=True, blank=True)
+    evidencias = models.JSONField("evidências da identificação", default=dict, blank=True)
+    cronograma = models.JSONField("cronograma extraído", default=list, blank=True)
+    cronograma_status = models.CharField(
+        "revisão do cronograma",
+        max_length=30,
+        choices=StatusRevisaoPlano.choices,
+        default=StatusRevisaoPlano.CONFIRMADO,
+    )
 
     class Meta:
         verbose_name = "plano de trabalho"
@@ -216,6 +264,13 @@ class PlanoTrabalho(Rastreavel):
 
     @property
     def valor_previsto(self) -> Decimal | None:
+        return _soma(
+            self.itens.filter(status_revisao__in=(StatusRevisaoPlano.CONFIRMADO, StatusRevisaoPlano.CORRIGIDO)),
+            "valor_previsto",
+        )
+
+    @property
+    def valor_extraido(self) -> Decimal | None:
         return _soma(self.itens.all(), "valor_previsto")
 
 
@@ -230,6 +285,36 @@ class ItemPlanoTrabalho(Rastreavel):
     periodo_fim = models.DateField("fim do período", null=True, blank=True)
     natureza = models.CharField("natureza", max_length=20, choices=NaturezaItem.choices, default=NaturezaItem.OUTRO)
     ordem = models.PositiveIntegerField("ordem", default=0)
+    documento = models.ForeignKey(
+        "documentos.Documento",
+        verbose_name="documento de origem",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="itens_plano_extraidos",
+    )
+    descricao_original = models.TextField("descrição original", blank=True)
+    classificacao_orcamentaria = models.CharField("classificação orçamentária", max_length=160, blank=True)
+    tipo_despesa = models.CharField("tipo de despesa no documento", max_length=80, blank=True)
+    recurso = models.CharField("recurso", max_length=80, blank=True)
+    valor_unitario = DinheiroField("valor unitário", null=True, blank=True)
+    pagina = models.PositiveIntegerField("página", null=True, blank=True)
+    trecho = models.TextField("trecho de origem", blank=True)
+    status_revisao = models.CharField(
+        "revisão",
+        max_length=30,
+        choices=StatusRevisaoPlano.choices,
+        default=StatusRevisaoPlano.CONFIRMADO,
+    )
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="revisado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="itens_plano_revisados",
+    )
+    revisado_em = models.DateTimeField("revisado em", null=True, blank=True)
 
     class Meta:
         verbose_name = "item do plano de trabalho"
@@ -269,6 +354,35 @@ class Meta(Rastreavel):
     unidade = models.CharField("unidade", max_length=40, blank=True)
     periodo_inicio = models.DateField("início do período", null=True, blank=True)
     periodo_fim = models.DateField("fim do período", null=True, blank=True)
+    documento = models.ForeignKey(
+        "documentos.Documento",
+        verbose_name="documento de origem",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="metas_plano_extraidas",
+    )
+    descricao_original = models.TextField("descrição original", blank=True)
+    forma_execucao = models.TextField("forma de execução", blank=True)
+    parametros_afericao = models.TextField("parâmetros de aferição", blank=True)
+    etapas = models.TextField("etapas", blank=True)
+    pagina = models.PositiveIntegerField("página", null=True, blank=True)
+    trecho = models.TextField("trecho de origem", blank=True)
+    status_revisao = models.CharField(
+        "revisão",
+        max_length=30,
+        choices=StatusRevisaoPlano.choices,
+        default=StatusRevisaoPlano.CONFIRMADO,
+    )
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="revisado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="metas_plano_revisadas",
+    )
+    revisado_em = models.DateTimeField("revisado em", null=True, blank=True)
 
     class Meta:
         verbose_name = "meta"
