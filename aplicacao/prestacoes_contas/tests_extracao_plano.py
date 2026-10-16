@@ -93,6 +93,21 @@ class TesteExtracaoPlano(TestCase):
         self.assertTrue(analise["itens"][0]["trecho"])
         self.assertEqual(sum(Decimal(linha["repasse"]) for linha in analise["cronograma"]), Decimal("350.00"))
 
+    def test_rotulos_colados_no_valor_continuam_legiveis(self):
+        colado = (
+            TEXTO_PLANO.replace("Quantidade ", "Quantidade")
+            .replace("Tipo Despesa ", "Tipo Despesa")
+            .replace("Unidade Medida ", "Unidade Medida")
+            .replace("Data Início ", "Data Início")
+            .replace("Data Fim ", "Data Fim")
+            .replace("Ano ", "Ano")
+        )
+        analise = extrair_plano([{"numero_pagina": 1, "texto_extraido": colado}])
+        self.assertEqual(len(analise["itens"]), 2)
+        self.assertEqual(analise["itens"][0]["tipo_despesa"], "Serviço")
+        self.assertEqual(analise["itens"][0]["unidade"], "Un")
+        self.assertEqual(sum(Decimal(linha["repasse"]) for linha in analise["cronograma"] if linha["repasse"]), Decimal("350.00"))
+
     def test_fonte_de_uso_privado_volta_a_texto_e_nao_pede_ocr(self):
         codificado = "".join(chr(ord(caractere) + 0xF000) if ord(caractere) < 256 else caractere for caractere in TEXTO_PLANO)
         legivel, recuperado = decodificar_uso_privado(codificado)
