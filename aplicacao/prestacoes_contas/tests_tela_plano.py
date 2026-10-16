@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from aplicacao.auditoria.models import RegistroAuditoria
-from aplicacao.prestacoes_contas.apresentacao_plano import etapas_legiveis, parametros_legiveis
+from aplicacao.prestacoes_contas.apresentacao_plano import etapas_legiveis, parametros_legiveis, rotulo_milhar
 from aplicacao.prestacoes_contas.escolhas import StatusRevisaoPlano
 from aplicacao.prestacoes_contas.models import ItemPlanoTrabalho, Meta, PlanoTrabalho, PrestacaoContas
 
@@ -78,6 +78,11 @@ class TesteTelaPlano(TestCase):
         self.assertEqual(etapas_legiveis(bruto, grudado), "Adesão, execução e encerramento")
         self.assertEqual(parametros_legiveis(grudado), "Relatórios internos.")
 
+    def test_rotulo_de_milhar_resume_sem_apagar_centavos(self):
+        self.assertEqual(rotulo_milhar(Decimal("172600")), ("173", "mil"))
+        self.assertEqual(rotulo_milhar(Decimal("200")), ("200,00", ""))
+        self.assertEqual(rotulo_milhar(Decimal("0")), ("", ""))
+
     def test_aba_mostra_conciliacao_e_preserva_a_revisao(self):
         antes = RegistroAuditoria.objects.count()
         resposta = self.client.get(reverse("prestacoes_contas:detalhe", kwargs={"pk": self.prestacao.pk}), {"aba": "plano"})
@@ -106,6 +111,9 @@ class TesteTelaPlano(TestCase):
             reverse("prestacoes_contas:detalhe", kwargs={"pk": self.prestacao.pk}),
             {"aba": "plano", "secao": "cronograma"},
         )
+        self.assertContains(cronograma, "plano-linha-tempo")
+        self.assertContains(cronograma, "com-valor", count=1)
+        self.assertContains(cronograma, "200,00")
         self.assertContains(cronograma, "Jul")
         self.assertContains(cronograma, "Tabela completa, com os meses de valor zero")
         self.apoio.refresh_from_db()

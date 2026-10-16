@@ -1,7 +1,7 @@
 """Organiza o plano para a tela. Não grava e não altera o estado da revisão."""
 
 import re
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from urllib.parse import urlencode
 
 from django.urls import reverse
@@ -279,11 +279,15 @@ def _cronograma(plano) -> dict:
                 altura = max(8, int(valor * 100 / maior))
             else:
                 altura = 2
+            principal, sufixo = rotulo_milhar(linha["repasse_decimal"])
             barras.append(
                 {
                     "mes": linha.get("mes") or "",
                     "sigla": SIGLAS_MES.get((linha.get("mes") or "").lower(), (linha.get("mes") or "")[:3]),
                     "valor": linha["repasse_decimal"],
+                    "com_valor": valor > 0,
+                    "rotulo": principal,
+                    "sufixo": sufixo,
                     "contrapartida": linha["contrapartida_decimal"],
                     "altura": altura,
                     "pagina": linha.get("pagina"),
@@ -362,6 +366,19 @@ def _decimal(valor) -> Decimal | None:
         return Decimal(str(valor))
     except InvalidOperation:
         return None
+
+
+def rotulo_milhar(valor: Decimal | None) -> tuple[str, str]:
+    """Resume o repasse para caber acima da coluna. O valor exato continua no título e na tabela."""
+
+    if valor is None or valor <= 0:
+        return "", ""
+    if valor < Decimal("1000"):
+        quantizado = valor.quantize(Decimal("0.01"))
+        inteiro, centavos = f"{quantizado:.2f}".split(".")
+        return f"{int(inteiro)},{centavos}", ""
+    milhares = (valor / Decimal("1000")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return str(int(milhares)), "mil"
 
 
 def _limpar(texto: str) -> str:
