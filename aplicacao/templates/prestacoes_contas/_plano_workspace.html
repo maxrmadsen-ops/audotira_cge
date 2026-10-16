@@ -130,14 +130,19 @@
                     <div><dt>Período</dt><dd>{% if meta.obj.periodo_inicio %}{{ meta.obj.periodo_inicio|date:"d/m/Y" }}{% else %}Não identificado{% endif %} a {% if meta.obj.periodo_fim %}{{ meta.obj.periodo_fim|date:"d/m/Y" }}{% else %}Não identificado{% endif %}</dd></div>
                     <div><dt>Página</dt><dd>{% if meta.obj.pagina %}{{ meta.obj.pagina }}{% else %}Não indicada{% endif %}{% if meta.obj.documento_id and meta.obj.pagina %} · <a href="{% url 'documentos:texto_pagina' meta.obj.documento_id meta.obj.pagina %}" target="_blank" rel="noopener">texto da página</a>{% endif %}</dd></div>
                     <div class="plano-ficha-larga"><dt>Forma de execução</dt><dd>{{ meta.obj.forma_execucao|default:"Não identificada" }}</dd></div>
-                    <div class="plano-ficha-larga"><dt>Parâmetros de aferição</dt><dd>{{ meta.obj.parametros_afericao|default:"Não identificados" }}</dd></div>
+                    <div class="plano-ficha-larga"><dt>Parâmetros de aferição</dt><dd>{{ meta.parametros_limpos|default:"Não identificados" }}</dd></div>
                     <div class="plano-ficha-larga"><dt>Etapas previstas</dt><dd>{{ meta.etapas_limpas|default:"Não identificadas" }}</dd></div>
                 </dl>
                 {% if meta.recorte %}<p class="plano-recorte">Trecho: {{ meta.recorte }}</p>{% endif %}
-                {% if meta.obj.etapas and meta.obj.etapas != meta.etapas_limpas %}
+                {% if meta.obj.etapas and meta.obj.etapas != meta.etapas_limpas or meta.obj.parametros_afericao and meta.obj.parametros_afericao != meta.parametros_limpos %}
                     <details>
                         <summary>Texto original da extração</summary>
-                        <p class="plano-original">{{ meta.obj.etapas }}</p>
+                        {% if meta.obj.parametros_afericao and meta.obj.parametros_afericao != meta.parametros_limpos %}
+                            <p class="plano-original">Parâmetros: {{ meta.obj.parametros_afericao }}</p>
+                        {% endif %}
+                        {% if meta.obj.etapas and meta.obj.etapas != meta.etapas_limpas %}
+                            <p class="plano-original">Etapas: {{ meta.obj.etapas }}</p>
+                        {% endif %}
                     </details>
                 {% endif %}
                 {% if pode_alterar %}
@@ -157,7 +162,7 @@
                             <input type="hidden" name="retorno_secao" value="metas">
                             <textarea class="form-control mb-1" name="descricao" rows="2">{{ meta.obj.descricao }}</textarea>
                             <input class="form-control mb-1" name="forma_execucao" value="{{ meta.obj.forma_execucao }}" placeholder="Forma de execução">
-                            <input class="form-control mb-1" name="parametros_afericao" value="{{ meta.obj.parametros_afericao }}" placeholder="Parâmetros de aferição">
+                            <input class="form-control mb-1" name="parametros_afericao" value="{{ meta.parametros_limpos }}" placeholder="Parâmetros de aferição">
                             <textarea class="form-control mb-1" name="etapas" rows="2">{{ meta.etapas_limpas }}</textarea>
                             <input class="form-control mb-1" type="date" name="periodo_inicio" value="{{ meta.obj.periodo_inicio|date:'Y-m-d' }}">
                             <input class="form-control mb-1" type="date" name="periodo_fim" value="{{ meta.obj.periodo_fim|date:'Y-m-d' }}">
