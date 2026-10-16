@@ -339,19 +339,29 @@
                 <div><p>Meses com desembolso</p><strong>{{ cronograma_plano.com_desembolso }}</strong></div>
                 <div><p>Contrapartida</p><strong>{{ cronograma_plano.contrapartida|moeda_br }}</strong></div>
             </div>
-            {% for ano in cronograma_plano.anos %}
-                <h4 class="plano-ano">{{ ano.ano }} · {{ ano.total|moeda_br }} · {{ ano.com_desembolso }} {% if ano.com_desembolso == 1 %}mês com valor{% else %}meses com valor{% endif %}</h4>
-                <div class="plano-grafico" role="img" aria-label="Repasses mensais de {{ ano.ano }}">
-                    {% for barra in ano.barras %}
-                        <div class="plano-barra" title="{{ barra.mes }} {{ barra.valor|moeda_br }}">
-                            <span style="height: {{ barra.altura }}%"></span>
-                            <small>{{ barra.sigla }}</small>
-                        </div>
+            {% if cronograma_plano.anos %}
+                <div class="plano-linha-tempo" role="img" aria-label="Repasses previstos ao longo dos meses">
+                    {% for ano in cronograma_plano.anos %}
+                        <section class="plano-faixa-ano">
+                            <header>
+                                <strong>{{ ano.ano }}</strong>
+                                <span>{{ ano.total|moeda_br }} · {{ ano.com_desembolso }} {% if ano.com_desembolso == 1 %}mês com valor{% else %}meses com valor{% endif %}</span>
+                            </header>
+                            <div class="plano-meses">
+                                {% for barra in ano.barras %}
+                                    <div class="plano-mes {% if barra.com_valor %}com-valor{% endif %}" title="{{ barra.mes }} de {{ ano.ano }} · {{ barra.valor|moeda_br }}">
+                                        <em>{% if barra.rotulo %}{{ barra.rotulo }}{% if barra.sufixo %}<small>{{ barra.sufixo }}</small>{% endif %}{% endif %}</em>
+                                        <div class="plano-trilho">{% if barra.com_valor %}<span style="height: {{ barra.altura }}%"></span>{% else %}<i></i>{% endif %}</div>
+                                        <small>{{ barra.sigla }}</small>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </section>
                     {% endfor %}
                 </div>
-            {% empty %}
+            {% else %}
                 <p>Cronograma não localizado neste documento.</p>
-            {% endfor %}
+            {% endif %}
             {% if cronograma_plano.linhas %}
                 <details class="mt-3">
                     <summary>Tabela completa, com os meses de valor zero</summary>
