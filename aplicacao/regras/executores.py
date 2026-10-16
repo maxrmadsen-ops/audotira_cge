@@ -463,9 +463,12 @@ class ExecutorPlanoTrabalho(ExecutorRegraBase):
 
     def executar(self, regra, contexto) -> ResultadoExecutor:
         operacao = regra.configuracao.get("operacao")
-        itens = []
-        for plano in contexto.prestacao.planos.prefetch_related("itens__despesas"):
-            itens.extend(list(plano.itens.all()))
+        itens = [
+            item
+            for plano in contexto.prestacao.planos.prefetch_related("itens__despesas")
+            for item in plano.itens.all()
+            if item.status_revisao in ("confirmado", "corrigido")
+        ]
         if operacao == "detalhamento":
             if not itens:
                 return _resultado("NÃO VERIFICÁVEL", "Plano sem itens estruturados.", status=StatusTecnico.INCONCLUSIVO, entradas={"dados_insuficientes": True})

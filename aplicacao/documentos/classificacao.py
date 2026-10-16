@@ -155,9 +155,38 @@ def _vazio(evidencias: list[dict] | None = None) -> dict:
     }
 
 
+def _plano_estrutural(texto: str) -> dict | None:
+    normal = _normalizar(texto)
+    if "listar plano trabalho" not in normal or "material servico obra" not in normal:
+        return None
+    evidencias = [
+        {
+            "criterio": "cabeçalho de plano de trabalho",
+            "trecho": "Listar Plano Trabalho",
+        },
+        {
+            "criterio": "despesas do plano",
+            "trecho": "Material/Serviço/Obra",
+        },
+    ]
+    return {
+        "tipo": TipoDocumento.PLANO_TRABALHO,
+        "subtipo": "",
+        "numero": "",
+        "confianca": Decimal("0.900"),
+        "metodo": MetodoClassificacao.ESTRUTURAL,
+        "estado": "identificado",
+        "evidencias": evidencias,
+        "fundamento": _fundamento("identificado", evidencias),
+    }
+
+
 def classificar(nome_original: str, texto: str) -> dict:
     """Identifica um tipo só com evidência bastante. Empate ou menção isolada não escolhe tipo."""
     bruto = texto or ""
+    plano = _plano_estrutural(bruto)
+    if plano:
+        return plano
     estrutural = _termo_estrutural(bruto)
     if estrutural:
         return estrutural
