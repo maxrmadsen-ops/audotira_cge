@@ -1,0 +1,451 @@
+{% load moeda static %}
+<section class="plano-trabalho">
+    <header class="plano-cabeca cartao">
+        <div>
+            <p class="plano-kicker">{{ prestacao.numero_processo }}{% if prestacao.numero_instrumento %} · {{ prestacao.tipo_instrumento }} {{ prestacao.numero_instrumento }}{% endif %}{% if plano.transferencia %} · Transferência {{ plano.transferencia }}{% endif %}</p>
+            <h2 class="plano-titulo">{{ plano.titulo }}</h2>
+            <p class="plano-meta mb-0">Versão {{ plano.versao }}{% if plano.documento %} · {{ plano.documento.nome_original }}{% endif %}</p>
+        </div>
+        <div class="plano-cabeca-lado">
+            <span class="{% if revisao_concluida %}estado estado-operacional{% else %}estado estado-aguardando{% endif %}">{% if revisao_concluida %}Revisão concluída{% else %}Em revisão{% endif %}</span>
+            <p class="plano-progresso-rotulo">{{ progresso_revisado }} de {{ progresso_total }} revisões</p>
+            <div class="plano-progresso" role="progressbar" aria-valuenow="{{ progresso_percentual }}" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso da revisão">
+                <span style="width: {{ progresso_percentual }}%"></span>
+            </div>
+        </div>
+    </header>
+
+    <div class="plano-indicadores">
+        <article class="cartao plano-indicador">
+            <p>Valor extraído</p>
+            <strong>{{ plano.valor_extraido|moeda_br }}</strong>
+            <small>{{ total_itens_plano }} itens · ainda não é o valor da prestação</small>
+        </article>
+        <article class="cartao plano-indicador">
+            <p>Revisão humana</p>
+            <strong>{{ itens_confirmados|add:itens_corrigidos }} / {{ total_itens_plano }}</strong>
+            <small>{{ itens_pendentes }} pendentes · {{ itens_confirmados }} confirmados · {{ itens_corrigidos }} corrigidos</small>
+        </article>
+        <article class="cartao plano-indicador">
+            <p>Conciliação matemática</p>
+            <strong>{% if conciliacao_plano.itens_fecham %}Fecha{% elif conciliacao_plano.tem_global %}Não fecha{% else %}Sem total{% endif %}</strong>
+            <small>Soma dos itens diante do valor global. Uma soma correta não valida o plano.</small>
+        </article>
+        <article class="cartao plano-indicador">
+            <p>Valor global do documento</p>
+            <strong>{{ plano.valor_global|moeda_br }}</strong>
+            <small>Repasse {{ plano.valor_repasse|moeda_br }} · contrapartida {{ plano.valor_contrapartida|moeda_br }}</small>
+        </article>
+    </div>
+
+    <nav class="plano-abas" aria-label="Seções do plano de trabalho">
+        {% for aba_interna in abas_plano %}
+            <a class="{% if aba_interna.ativa %}ativa{% endif %}" href="{{ aba_interna.url }}" {% if aba_interna.ativa %}aria-current="page"{% endif %}>{{ aba_interna.rotulo }}</a>
+        {% endfor %}
+    </nav>
+
+    {% if secao_plano == "resumo" %}
+        <div class="plano-grade">
+            <article class="cartao">
+                <div class="plano-linha-titulo">
+                    <h3>Identificação da parceria</h3>
+                    <span class="{{ plano.status_revisao|classe_revisao }}">{{ plano.status_revisao|rotulo_revisao }}</span>
+                </div>
+                <dl class="plano-ficha">
+                    <div><dt>Proponente</dt><dd>{{ plano.proponente|default:"Não identificado" }}</dd></div>
+                    <div><dt>Unidade gestora</dt><dd>{{ plano.unidade_gestora|default:"Não identificado" }}</dd></div>
+                    <div><dt>Execução</dt><dd>{% if plano.vigencia_inicio %}{{ plano.vigencia_inicio|date:"d/m/Y" }}{% else %}Não identificado{% endif %} a {% if plano.vigencia_fim %}{{ plano.vigencia_fim|date:"d/m/Y" }}{% else %}Não identificado{% endif %}</dd></div>
+                    <div><dt>Público alvo</dt><dd>{{ plano.publico_alvo|default:"Não identificado" }}</dd></div>
+                    <div><dt>Situação no documento</dt><dd>{{ plano.situacao_informada|default:"Não identificado" }}</dd></div>
+                    <div><dt>Objeto</dt><dd>{{ plano.objeto|default:"Não identificado" }}</dd></div>
+                    <div class="plano-ficha-larga"><dt>Finalidade</dt><dd>{{ plano.finalidade|default:"Não identificado" }}</dd></div>
+                </dl>
+                {% if pode_alterar %}
+                    <form method="post" action="{{ url_revisao_plano }}">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="confirmar_plano">
+                        <input type="hidden" name="retorno_secao" value="resumo">
+                        <button class="btn btn-primary btn-sm" type="submit">Confirmar identificação</button>
+                    </form>
+                    <details class="plano-correcao">
+                        <summary>Corrigir identificação</summary>
+                        <form method="post" action="{{ url_revisao_plano }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="corrigir_plano">
+                            <input type="hidden" name="retorno_secao" value="resumo">
+                            <label class="form-label">Título</label>
+                            <input class="form-control mb-2" name="titulo" value="{{ plano.titulo }}">
+                            <label class="form-label">Objeto</label>
+                            <textarea class="form-control mb-2" name="objeto" rows="2">{{ plano.objeto }}</textarea>
+                            <label class="form-label">Finalidade</label>
+                            <textarea class="form-control mb-2" name="finalidade" rows="2">{{ plano.finalidade }}</textarea>
+                            <div class="row g-2">
+                                <div class="col-md-6"><label class="form-label">Transferência</label><input class="form-control" name="transferencia" value="{{ plano.transferencia }}"></div>
+                                <div class="col-md-6"><label class="form-label">Proponente</label><input class="form-control" name="proponente" value="{{ plano.proponente }}"></div>
+                                <div class="col-md-6"><label class="form-label">Unidade gestora</label><input class="form-control" name="unidade_gestora" value="{{ plano.unidade_gestora }}"></div>
+                                <div class="col-md-6"><label class="form-label">Público alvo</label><input class="form-control" name="publico_alvo" value="{{ plano.publico_alvo }}"></div>
+                                <div class="col-md-4"><label class="form-label">Início</label><input class="form-control" type="date" name="vigencia_inicio" value="{{ plano.vigencia_inicio|date:'Y-m-d' }}"></div>
+                                <div class="col-md-4"><label class="form-label">Fim</label><input class="form-control" type="date" name="vigencia_fim" value="{{ plano.vigencia_fim|date:'Y-m-d' }}"></div>
+                                <div class="col-md-4"><label class="form-label">Situação informada</label><input class="form-control" name="situacao_informada" value="{{ plano.situacao_informada }}"></div>
+                                <div class="col-md-4"><label class="form-label">Valor global</label><input class="form-control" name="valor_global" value="{{ plano.valor_global|default_if_none:'' }}"></div>
+                                <div class="col-md-4"><label class="form-label">Valor de repasse</label><input class="form-control" name="valor_repasse" value="{{ plano.valor_repasse|default_if_none:'' }}"></div>
+                                <div class="col-md-4"><label class="form-label">Contrapartida</label><input class="form-control" name="valor_contrapartida" value="{{ plano.valor_contrapartida|default_if_none:'' }}"></div>
+                            </div>
+                            <button class="btn btn-outline-primary btn-sm mt-2" type="submit">Salvar correção</button>
+                        </form>
+                    </details>
+                {% endif %}
+            </article>
+            <article class="cartao">
+                <h3>O que a soma confirma</h3>
+                <ul class="plano-lista">
+                    <li>{% if conciliacao_plano.itens_fecham %}A soma dos itens extraídos é igual ao valor global do documento.{% elif conciliacao_plano.tem_global %}A soma dos itens extraídos difere do valor global do documento.{% else %}O documento não trouxe valor global para conferir.{% endif %}</li>
+                    <li>{% if conciliacao_plano.cronograma_fecha %}O cronograma de repasses soma o mesmo valor global.{% elif cronograma_plano.linhas %}O cronograma não soma o valor global do documento.{% else %}Cronograma não localizado.{% endif %}</li>
+                    <li>A conferência matemática não substitui a confirmação de cada registro.</li>
+                </ul>
+                {% if itens_pendentes %}
+                    <p class="mb-0"><a href="{{ url_itens_pendentes }}">Abrir os {{ itens_pendentes }} itens pendentes</a></p>
+                {% endif %}
+                <h3 class="mt-3">Evidência por campo</h3>
+                <ul class="plano-evidencias">
+                    {% for campo in evidencias_plano %}
+                        <li>
+                            <strong>{{ campo.rotulo }}</strong>
+                            {% if campo.pagina %}<span>Página {{ campo.pagina }}</span>{% else %}<span>Página não indicada</span>{% endif %}
+                            {% if campo.recorte %}<p>{{ campo.recorte }}</p>{% elif not campo.valor %}<p>Não identificado no documento.</p>{% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </article>
+        </div>
+
+    {% elif secao_plano == "metas" %}
+        {% for meta in metas_plano %}
+            <article class="cartao plano-meta">
+                <div class="plano-linha-titulo">
+                    <h3>{{ meta.obj.descricao }}</h3>
+                    <span class="{{ meta.obj.status_revisao|classe_revisao }}">{{ meta.obj.status_revisao|rotulo_revisao }}</span>
+                </div>
+                <dl class="plano-ficha">
+                    <div><dt>Período</dt><dd>{% if meta.obj.periodo_inicio %}{{ meta.obj.periodo_inicio|date:"d/m/Y" }}{% else %}Não identificado{% endif %} a {% if meta.obj.periodo_fim %}{{ meta.obj.periodo_fim|date:"d/m/Y" }}{% else %}Não identificado{% endif %}</dd></div>
+                    <div><dt>Página</dt><dd>{% if meta.obj.pagina %}{{ meta.obj.pagina }}{% else %}Não indicada{% endif %}{% if meta.obj.documento_id and meta.obj.pagina %} · <a href="{% url 'documentos:texto_pagina' meta.obj.documento_id meta.obj.pagina %}" target="_blank" rel="noopener">texto da página</a>{% endif %}</dd></div>
+                    <div class="plano-ficha-larga"><dt>Forma de execução</dt><dd>{{ meta.obj.forma_execucao|default:"Não identificada" }}</dd></div>
+                    <div class="plano-ficha-larga"><dt>Parâmetros de aferição</dt><dd>{{ meta.obj.parametros_afericao|default:"Não identificados" }}</dd></div>
+                    <div class="plano-ficha-larga"><dt>Etapas previstas</dt><dd>{{ meta.etapas_limpas|default:"Não identificadas" }}</dd></div>
+                </dl>
+                {% if meta.recorte %}<p class="plano-recorte">Trecho: {{ meta.recorte }}</p>{% endif %}
+                {% if meta.obj.etapas and meta.obj.etapas != meta.etapas_limpas %}
+                    <details>
+                        <summary>Texto original da extração</summary>
+                        <p class="plano-original">{{ meta.obj.etapas }}</p>
+                    </details>
+                {% endif %}
+                {% if pode_alterar %}
+                    <form method="post" action="{{ url_revisao_plano }}" class="mt-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="confirmar_meta">
+                        <input type="hidden" name="meta_id" value="{{ meta.obj.pk }}">
+                        <input type="hidden" name="retorno_secao" value="metas">
+                        <button class="btn btn-primary btn-sm" type="submit">Confirmar meta</button>
+                    </form>
+                    <details class="plano-correcao">
+                        <summary>Corrigir meta</summary>
+                        <form method="post" action="{{ url_revisao_plano }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="corrigir_meta">
+                            <input type="hidden" name="meta_id" value="{{ meta.obj.pk }}">
+                            <input type="hidden" name="retorno_secao" value="metas">
+                            <textarea class="form-control mb-1" name="descricao" rows="2">{{ meta.obj.descricao }}</textarea>
+                            <input class="form-control mb-1" name="forma_execucao" value="{{ meta.obj.forma_execucao }}" placeholder="Forma de execução">
+                            <input class="form-control mb-1" name="parametros_afericao" value="{{ meta.obj.parametros_afericao }}" placeholder="Parâmetros de aferição">
+                            <textarea class="form-control mb-1" name="etapas" rows="2">{{ meta.etapas_limpas }}</textarea>
+                            <input class="form-control mb-1" type="date" name="periodo_inicio" value="{{ meta.obj.periodo_inicio|date:'Y-m-d' }}">
+                            <input class="form-control mb-1" type="date" name="periodo_fim" value="{{ meta.obj.periodo_fim|date:'Y-m-d' }}">
+                            <button class="btn btn-outline-primary btn-sm" type="submit">Salvar correção</button>
+                        </form>
+                    </details>
+                {% endif %}
+            </article>
+        {% empty %}
+            <article class="cartao"><p class="mb-0">Nenhuma meta extraída.</p></article>
+        {% endfor %}
+
+    {% elif secao_plano == "despesas" %}
+        <article class="cartao plano-filtros">
+            <form method="get" class="plano-busca">
+                <input type="hidden" name="aba" value="plano">
+                <input type="hidden" name="plano" value="{{ plano.pk }}">
+                <input type="hidden" name="secao" value="despesas">
+                <label class="visually-hidden" for="busca-item">Buscar item</label>
+                <input id="busca-item" class="form-control" type="search" name="q" value="{{ filtros_plano.q }}" placeholder="Buscar na descrição">
+                <label class="visually-hidden" for="filtro-estado">Estado</label>
+                <select id="filtro-estado" class="form-select" name="estado">
+                    <option value="">Todos os estados</option>
+                    <option value="aguardando_validacao" {% if filtros_plano.estado == "aguardando_validacao" %}selected{% endif %}>Pendente</option>
+                    <option value="confirmado" {% if filtros_plano.estado == "confirmado" %}selected{% endif %}>Confirmado</option>
+                    <option value="corrigido" {% if filtros_plano.estado == "corrigido" %}selected{% endif %}>Corrigido</option>
+                </select>
+                <label class="visually-hidden" for="filtro-natureza">Natureza</label>
+                <select id="filtro-natureza" class="form-select" name="natureza">
+                    <option value="">Todas as naturezas</option>
+                    {% for codigo, rotulo in naturezas_plano %}
+                        <option value="{{ codigo }}" {% if filtros_plano.natureza == codigo %}selected{% endif %}>{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+                <label class="visually-hidden" for="ordem-item">Ordenação</label>
+                <select id="ordem-item" class="form-select" name="ordem">
+                    <option value="padrao" {% if filtros_plano.ordem == "padrao" %}selected{% endif %}>Ordem do documento</option>
+                    <option value="valor" {% if filtros_plano.ordem == "valor" %}selected{% endif %}>Maior valor</option>
+                    <option value="descricao" {% if filtros_plano.ordem == "descricao" %}selected{% endif %}>Descrição</option>
+                    <option value="estado" {% if filtros_plano.ordem == "estado" %}selected{% endif %}>Estado da revisão</option>
+                </select>
+                <button class="btn btn-primary btn-sm" type="submit">Filtrar</button>
+            </form>
+            <p class="mb-0 plano-totalizador">{{ total_visivel_plano }} de {{ total_itens_plano }} itens · soma exibida {{ soma_visivel_plano|moeda_br }} · extraído {{ plano.valor_extraido|moeda_br }} · confirmado {{ plano.valor_previsto|moeda_br }}</p>
+        </article>
+        <div class="table-responsive cartao p-0 d-none d-md-block">
+            <table class="table tabela-cge tabela-despesas mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Descrição</th>
+                        <th>Natureza sugerida</th>
+                        <th>Valor previsto</th>
+                        <th>Revisão</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in itens_plano %}
+                        <tr class="{% if linha.selecionado %}plano-linha-ativa{% endif %}">
+                            <td>{{ linha.obj.ordem }}</td>
+                            <td>{{ linha.resumo }}</td>
+                            <td>{{ linha.obj.get_natureza_display }}</td>
+                            <td>{{ linha.obj.valor_previsto|moeda_br }}</td>
+                            <td><span class="{{ linha.obj.status_revisao|classe_revisao }}">{{ linha.obj.status_revisao|rotulo_revisao }}</span></td>
+                            <td><a href="{{ linha.url }}">Abrir</a></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6">Nenhum item com esse filtro.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="d-md-none">
+            {% for linha in itens_plano %}
+                <a class="plano-cartao-item cartao {% if linha.selecionado %}plano-linha-ativa{% endif %}" href="{{ linha.url }}">
+                    <span>Item {{ linha.obj.ordem }}</span>
+                    <strong>{{ linha.resumo }}</strong>
+                    <span>{{ linha.obj.get_natureza_display }} · {{ linha.obj.valor_previsto|moeda_br }}</span>
+                    <span class="{{ linha.obj.status_revisao|classe_revisao }}">{{ linha.obj.status_revisao|rotulo_revisao }}</span>
+                </a>
+            {% empty %}
+                <article class="cartao"><p class="mb-0">Nenhum item com esse filtro.</p></article>
+            {% endfor %}
+        </div>
+        {% if item_selecionado %}
+            <div class="plano-revisao">
+                <article class="cartao">
+                    <p class="plano-kicker">Item {{ item_selecionado.ordem }} · página {% if item_selecionado.pagina %}{{ item_selecionado.pagina }}{% else %}não indicada{% endif %}</p>
+                    <h3>Dados extraídos</h3>
+                    <dl class="plano-ficha plano-ficha-uma">
+                        <div><dt>Descrição original</dt><dd>{{ item_selecionado.descricao_original|default:item_selecionado.descricao }}</dd></div>
+                        <div><dt>Classificação orçamentária</dt><dd>{{ item_selecionado.classificacao_orcamentaria|default:"Não identificada" }}</dd></div>
+                        <div><dt>Tipo de despesa</dt><dd>{{ item_selecionado.tipo_despesa|default:"Não identificado" }}</dd></div>
+                        <div><dt>Recurso</dt><dd>{{ item_selecionado.recurso|default:"Não identificado" }}</dd></div>
+                        <div><dt>Unidade</dt><dd>{{ item_selecionado.unidade|default:"Não identificada" }}</dd></div>
+                        <div><dt>Quantidade</dt><dd>{% if item_selecionado.quantidade != None %}{{ item_selecionado.quantidade }}{% else %}Não identificada{% endif %}</dd></div>
+                        <div><dt>Valor unitário</dt><dd>{{ item_selecionado.valor_unitario|moeda_br }}</dd></div>
+                        <div><dt>Valor total</dt><dd>{{ item_selecionado.valor_previsto|moeda_br }}</dd></div>
+                        <div><dt>Natureza sugerida</dt><dd>{{ item_selecionado.get_natureza_display }}</dd></div>
+                    </dl>
+                    <p class="plano-recorte">A natureza é sugestão. O tipo impresso no documento está no campo acima.</p>
+                    {% if item_selecionado.trecho %}<p class="plano-recorte">Evidência: {{ item_selecionado.trecho|truncatechars:180 }}</p>{% endif %}
+                    {% if item_selecionado.documento_id and item_selecionado.pagina %}
+                        <p><a href="{% url 'documentos:texto_pagina' item_selecionado.documento_id item_selecionado.pagina %}" target="_blank" rel="noopener">Abrir o texto da página {{ item_selecionado.pagina }}</a></p>
+                    {% endif %}
+                    <span class="{{ item_selecionado.status_revisao|classe_revisao }}">{{ item_selecionado.status_revisao|rotulo_revisao }}</span>
+                    {% if pode_alterar %}
+                        <div class="plano-acoes">
+                            <form method="post" action="{{ url_revisao_plano }}">
+                                {% csrf_token %}
+                                <input type="hidden" name="acao" value="confirmar_item">
+                                <input type="hidden" name="item_id" value="{{ item_selecionado.pk }}">
+                                <input type="hidden" name="retorno_secao" value="despesas">
+                                <input type="hidden" name="q" value="{{ filtros_plano.q }}">
+                                <input type="hidden" name="estado" value="{{ filtros_plano.estado }}">
+                                <input type="hidden" name="natureza" value="{{ filtros_plano.natureza }}">
+                                <input type="hidden" name="ordem" value="{{ filtros_plano.ordem }}">
+                                <button class="btn btn-primary btn-sm" type="submit">Confirmar este item</button>
+                            </form>
+                            {% if proximo_pendente_url %}<a class="btn btn-outline-primary btn-sm" href="{{ proximo_pendente_url }}">Próximo pendente</a>{% endif %}
+                        </div>
+                        <details class="plano-correcao">
+                            <summary>Corrigir este item</summary>
+                            <form method="post" action="{{ url_revisao_plano }}">
+                                {% csrf_token %}
+                                <input type="hidden" name="acao" value="corrigir_item">
+                                <input type="hidden" name="item_id" value="{{ item_selecionado.pk }}">
+                                <input type="hidden" name="retorno_secao" value="despesas">
+                                <textarea class="form-control mb-1" name="descricao" rows="3">{{ item_selecionado.descricao }}</textarea>
+                                <input class="form-control mb-1" name="classificacao_orcamentaria" value="{{ item_selecionado.classificacao_orcamentaria }}" placeholder="Classificação">
+                                <input class="form-control mb-1" name="tipo_despesa" value="{{ item_selecionado.tipo_despesa }}" placeholder="Tipo de despesa">
+                                <input class="form-control mb-1" name="recurso" value="{{ item_selecionado.recurso }}" placeholder="Recurso">
+                                <input class="form-control mb-1" name="unidade" value="{{ item_selecionado.unidade }}" placeholder="Unidade">
+                                <input class="form-control mb-1" name="quantidade" value="{{ item_selecionado.quantidade|default_if_none:'' }}" placeholder="Quantidade">
+                                <input class="form-control mb-1" name="valor_unitario" value="{{ item_selecionado.valor_unitario|default_if_none:'' }}" placeholder="Valor unitário">
+                                <input class="form-control mb-1" name="valor_previsto" value="{{ item_selecionado.valor_previsto|default_if_none:'' }}" placeholder="Valor total">
+                                <select class="form-select mb-1" name="natureza">
+                                    {% for codigo, rotulo in naturezas_plano %}
+                                        <option value="{{ codigo }}" {% if item_selecionado.natureza == codigo %}selected{% endif %}>{{ rotulo }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button class="btn btn-outline-primary btn-sm" type="submit">Salvar correção</button>
+                            </form>
+                        </details>
+                    {% endif %}
+                </article>
+                <article class="cartao plano-documento">
+                    <div class="plano-linha-titulo">
+                        <h3>Página do documento</h3>
+                        {% if plano.documento_id %}
+                            <a href="{% url 'documentos:arquivo' plano.documento.pk %}#page={{ pagina_pdf }}" target="_blank" rel="noopener">Abrir página {{ pagina_pdf }}</a>
+                        {% endif %}
+                    </div>
+                    {% if mostrar_pdf %}
+                        {% include "prestacoes_contas/_plano_pdf.html" %}
+                    {% else %}
+                        <p class="mb-0">Este plano não tem PDF vinculado.</p>
+                    {% endif %}
+                </article>
+            </div>
+        {% else %}
+            <p class="plano-dica">Abra um item para ver os dados extraídos e a página correspondente.</p>
+        {% endif %}
+
+    {% elif secao_plano == "cronograma" %}
+        <article class="cartao">
+            <div class="plano-linha-titulo">
+                <h3>Repasses previstos</h3>
+                <span class="{{ plano.cronograma_status|classe_revisao }}">{{ plano.cronograma_status|rotulo_revisao }}</span>
+            </div>
+            <div class="plano-indicadores plano-indicadores-internos">
+                <div><p>Total do cronograma</p><strong>{{ cronograma_plano.total|moeda_br }}</strong></div>
+                <div><p>Meses com desembolso</p><strong>{{ cronograma_plano.com_desembolso }}</strong></div>
+                <div><p>Contrapartida</p><strong>{{ cronograma_plano.contrapartida|moeda_br }}</strong></div>
+            </div>
+            {% for ano in cronograma_plano.anos %}
+                <h4 class="plano-ano">{{ ano.ano }} · {{ ano.total|moeda_br }} · {{ ano.com_desembolso }} {% if ano.com_desembolso == 1 %}mês com valor{% else %}meses com valor{% endif %}</h4>
+                <div class="plano-grafico" role="img" aria-label="Repasses mensais de {{ ano.ano }}">
+                    {% for barra in ano.barras %}
+                        <div class="plano-barra" title="{{ barra.mes }} {{ barra.valor|moeda_br }}">
+                            <span style="height: {{ barra.altura }}%"></span>
+                            <small>{{ barra.sigla }}</small>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% empty %}
+                <p>Cronograma não localizado neste documento.</p>
+            {% endfor %}
+            {% if cronograma_plano.linhas %}
+                <details class="mt-3">
+                    <summary>Tabela completa, com os meses de valor zero</summary>
+                    <div class="table-responsive">
+                        <table class="table tabela-cge">
+                            <thead><tr><th>Ano</th><th>Mês</th><th>Repasse</th><th>Contrapartida</th><th>Origem</th></tr></thead>
+                            <tbody>
+                                {% for linha in cronograma_plano.linhas %}
+                                    <tr>
+                                        <td>{{ linha.ano }}</td>
+                                        <td>{{ linha.mes }}</td>
+                                        <td>{{ linha.repasse_decimal|moeda_br }}</td>
+                                        <td>{{ linha.contrapartida_decimal|moeda_br }}</td>
+                                        <td class="small">{% if linha.pagina %}Página {{ linha.pagina }}{% endif %} {{ linha.recorte }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+                {% if pode_alterar %}
+                    <form method="post" action="{{ url_revisao_plano }}" class="mt-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="confirmar_cronograma">
+                        <input type="hidden" name="retorno_secao" value="cronograma">
+                        <button class="btn btn-primary btn-sm" type="submit">Confirmar cronograma</button>
+                    </form>
+                    <details class="plano-correcao">
+                        <summary>Corrigir valores do cronograma</summary>
+                        <form method="post" action="{{ url_revisao_plano }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="acao" value="corrigir_cronograma">
+                            <input type="hidden" name="retorno_secao" value="cronograma">
+                            {% for linha in cronograma_plano.linhas %}
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-3"><label class="form-label">{{ linha.ano }} · {{ linha.mes }}</label></div>
+                                    <div class="col-md-4"><input class="form-control" name="repasse" value="{{ linha.repasse }}" aria-label="Repasse {{ linha.mes }} {{ linha.ano }}"></div>
+                                    <div class="col-md-4"><input class="form-control" name="contrapartida" value="{{ linha.contrapartida }}" aria-label="Contrapartida {{ linha.mes }} {{ linha.ano }}"></div>
+                                </div>
+                            {% endfor %}
+                            <button class="btn btn-outline-primary btn-sm" type="submit">Salvar correção do cronograma</button>
+                        </form>
+                    </details>
+                {% endif %}
+            {% endif %}
+        </article>
+
+    {% elif secao_plano == "documento" %}
+        <article class="cartao plano-documento">
+            <div class="plano-linha-titulo">
+                <h3>Documento original</h3>
+                {% if plano.documento_id %}
+                    <a href="{% url 'documentos:arquivo' plano.documento.pk %}#page={{ pagina_pdf }}" target="_blank" rel="noopener">Abrir página {{ pagina_pdf }} em nova aba</a>
+                {% endif %}
+            </div>
+            {% if mostrar_pdf %}
+                {% include "prestacoes_contas/_plano_pdf.html" %}
+            {% else %}
+                <p class="mb-0">Nenhum PDF vinculado a este plano.</p>
+            {% endif %}
+        </article>
+    {% endif %}
+</section>
+{% if mostrar_pdf %}
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}"></script>
+<script>
+(function () {
+    const tela = document.getElementById("plano-pdf-tela");
+    if (!tela || !window.pdfjsLib) return;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "{% static 'vendor/pdfjs/pdf.worker.min.js' %}";
+    const canvas = document.getElementById("plano-pdf-canvas");
+    const contexto = canvas.getContext("2d");
+    const rotulo = document.getElementById("plano-pdf-rotulo");
+    let documento = null;
+    let paginaAtual = parseInt(tela.dataset.pagina || "1", 10);
+    let escala = 1.15;
+    function desenhar(numero) {
+        documento.getPage(numero).then(function (pagina) {
+            const viewport = pagina.getViewport({ scale: escala });
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            pagina.render({ canvasContext: contexto, viewport: viewport });
+            paginaAtual = numero;
+            if (rotulo) rotulo.textContent = "Página " + numero + " de " + documento.numPages;
+        });
+    }
+    pdfjsLib.getDocument({ url: tela.dataset.arquivo, withCredentials: true }).promise.then(function (pdf) {
+        documento = pdf;
+        if (paginaAtual < 1 || paginaAtual > pdf.numPages) paginaAtual = 1;
+        desenhar(paginaAtual);
+    }).catch(function () {
+        if (rotulo) rotulo.textContent = "Não foi possível desenhar o PDF nesta página. Use o link para abri-lo em outra aba.";
+    });
+    document.getElementById("plano-pdf-anterior").addEventListener("click", function () {
+        if (documento && paginaAtual > 1) desenhar(paginaAtual - 1);
+    });
+    document.getElementById("plano-pdf-proxima").addEventListener("click", function () {
+        if (documento && paginaAtual < documento.numPages) desenhar(paginaAtual + 1);
+    });
+})();
+</script>
+{% endif %}

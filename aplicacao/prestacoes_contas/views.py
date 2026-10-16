@@ -193,7 +193,12 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
         )
 
     def _contexto(self, request, prestacao, aba):
-        plano = prestacao.planos.first()
+        plano = prestacao.planos.order_by("versao", "id").first()
+        pedido = request.GET.get("plano")
+        if pedido and str(pedido).isdigit():
+            escolhido = prestacao.planos.filter(pk=int(pedido)).first()
+            if escolhido is not None:
+                plano = escolhido
         pode_atuar = pode_atuar_na_prestacao(request.user, prestacao)
         contexto = {
             "prestacao": prestacao,
@@ -226,6 +231,10 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             "fluxos": None,
             "form_funcionario": FormularioFuncionario(),
         }
+        if aba == "plano" and plano is not None:
+            from aplicacao.prestacoes_contas.apresentacao_plano import montar_contexto_plano
+
+            contexto.update(montar_contexto_plano(request, prestacao, plano))
         if aba == "documentos":
             from aplicacao.documentos.views import contexto_aba
 

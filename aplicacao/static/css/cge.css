@@ -685,3 +685,66 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     .campo-normativo, .campo-normativo input, .campo-normativo select, .campo-normativo textarea { width: 100%; max-width: 100%; min-width: 0; }
 }
 
+.plano-trabalho { display: grid; gap: 0.9rem; }
+.plano-cabeca, .plano-linha-titulo, .plano-pdf-comandos, .plano-acoes {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.plano-kicker { margin: 0 0 0.2rem; color: var(--cge-muted); font-size: 0.82rem; letter-spacing: 0.01em; }
+.plano-titulo { margin: 0; font-size: 1.35rem; color: var(--cge-verde-900); }
+.plano-meta, .plano-progresso-rotulo, .plano-recorte, .plano-dica, .plano-totalizador { color: var(--cge-muted); font-size: 0.86rem; }
+.plano-cabeca-lado { min-width: 220px; }
+.plano-progresso { height: 0.45rem; border-radius: 999px; background: #e7eee9; overflow: hidden; margin-top: 0.35rem; }
+.plano-progresso span { display: block; height: 100%; background: var(--cge-verde-600); }
+.plano-indicadores { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
+.plano-indicador p, .plano-indicadores-internos p { margin: 0; color: var(--cge-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.plano-indicador strong, .plano-indicadores-internos strong { display: block; margin: 0.15rem 0; font-size: 1.35rem; color: var(--cge-verde-900); }
+.plano-indicador small { color: var(--cge-muted); }
+.plano-indicadores-internos { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 0.5rem; }
+.plano-abas { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.plano-abas a {
+    text-decoration: none;
+    color: var(--cge-verde-900);
+    background: #fff;
+    border: 1px solid var(--cge-borda);
+    border-radius: 999px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.88rem;
+}
+.plano-abas a.ativa { background: var(--cge-verde-800); color: #fff; border-color: var(--cge-verde-800); }
+.plano-grade, .plano-revisao { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr); gap: 0.9rem; align-items: start; }
+.plano-ficha { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; margin: 0 0 0.8rem; }
+.plano-ficha-uma { grid-template-columns: 1fr; }
+.plano-ficha div { min-width: 0; }
+.plano-ficha-larga { grid-column: 1 / -1; }
+.plano-ficha dt { color: var(--cge-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.plano-ficha dd { margin: 0.15rem 0 0; }
+.plano-lista, .plano-evidencias { margin: 0; padding-left: 1.1rem; }
+.plano-evidencias li { margin-bottom: 0.65rem; }
+.plano-evidencias p, .plano-original { margin: 0.2rem 0 0; color: var(--cge-muted); font-size: 0.86rem; }
+.plano-original { white-space: pre-wrap; }
+.plano-correcao { margin-top: 0.8rem; }
+.plano-busca { display: grid; grid-template-columns: minmax(160px, 1.4fr) repeat(3, minmax(120px, 1fr)) auto; gap: 0.5rem; margin-bottom: 0.6rem; }
+.plano-linha-ativa { background: var(--cge-verde-050); }
+.plano-cartao-item { display: grid; gap: 0.25rem; text-decoration: none; color: inherit; margin-bottom: 0.6rem; }
+.plano-ano { margin: 0.8rem 0 0.35rem; font-size: 0.95rem; }
+.plano-grafico { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 0.35rem; align-items: end; min-height: 150px; padding: 0.4rem 0 0.2rem; }
+.plano-barra { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 140px; gap: 0.25rem; }
+.plano-barra span { display: block; width: 100%; max-width: 22px; border-radius: 6px 6px 2px 2px; background: var(--cge-verde-600); }
+.plano-barra small { color: var(--cge-muted); font-size: 0.68rem; }
+.plano-pdf canvas { width: 100%; height: auto; background: #fff; border: 1px solid var(--cge-borda); border-radius: 8px; }
+.plano-pdf-comandos { margin-bottom: 0.6rem; align-items: center; }
+.plano-manual summary, .plano-correcao summary { cursor: pointer; font-weight: 600; color: var(--cge-verde-800); }
+.estado-corrigido { color: #1d4e89; background: #e8f1fa; border-color: #b7cfe6; }
+@media (max-width: 1100px) {
+    .plano-indicadores, .plano-indicadores-internos, .plano-grade, .plano-revisao { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+    .plano-indicadores, .plano-indicadores-internos, .plano-grade, .plano-revisao, .plano-ficha, .plano-busca { grid-template-columns: 1fr; }
+    .plano-cabeca-lado { min-width: 0; width: 100%; }
+    .plano-grafico { min-height: 120px; }
+}
+
