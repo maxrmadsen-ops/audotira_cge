@@ -34,21 +34,36 @@ SIGLAS_MES = {
 
 
 def etapas_legiveis(etapas: str, parametros: str = "") -> str:
-    """Tira cabeçalhos de relatório que vieram grudados nas etapas. O original continua guardado."""
+    """Tira cabeçalhos e a continuação que veio grudada nos parâmetros. O original continua guardado."""
 
-    texto = _limpar(etapas)
+    texto = _apos_afericao(_limpar(etapas))
     if not texto:
         return ""
-    for rotulo in ("Aferição", "Afericao"):
-        posicao = texto.rfind(rotulo)
-        if posicao >= 0:
-            texto = texto[posicao + len(rotulo) :].strip(" .:-")
-            break
-    parametros_limpos = _limpar(parametros)
+    parametros_limpos = _apos_afericao(_limpar(parametros))
+    _, continuacao = _dividir_frase_grudada(parametros_limpos)
     if parametros_limpos and texto.startswith(parametros_limpos):
-        texto = texto[len(parametros_limpos) :].strip(" .:-")
-    elif parametros_limpos and parametros_limpos in texto:
-        texto = texto[texto.find(parametros_limpos) + len(parametros_limpos) :].strip(" .:-")
+        resto = texto[len(parametros_limpos) :].strip(" .:-")
+        if resto:
+            return resto
+    if continuacao:
+        return continuacao
+    _, texto_continuacao = _dividir_frase_grudada(texto)
+    if texto_continuacao:
+        return texto_continuacao
+    if parametros_limpos and parametros_limpos in texto:
+        resto = texto[texto.find(parametros_limpos) + len(parametros_limpos) :].strip(" .:-")
+        if resto:
+            return resto
+    return texto
+
+
+def parametros_legiveis(parametros: str) -> str:
+    """Mostra só os parâmetros quando a frase seguinte veio colada depois do ponto."""
+
+    texto = _apos_afericao(_limpar(parametros))
+    base, continuacao = _dividir_frase_grudada(texto)
+    if continuacao:
+        return base
     return texto
 
 
@@ -138,6 +153,7 @@ def montar_contexto_plano(request, prestacao, plano) -> dict:
         "metas_plano": [
             {
                 "obj": meta,
+                "parametros_limpos": parametros_legiveis(meta.parametros_afericao),
                 "etapas_limpas": etapas_legiveis(meta.etapas, meta.parametros_afericao),
                 "recorte": recorte_evidencia(meta.trecho, meta.descricao),
             }
@@ -350,3 +366,19 @@ def _decimal(valor) -> Decimal | None:
 
 def _limpar(texto: str) -> str:
     return re.sub(r"\s+", " ", texto or "").strip()
+
+
+def _apos_afericao(texto: str) -> str:
+    for rotulo in ("Aferição", "Afericao"):
+        posicao = texto.rfind(rotulo)
+        if posicao >= 0:
+            return texto[posicao + len(rotulo) :].strip(" .:-")
+    return texto
+
+
+def _dividir_frase_grudada(texto: str) -> tuple[str, str]:
+    achados = list(re.finditer(r"\.(?=[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ])", texto or ""))
+    if not achados:
+        return texto, ""
+    corte = achados[-1]
+    return texto[: corte.end()].strip(), texto[corte.end() :].strip()

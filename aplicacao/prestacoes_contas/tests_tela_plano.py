@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from aplicacao.auditoria.models import RegistroAuditoria
-from aplicacao.prestacoes_contas.apresentacao_plano import etapas_legiveis
+from aplicacao.prestacoes_contas.apresentacao_plano import etapas_legiveis, parametros_legiveis
 from aplicacao.prestacoes_contas.escolhas import StatusRevisaoPlano
 from aplicacao.prestacoes_contas.models import ItemPlanoTrabalho, Meta, PlanoTrabalho, PrestacaoContas
 
@@ -73,6 +73,10 @@ class TesteTelaPlano(TestCase):
 
     def test_etapas_legiveis_separam_o_cabecalho(self):
         self.assertEqual(etapas_legiveis(ETAPAS_BRUTAS, "Relatórios internos"), "Adesão, execução e encerramento")
+        grudado = "Relatórios internos.Adesão, execução e encerramento"
+        bruto = "Detalhe Relatorio Parametros de Aferição " + grudado
+        self.assertEqual(etapas_legiveis(bruto, grudado), "Adesão, execução e encerramento")
+        self.assertEqual(parametros_legiveis(grudado), "Relatórios internos.")
 
     def test_aba_mostra_conciliacao_e_preserva_a_revisao(self):
         antes = RegistroAuditoria.objects.count()
