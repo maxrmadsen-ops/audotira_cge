@@ -371,7 +371,7 @@
                             <tbody>
                                 {% for linha in cronograma_plano.linhas %}
                                     <tr>
-                                        <td>{{ linha.ano }}</td>
+                                        <td>{{ linha.ano_exibicao }}</td>
                                         <td>{{ linha.mes }}</td>
                                         <td>{{ linha.repasse_decimal|moeda_br }}</td>
                                         <td>{{ linha.contrapartida_decimal|moeda_br }}</td>
@@ -397,7 +397,7 @@
                             <input type="hidden" name="retorno_secao" value="cronograma">
                             {% for linha in cronograma_plano.linhas %}
                                 <div class="row g-2 mb-2">
-                                    <div class="col-md-3"><label class="form-label">{{ linha.ano }} · {{ linha.mes }}</label></div>
+                                    <div class="col-md-3"><label class="form-label">{{ linha.ano_exibicao }} · {{ linha.mes }}</label></div>
                                     <div class="col-md-4"><input class="form-control" name="repasse" value="{{ linha.repasse }}" aria-label="Repasse {{ linha.mes }} {{ linha.ano }}"></div>
                                     <div class="col-md-4"><input class="form-control" name="contrapartida" value="{{ linha.contrapartida }}" aria-label="Contrapartida {{ linha.mes }} {{ linha.ano }}"></div>
                                 </div>
