@@ -49,7 +49,7 @@
             <article class="cartao">
                 <div class="plano-linha-titulo">
                     <h3>Identificação da parceria</h3>
-                    <span class="{{ plano.status_revisao|classe_revisao }}">{{ plano.status_revisao|rotulo_revisao }}</span>
+                    <span class="{{ plano.status_revisao|classe_revisao }}">{{ rotulo_plano }}</span>
                 </div>
                 <dl class="plano-ficha">
                     <div><dt>Proponente</dt><dd>{{ plano.proponente|default:"Não identificado" }}</dd></div>
@@ -124,7 +124,7 @@
             <article class="cartao plano-meta">
                 <div class="plano-linha-titulo">
                     <h3>{{ meta.obj.descricao }}</h3>
-                    <span class="{{ meta.obj.status_revisao|classe_revisao }}">{{ meta.obj.status_revisao|rotulo_revisao }}</span>
+                    <span class="{{ meta.obj.status_revisao|classe_revisao }}">{{ meta.rotulo }}</span>
                 </div>
                 <dl class="plano-ficha">
                     <div><dt>Período</dt><dd>{% if meta.obj.periodo_inicio %}{{ meta.obj.periodo_inicio|date:"d/m/Y" }}{% else %}Não identificado{% endif %} a {% if meta.obj.periodo_fim %}{{ meta.obj.periodo_fim|date:"d/m/Y" }}{% else %}Não identificado{% endif %}</dd></div>
@@ -188,7 +188,7 @@
                     <option value="">Todos os estados</option>
                     <option value="aguardando_validacao" {% if filtros_plano.estado == "aguardando_validacao" %}selected{% endif %}>Pendente</option>
                     <option value="confirmado" {% if filtros_plano.estado == "confirmado" %}selected{% endif %}>Confirmado</option>
-                    <option value="corrigido" {% if filtros_plano.estado == "corrigido" %}selected{% endif %}>Corrigido</option>
+                    <option value="rejeitado" {% if filtros_plano.estado == "rejeitado" %}selected{% endif %}>Não correspondente</option>
                 </select>
                 <label class="visually-hidden" for="filtro-natureza">Natureza</label>
                 <select id="filtro-natureza" class="form-select" name="natureza">
@@ -208,10 +208,35 @@
             </form>
             <p class="mb-0 plano-totalizador">{{ total_visivel_plano }} de {{ total_itens_plano }} itens · soma exibida {{ soma_visivel_plano|moeda_br }} · extraído {{ plano.valor_extraido|moeda_br }} · confirmado {{ plano.valor_previsto|moeda_br }}</p>
         </article>
+        {% if pode_alterar %}
+        <form id="lote-itens" class="cartao plano-lote" method="post" action="{% url 'prestacoes_contas:revisao_lote_plano' prestacao.pk plano.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="confirmar_lote" value="1">
+            <input type="hidden" name="retorno_secao" value="despesas">
+            <input type="hidden" name="q" value="{{ filtros_plano.q }}">
+            <input type="hidden" name="estado" value="{{ filtros_plano.estado }}">
+            <input type="hidden" name="natureza" value="{{ filtros_plano.natureza }}">
+            <input type="hidden" name="ordem" value="{{ filtros_plano.ordem }}">
+            <h3>Confirmar itens elegíveis</h3>
+            <p>Confirma dados extraídos e verificáveis. Esta ação não aprova a prestação de contas.</p>
+            <p>{{ elegiveis_lote }} elegíveis neste filtro · {{ bloqueados_lote }} bloqueados.</p>
+            <ul class="plano-bloqueios">
+                {% for linha in itens_plano %}
+                    {% if not linha.elegivel_lote and linha.motivo_lote %}
+                        <li>Item {{ linha.obj.ordem }}: {{ linha.motivo_lote }}</li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+            <div class="plano-acoes">
+                <button class="btn btn-outline-primary btn-sm" type="button" onclick="document.querySelectorAll('#lote-itens .marca-elegivel').forEach(function (el) { el.checked = true; })">Selecionar elegíveis</button>
+                <button class="btn btn-primary btn-sm" type="submit" onclick="this.disabled = true; this.form.submit();">Confirmar itens elegíveis</button>
+            </div>
+        {% endif %}
         <div class="table-responsive cartao p-0 d-none d-md-block">
             <table class="table tabela-cge tabela-despesas mb-0">
                 <thead>
                     <tr>
+                        {% if pode_alterar %}<th></th>{% endif %}
                         <th>#</th>
                         <th>Descrição</th>
                         <th>Natureza sugerida</th>
@@ -223,31 +248,44 @@
                 <tbody>
                     {% for linha in itens_plano %}
                         <tr class="{% if linha.selecionado %}plano-linha-ativa{% endif %}">
+                            {% if pode_alterar %}
+                            <td>
+                                {% if linha.elegivel_lote %}
+                                    <input class="marca-elegivel" form="lote-itens" type="checkbox" name="item" value="{{ linha.obj.pk }}" aria-label="Selecionar item {{ linha.obj.ordem }}">
+                                {% endif %}
+                            </td>
+                            {% endif %}
                             <td>{{ linha.obj.ordem }}</td>
                             <td>{{ linha.resumo }}</td>
                             <td>{{ linha.obj.get_natureza_display }}</td>
                             <td>{{ linha.obj.valor_previsto|moeda_br }}</td>
-                            <td><span class="{{ linha.obj.status_revisao|classe_revisao }}">{{ linha.obj.status_revisao|rotulo_revisao }}</span></td>
+                            <td><span class="{{ linha.obj.status_revisao|classe_revisao }}">{{ linha.rotulo }}</span></td>
                             <td><a href="{{ linha.url }}">Abrir</a></td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="6">Nenhum item com esse filtro.</td></tr>
+                        <tr><td colspan="7">Nenhum item com esse filtro.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         <div class="d-md-none">
             {% for linha in itens_plano %}
-                <a class="plano-cartao-item cartao {% if linha.selecionado %}plano-linha-ativa{% endif %}" href="{{ linha.url }}">
-                    <span>Item {{ linha.obj.ordem }}</span>
-                    <strong>{{ linha.resumo }}</strong>
-                    <span>{{ linha.obj.get_natureza_display }} · {{ linha.obj.valor_previsto|moeda_br }}</span>
-                    <span class="{{ linha.obj.status_revisao|classe_revisao }}">{{ linha.obj.status_revisao|rotulo_revisao }}</span>
-                </a>
+                <article class="plano-cartao-item cartao {% if linha.selecionado %}plano-linha-ativa{% endif %}">
+                    {% if pode_alterar and linha.elegivel_lote %}
+                        <label><input class="marca-elegivel" form="lote-itens" type="checkbox" name="item" value="{{ linha.obj.pk }}"> Selecionar</label>
+                    {% endif %}
+                    <a href="{{ linha.url }}">
+                        <span>Item {{ linha.obj.ordem }}</span>
+                        <strong>{{ linha.resumo }}</strong>
+                        <span>{{ linha.obj.get_natureza_display }} · {{ linha.obj.valor_previsto|moeda_br }}</span>
+                        <span class="{{ linha.obj.status_revisao|classe_revisao }}">{{ linha.rotulo }}</span>
+                    </a>
+                </article>
             {% empty %}
                 <article class="cartao"><p class="mb-0">Nenhum item com esse filtro.</p></article>
             {% endfor %}
         </div>
+        {% if pode_alterar %}</form>{% endif %}
         {% if item_selecionado %}
             <div class="plano-revisao">
                 <article class="cartao">
@@ -269,7 +307,8 @@
                     {% if item_selecionado.documento_id and item_selecionado.pagina %}
                         <p><a href="{% url 'documentos:texto_pagina' item_selecionado.documento_id item_selecionado.pagina %}" target="_blank" rel="noopener">Abrir o texto da página {{ item_selecionado.pagina }}</a></p>
                     {% endif %}
-                    <span class="{{ item_selecionado.status_revisao|classe_revisao }}">{{ item_selecionado.status_revisao|rotulo_revisao }}</span>
+                    <span class="{{ item_selecionado.status_revisao|classe_revisao }}">{{ rotulo_item_selecionado }}</span>
+                    {% if item_selecionado.revisado_por %}<p class="plano-recorte">Revisão: {{ item_selecionado.revisado_por.username }} · {{ item_selecionado.revisado_em|date:"d/m/Y H:i" }}</p>{% endif %}
                     {% if pode_alterar %}
                         <div class="plano-acoes">
                             <form method="post" action="{{ url_revisao_plano }}">
@@ -308,6 +347,17 @@
                                 <button class="btn btn-outline-primary btn-sm" type="submit">Salvar correção</button>
                             </form>
                         </details>
+                        <details class="plano-correcao">
+                            <summary>Marcar como não correspondente</summary>
+                            <form method="post" action="{{ url_revisao_plano }}">
+                                {% csrf_token %}
+                                <input type="hidden" name="acao" value="rejeitar_item">
+                                <input type="hidden" name="item_id" value="{{ item_selecionado.pk }}">
+                                <input type="hidden" name="retorno_secao" value="despesas">
+                                <textarea class="form-control mb-1" name="justificativa" rows="2" required placeholder="Justificativa"></textarea>
+                                <button class="btn btn-outline-secondary btn-sm" type="submit">Registrar não correspondente</button>
+                            </form>
+                        </details>
                     {% endif %}
                 </article>
                 <article class="cartao plano-documento">
@@ -332,7 +382,7 @@
         <article class="cartao">
             <div class="plano-linha-titulo">
                 <h3>Repasses previstos</h3>
-                <span class="{{ plano.cronograma_status|classe_revisao }}">{{ plano.cronograma_status|rotulo_revisao }}</span>
+                <span class="{{ plano.cronograma_status|classe_revisao }}">{{ rotulo_cronograma }}</span>
             </div>
             <div class="plano-indicadores plano-indicadores-internos">
                 <div><p>Total do cronograma</p><strong>{{ cronograma_plano.total|moeda_br }}</strong></div>

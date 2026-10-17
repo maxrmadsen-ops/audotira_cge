@@ -25,6 +25,7 @@ from aplicacao.prestacoes_contas.formularios import (
     FormularioPrestacao,
 )
 from aplicacao.prestacoes_contas.formularios_atribuicao import FormularioAtribuicaoAnalista
+from aplicacao.painel.jornada import montar_jornada
 from aplicacao.prestacoes_contas.linha_do_tempo import montar_linha_do_tempo
 from aplicacao.prestacoes_contas.models import PlanoTrabalho, PrestacaoContas
 from aplicacao.usuarios.acesso import (
@@ -214,6 +215,7 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             "diligencias": prestacao.diligencias.all()[:20],
             "pareceres_finais": prestacao.pareceres_finais.all()[:10],
             "linha_do_tempo": montar_linha_do_tempo(prestacao),
+            "jornada": montar_jornada(prestacao),
             "plano": plano,
             "funcionarios": Funcionario.objects.filter(entidade=prestacao.beneficiario).select_related("pessoa")
             if prestacao.beneficiario_id

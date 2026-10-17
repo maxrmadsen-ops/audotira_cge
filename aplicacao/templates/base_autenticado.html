@@ -15,17 +15,22 @@
         </a>
         <div class="menu-lista">
             {% for codigo, rotulo_grupo in grupos_menu %}
-                <p class="grupo-menu">{{ rotulo_grupo }}</p>
-                {% for item in itens_menu %}
-                    {% if item.grupo == codigo %}
-                        <a href="{{ item.url }}" class="{% if item.ativo %}ativo{% endif %}" {% if item.ativo %}aria-current="page"{% endif %}>
-                            {% include "componentes/icone.html" with nome=item.identificador %}
-                            <span>{{ item.rotulo }}</span>
-                            {% if item.contagem %}<span class="badge-menu">{{ item.contagem }}</span>{% endif %}
-                            {% if not item.disponivel %}<span class="selo-menu">Em preparação</span>{% endif %}
-                        </a>
-                    {% endif %}
-                {% endfor %}
+                <details class="grupo-menu-bloco" {% for item in itens_menu %}{% if item.grupo == codigo and item.ativo %}open{% endif %}{% endfor %}>
+                    <summary>{{ rotulo_grupo }}</summary>
+                    {% for item in itens_menu %}
+                        {% if item.grupo == codigo %}
+                            <div class="item-menu {% if item.ativo %}ativo{% endif %}">
+                                <a href="{{ item.url }}" {% if item.ativo %}aria-current="page"{% endif %}>
+                                    {% include "componentes/icone.html" with nome=item.identificador %}
+                                    <span>{{ item.rotulo }}</span>
+                                    {% if item.contagem %}<span class="badge-menu">{{ item.contagem }}</span>{% endif %}
+                                    {% if not item.disponivel %}<span class="selo-menu">Em preparação</span>{% endif %}
+                                </a>
+                                {% if item.descricao %}<button class="info-menu" type="button" title="{{ item.descricao }}" aria-label="{{ item.descricao }}">i</button>{% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </details>
             {% endfor %}
         </div>
         <div class="menu-usuario">

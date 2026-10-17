@@ -30,9 +30,10 @@
                 <button class="btn btn-primary w-100" type="submit">Enviar</button>
             </div>
         </div>
-        <p class="small text-secondary mb-0 mt-2">O processamento ocorre em segundo plano. PDF com texto utilizável não passa por OCR.</p>
+        <p class="small text-secondary mb-0 mt-2">O processamento ocorre em segundo plano. PDF com texto utilizável não passa por OCR. A classificação é revista depois, separada da origem do arquivo.</p>
     </form>
 {% endif %}
+{% include "documentos/_entrada.html" %}
 <form class="row g-2 mb-3" method="get">
     <input type="hidden" name="aba" value="documentos">
     <div class="col-md-4"><input class="form-control" name="q" value="{{ filtros_documentos.q }}" placeholder="Nome ou subtipo"></div>

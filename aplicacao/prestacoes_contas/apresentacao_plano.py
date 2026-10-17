@@ -96,7 +96,7 @@ def montar_contexto_plano(request, prestacao, plano) -> dict:
     estado = request.GET.get("estado") or ""
     natureza = request.GET.get("natureza") or ""
     ordem = request.GET.get("ordem") or "padrao"
-    if estado not in {"", StatusRevisaoPlano.AGUARDANDO, StatusRevisaoPlano.CONFIRMADO, StatusRevisaoPlano.CORRIGIDO}:
+    if estado not in {"", StatusRevisaoPlano.AGUARDANDO, StatusRevisaoPlano.CONFIRMADO, StatusRevisaoPlano.CORRIGIDO, StatusRevisaoPlano.REJEITADO}:
         estado = ""
     if natureza not in {"", *NaturezaItem.values}:
         natureza = ""
@@ -105,6 +105,9 @@ def montar_contexto_plano(request, prestacao, plano) -> dict:
 
     itens = list(plano.itens.all())
     metas = list(plano.metas.all())
+    from aplicacao.prestacoes_contas.situacao_revisao import avaliar_lote, chaves_ratificacao, rotulo_revisao
+
+    chaves = chaves_ratificacao(prestacao)
     visiveis = []
     for item in itens:
         if busca and busca.lower() not in (item.descricao or "").lower() and busca.lower() not in (item.descricao_original or "").lower():
@@ -142,6 +145,9 @@ def montar_contexto_plano(request, prestacao, plano) -> dict:
                 "resumo": resumo_descricao(item.descricao),
                 "url": _url(prestacao, plano, secao="despesas", item=item.pk, **filtros),
                 "selecionado": selecionado is not None and item.pk == selecionado.pk,
+                "rotulo": rotulo_revisao(item, "item", chaves),
+                "elegivel_lote": avaliar_lote(item, chaves)[0],
+                "motivo_lote": avaliar_lote(item, chaves)[1],
             }
             for item in visiveis
         ],
@@ -156,6 +162,7 @@ def montar_contexto_plano(request, prestacao, plano) -> dict:
                 "parametros_limpos": parametros_legiveis(meta.parametros_afericao),
                 "etapas_limpas": etapas_legiveis(meta.etapas, meta.parametros_afericao),
                 "recorte": recorte_evidencia(meta.trecho, meta.descricao),
+                "rotulo": rotulo_revisao(meta, "meta", chaves),
             }
             for meta in metas
         ],
@@ -174,6 +181,11 @@ def montar_contexto_plano(request, prestacao, plano) -> dict:
         "naturezas_plano": NaturezaItem.choices,
         "url_revisao_plano": reverse("prestacoes_contas:revisao_plano", kwargs={"pk": prestacao.pk, "plano_pk": plano.pk}),
         "url_itens_pendentes": _url(prestacao, plano, secao="despesas", estado=StatusRevisaoPlano.AGUARDANDO),
+        "rotulo_item_selecionado": rotulo_revisao(selecionado, "item", chaves) if selecionado else "",
+        "rotulo_plano": rotulo_revisao(plano, "identificacao", chaves),
+        "rotulo_cronograma": rotulo_revisao(plano, "cronograma", chaves),
+        "elegiveis_lote": sum(1 for item in visiveis if avaliar_lote(item, chaves)[0]),
+        "bloqueados_lote": sum(1 for item in visiveis if not avaliar_lote(item, chaves)[0]),
     }
 
 
@@ -195,7 +207,7 @@ def url_workspace(prestacao, plano, dados, acao: str = "") -> str:
 
 
 def _secao_da_acao(acao: str) -> str:
-    if acao in {"confirmar_item", "corrigir_item"}:
+    if acao in {"confirmar_item", "corrigir_item", "rejeitar_item", "confirmar_itens_elegiveis"}:
         return "despesas"
     if acao in {"confirmar_meta", "corrigir_meta"}:
         return "metas"

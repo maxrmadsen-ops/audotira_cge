@@ -757,3 +757,21 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     .plano-faixa-ano { min-width: 300px; }
 }
 
+.grupo-menu-bloco { margin: 0.35rem 0 0.6rem; }
+.grupo-menu-bloco summary { cursor: pointer; color: #9eb0c3; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; margin: 0.85rem 0.9rem 0.25rem; }
+.item-menu { display: flex; align-items: center; }
+.item-menu > a { flex: 1; min-width: 0; }
+.menu-lateral .item-menu.ativo > a { background: var(--cge-verde-700); color: #fff; }
+.info-menu { width: 1.15rem; height: 1.15rem; margin-right: 0.45rem; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); background: transparent; color: #d5deea; font-size: 0.68rem; line-height: 1; flex-shrink: 0; }
+.jornada { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin: 0.8rem 0; }
+.jornada ol { margin: 0; padding-left: 1.1rem; }
+.jornada li { margin-bottom: 0.55rem; }
+.jornada p { margin: 0; color: var(--cge-muted); font-size: 0.82rem; }
+.plano-lote { margin-bottom: 0.75rem; }
+.plano-bloqueios { margin: 0 0 0.6rem; padding-left: 1.1rem; color: var(--cge-muted); font-size: 0.82rem; }
+.estado-rejeitado { color: #6b3a12; background: #f8efe4; border-color: #e2c7a4; }
+.filtros-recolhiveis { margin-bottom: 0.75rem; }
+@media (max-width: 900px) {
+    .jornada { grid-template-columns: 1fr; }
+}
+

@@ -71,6 +71,7 @@ class RevisaoPlanoView(LoginRequiredMixin, View):
             "corrigir_meta": self._corrigir_meta,
             "confirmar_item": self._confirmar_item,
             "corrigir_item": self._corrigir_item,
+            "rejeitar_item": self._rejeitar_item,
         }.get(acao)
         if tratado is None:
             messages.error(request, "Ação de revisão não reconhecida.")
@@ -203,6 +204,20 @@ class RevisaoPlanoView(LoginRequiredMixin, View):
         self._auditar(request, prestacao, plano, "confirmar_item", item=item)
         messages.success(request, "Item confirmado. Os demais itens continuam pendentes.")
 
+    def _rejeitar_item(self, request, prestacao, plano):
+        item = self._item(plano, request.POST.get("item_id"))
+        if item is None:
+            messages.error(request, "Item não encontrado neste plano.")
+            return
+        justificativa = (request.POST.get("justificativa") or "").strip()
+        if not justificativa:
+            messages.error(request, "Marcar como não correspondente exige justificativa.")
+            return
+        self._marcar(item, request.user, StatusRevisaoPlano.REJEITADO)
+        item.save(update_fields=["status_revisao", "revisado_por", "revisado_em", "atualizado_em"])
+        self._auditar(request, prestacao, plano, "rejeitar_item", item=item, justificativa=justificativa)
+        messages.success(request, "Item marcado como não correspondente. Os valores extraídos foram preservados.")
+
     def _corrigir_item(self, request, prestacao, plano):
         item = self._item(plano, request.POST.get("item_id"))
         if item is None:
@@ -254,7 +269,7 @@ class RevisaoPlanoView(LoginRequiredMixin, View):
         registro.revisado_por = usuario
         registro.revisado_em = timezone.now()
 
-    def _auditar(self, request, prestacao, plano, acao, item=None, meta=None):
+    def _auditar(self, request, prestacao, plano, acao, item=None, meta=None, justificativa=""):
         registrar_evento(
             evento=RegistroAuditoria.Evento.VALIDACAO_HUMANA,
             descricao="Revisão humana do plano de trabalho",
@@ -268,6 +283,7 @@ class RevisaoPlanoView(LoginRequiredMixin, View):
                 "acao": acao,
                 "item": item.pk if item else None,
                 "meta": meta.pk if meta else None,
+                "justificativa": justificativa,
             },
         )
 

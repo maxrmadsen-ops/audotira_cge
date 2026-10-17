@@ -1,0 +1,55 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Minha fila · CGE{% endblock %}
+{% block conteudo %}
+<header class="cabeca-pagina">
+    <div>
+        <p class="trilho">Análise / Minha fila</p>
+        <h1>Minha fila</h1>
+        <p>Pendências de revisão. Informação ausente não é irregularidade e não aprova a prestação.</p>
+    </div>
+</header>
+<details class="filtros-recolhiveis" {% if tipo %}open{% endif %}>
+    <summary>Filtros</summary>
+    <form class="filtros-painel cartao" method="get">
+        <label class="form-label" for="tipo-pendencia">Tipo</label>
+        <select class="form-select" id="tipo-pendencia" name="tipo">
+            <option value="">Todas</option>
+            <option value="plano" {% if tipo == "plano" %}selected{% endif %}>Plano de trabalho</option>
+            <option value="documento" {% if tipo == "documento" %}selected{% endif %}>Documentos</option>
+        </select>
+        <button class="btn btn-primary btn-sm mt-2" type="submit">Aplicar filtros</button>
+    </form>
+</details>
+<div class="table-responsive cartao p-0 mt-3">
+    <table class="table tabela-cge mb-0">
+        <thead>
+            <tr>
+                <th>Processo</th>
+                <th>Etapa</th>
+                <th>Tipo</th>
+                <th>Descrição</th>
+                <th>Situação</th>
+                <th>Responsável</th>
+                <th>Data</th>
+                <th>Próxima ação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for linha in pendencias %}
+                <tr>
+                    <td>{{ linha.processo }}</td>
+                    <td>{{ linha.etapa }}</td>
+                    <td>{{ linha.tipo }}</td>
+                    <td><a href="{{ linha.url }}">{{ linha.descricao }}</a></td>
+                    <td>{{ linha.situacao }}</td>
+                    <td>{{ linha.responsavel }}</td>
+                    <td>{{ linha.data|date:"d/m/Y" }}</td>
+                    <td>{{ linha.proxima }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="8">Nenhuma pendência neste filtro.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
