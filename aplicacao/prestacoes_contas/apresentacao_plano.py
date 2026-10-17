@@ -268,11 +268,10 @@ def _cronograma(plano) -> dict:
                 "recorte": recorte_evidencia(linha.get("trecho") or "", linha.get("mes") or "", 80),
             }
         )
-    _marcar_ano_exibicao(linhas)
     maior = max((linha["repasse_decimal"] or Decimal("0") for linha in linhas), default=Decimal("0"))
     anos = []
     for ano in _anos(linhas):
-        do_ano = [linha for linha in linhas if linha.get("ano_exibicao") == ano]
+        do_ano = [linha for linha in linhas if linha.get("ano") == ano]
         barras = []
         for linha in do_ano:
             valor = linha["repasse_decimal"] or Decimal("0")
@@ -316,66 +315,10 @@ def _cronograma(plano) -> dict:
 def _anos(linhas) -> list:
     anos = []
     for linha in linhas:
-        ano = linha.get("ano_exibicao")
+        ano = linha.get("ano")
         if ano not in anos:
             anos.append(ano)
     return anos
-
-
-def _marcar_ano_exibicao(linhas) -> None:
-    """Separa calendários que recomeçam no mesmo carimbo de ano. Não grava nada."""
-
-    faixas = []
-    atual = []
-    ultimo = 0
-    for linha in linhas:
-        ordem = _ORDEM_MES.get(_limpar(linha.get("mes") or "").lower(), 0)
-        if atual and ordem and ultimo and ordem <= ultimo:
-            faixas.append(atual)
-            atual = []
-            ultimo = 0
-        atual.append(linha)
-        if ordem:
-            ultimo = ordem
-    if atual:
-        faixas.append(atual)
-    carimbos = []
-    for faixa in faixas:
-        vistos = []
-        for linha in faixa:
-            if linha.get("ano") not in vistos:
-                vistos.append(linha.get("ano"))
-        carimbos.append(vistos)
-    mesmo_carimbo = (
-        len(faixas) > 1
-        and all(len(vistos) == 1 and vistos[0] == carimbos[0][0] for vistos in carimbos)
-        and isinstance(carimbos[-1][0], int)
-    )
-    if mesmo_carimbo:
-        inicio = carimbos[-1][0] - len(faixas) + 1
-        for indice, faixa in enumerate(faixas):
-            for linha in faixa:
-                linha["ano_exibicao"] = inicio + indice
-        return
-    for linha in linhas:
-        linha["ano_exibicao"] = linha.get("ano")
-
-
-_ORDEM_MES = {
-    "janeiro": 1,
-    "fevereiro": 2,
-    "março": 3,
-    "marco": 3,
-    "abril": 4,
-    "maio": 5,
-    "junho": 6,
-    "julho": 7,
-    "agosto": 8,
-    "setembro": 9,
-    "outubro": 10,
-    "novembro": 11,
-    "dezembro": 12,
-}
 
 
 def _evidencias(plano) -> list[dict]:
