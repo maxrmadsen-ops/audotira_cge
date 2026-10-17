@@ -193,5 +193,20 @@ class SaudeView(PerfilExigidoMixin, TemplateView):
         return contexto
 
 
+class FilaPendenciasView(LoginRequiredMixin, TemplateView):
+    template_name = "painel/pendencias.html"
+
+    def get_context_data(self, **kwargs):
+        from aplicacao.painel.pendencias import listar_pendencias
+
+        contexto = super().get_context_data(**kwargs)
+        tipo = self.request.GET.get("tipo", "")
+        if tipo not in {"", "plano", "documento"}:
+            tipo = ""
+        contexto["tipo"] = tipo
+        contexto["pendencias"] = listar_pendencias(self.request.user, tipo)
+        return contexto
+
+
 def viva(request):
     return JsonResponse({"aplicacao": "operacional"})

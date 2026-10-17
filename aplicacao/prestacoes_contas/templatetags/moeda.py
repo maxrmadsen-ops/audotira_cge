@@ -24,6 +24,8 @@ def classe_revisao(status):
         return "estado estado-corrigido"
     if status == "confirmado":
         return "estado estado-operacional"
+    if status == "rejeitado":
+        return "estado estado-rejeitado"
     if status == "aguardando_validacao":
         return "estado estado-aguardando"
     return "estado estado-aguardando"
@@ -34,7 +36,9 @@ def rotulo_revisao(status):
     if status == "corrigido":
         return "Corrigido"
     if status == "confirmado":
-        return "Confirmado"
+        return "Confirmado por usuário autorizado"
+    if status == "rejeitado":
+        return "Não correspondente"
     if status == "aguardando_validacao":
-        return "Pendente"
+        return "Pendente de revisão inicial"
     return "Não identificado"

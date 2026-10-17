@@ -1,0 +1,12 @@
+<section class="cartao mb-3">
+    <h2>Entrada documental</h2>
+    <p>O upload manual e as integrações futuras usam a mesma classificação, o mesmo processamento e a mesma revisão. A origem não define a categoria. Um PDF pode reunir várias peças.</p>
+    <p>Base normativa institucional fica em Normas. Termo, plano, prestações, comprovantes, diligências e pareceres ficam no processo.</p>
+    <h3 class="h6">Integrações</h3>
+    <ul>
+        {% for item in integracoes %}
+            <li>{{ item.sistema }} — {{ item.situacao }}. {{ item.finalidade }}</li>
+        {% endfor %}
+    </ul>
+    <p class="mb-0">Contrato previsto: {{ metadados_entrada|join:", " }}.</p>
+</section>

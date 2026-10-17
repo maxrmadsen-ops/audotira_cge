@@ -1,3 +1,5 @@
+<details class="filtros-recolhiveis" {% if filtros.ativos %}open{% endif %}>
+    <summary>Filtros</summary>
 <form class="filtros-painel cartao" method="get">
     <div class="filtros-cabeca">
         <h2>Filtros</h2>
@@ -41,3 +43,4 @@
     {% endfor %}
     <button class="btn btn-primary btn-sm w-100" type="submit">Aplicar filtros</button>
 </form>
+</details>

@@ -1,0 +1,16 @@
+<section class="jornada" aria-label="Jornada do processo">
+    {% for grupo in jornada %}
+        <article class="cartao jornada-grupo">
+            <h2>{{ grupo.titulo }}</h2>
+            <ol>
+                {% for passo in grupo.passos %}
+                    <li>
+                        <a href="{{ passo.url }}">{{ passo.titulo }}</a>
+                        <p>{{ passo.situacao }} · {{ passo.quantidade }} item(ns) · {{ passo.pendencias }} pendência(s){% if passo.responsavel %} · {{ passo.responsavel }}{% endif %}</p>
+                        <p>{{ passo.proxima }}</p>
+                    </li>
+                {% endfor %}
+            </ol>
+        </article>
+    {% endfor %}
+</section>

@@ -12,6 +12,7 @@
         <a class="btn btn-outline-primary btn-sm" href="{% url 'prestacoes_contas:editar' prestacao.pk %}">Editar</a>
     {% endif %}
 </div>
+{% include "prestacoes_contas/_jornada.html" %}
 <ul class="nav nav-pills my-3 flex-wrap">
     {% for codigo, rotulo in abas %}
         <li class="nav-item">
@@ -64,7 +65,7 @@
                     </table>
                 </div>
             </article>
-            <article class="cartao mt-3">
+            <article class="cartao mt-3" id="diligencias">
                 <h2>Diligências</h2>
                 <p class="texto-apoio mb-2">Solicitações formais vinculadas a este processo. A resposta do beneficiário nunca é inventada pelo sistema.</p>
                 {% if pode_alterar %}

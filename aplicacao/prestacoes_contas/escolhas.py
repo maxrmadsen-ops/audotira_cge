@@ -35,6 +35,7 @@ class StatusRevisaoPlano(models.TextChoices):
     AGUARDANDO = "aguardando_validacao", "Aguardando revisão"
     CONFIRMADO = "confirmado", "Confirmado"
     CORRIGIDO = "corrigido", "Corrigido"
+    REJEITADO = "rejeitado", "Não correspondente"
 
 
 class TipoPrestacaoParcial(models.TextChoices):

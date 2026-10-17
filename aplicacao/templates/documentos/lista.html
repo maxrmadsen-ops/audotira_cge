@@ -3,6 +3,7 @@
 {% block conteudo %}
 <p class="trilho">Início / Documentos</p>
 <h1 class="h3">Documentos</h1>
+{% include "documentos/_entrada.html" %}
 <div class="row g-3 my-2">
     <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Total</h2><p class="mb-0 fs-4">{{ indicadores_documentos.total }}</p></article></div>
     <div class="col-6 col-md-4 col-xl-2"><article class="cartao"><h2 class="h6">Páginas</h2><p class="mb-0 fs-4">{{ indicadores_documentos.paginas }}</p></article></div>

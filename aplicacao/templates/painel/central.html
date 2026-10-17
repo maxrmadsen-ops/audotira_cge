@@ -3,17 +3,21 @@
 {% block conteudo %}
 <header class="cabeca-pagina">
     <div>
-        <p class="trilho">Painel / Central analítica</p>
-        <h1>Central analítica</h1>
-        <p>Visão integrada das prestações de contas, documentos, regras, evidências e achados.</p>
+        <p class="trilho">Painel / {% if aba_atual == "visao" %}Cockpit{% else %}Central analítica{% endif %}</p>
+        <h1>{% if aba_atual == "visao" %}Cockpit{% else %}Central analítica{% endif %}</h1>
+        <p>{% if aba_atual == "visao" %}Visão 360° da operação. Os indicadores abrem os registros reais. O trabalho acontece nos módulos.{% else %}Visão integrada das prestações de contas, documentos, regras, evidências e achados.{% endif %}</p>
     </div>
     <p class="selo-institucional">Nenhum indicador aprova ou reprova a prestação.</p>
 </header>
+{% if aba_atual == "visao" %}
+<div class="abas-painel" hidden></div>
+{% else %}
 <nav class="abas-painel" aria-label="Abas analíticas">
     {% for slug, rotulo, nome in abas_painel %}
         <a class="{% if aba_atual == slug %}ativa{% endif %}" href="{% url nome %}{% if filtros.querystring %}?{{ filtros.querystring }}{% endif %}">{{ rotulo }}</a>
     {% endfor %}
 </nav>
+{% endif %}
 {% if aba_atual == "visao" %}
 <div class="visao-grade">
     <aside class="coluna-filtros">{% include "painel/_filtros.html" %}</aside>
