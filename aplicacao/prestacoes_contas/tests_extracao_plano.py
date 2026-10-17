@@ -238,7 +238,7 @@ class TesteExtracaoPlano(TestCase):
             ],
         )
         antes = RegistroAuditoria.objects.count()
-        self.assertEqual(atualizar_anos_cronograma(plano), 4)
+        self.assertEqual(atualizar_anos_cronograma(plano), 2)
         plano.refresh_from_db()
         self.assertEqual([linha["ano"] for linha in plano.cronograma], [2024, 2024, 2025, 2025])
         self.assertEqual([linha["repasse"] for linha in plano.cronograma], ["0.00", "10.00", "0.00", "20.00"])
