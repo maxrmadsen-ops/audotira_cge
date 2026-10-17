@@ -38,6 +38,7 @@ _MES = re.compile(
     r"(Janeiro|Fevereiro|Mar[cç]o|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)"
     r"\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})",
 )
+_ANO_CRONOGRAMA = re.compile(r"Ano\s*(20\d{2})")
 _ROTULOS_RECURSO = (
     "Valor Global (R$)",
     "Contrapartida (%)",
@@ -383,13 +384,15 @@ def _cronograma(paginas: list[dict]) -> list[dict]:
     for pagina in paginas:
         if "Cronograma" not in pagina["texto"]:
             continue
-        anos = [int(ano) for ano in re.findall(r"(?<![A-Za-zÀ-ÿ])Ano\s*(20\d{2})", pagina["texto"])]
-        meses = list(_MES.finditer(pagina["texto"]))
-        if not anos or not meses:
+        texto = pagina["texto"]
+        marcadores = [(achado.start(), int(achado.group(1))) for achado in _ANO_CRONOGRAMA.finditer(texto)]
+        meses = list(_MES.finditer(texto))
+        if not marcadores or not meses:
             continue
-        tamanho = len(meses) // len(anos) if len(meses) >= len(anos) else len(meses)
-        for indice, achado in enumerate(meses):
-            ano = anos[min(indice // max(tamanho, 1), len(anos) - 1)]
+        for achado in meses:
+            ano = _ano_que_precede(marcadores, achado.start())
+            if ano is None:
+                continue
             valor_repasse = dinheiro(achado.group(2))
             valor_contrapartida = dinheiro(achado.group(3))
             linhas.append(
@@ -403,6 +406,51 @@ def _cronograma(paginas: list[dict]) -> list[dict]:
                 }
             )
     return linhas
+
+
+def atualizar_anos_cronograma(plano) -> int:
+    """Regrava só o ano, quando a página confirma o mesmo mês e os mesmos valores."""
+
+    documento = plano.documento
+    if documento is None or not plano.cronograma:
+        return 0
+    paginas = []
+    for pagina in documento.paginas.all():
+        texto, _ = decodificar_uso_privado(pagina.texto_extraido or "")
+        paginas.append({"numero_pagina": pagina.numero_pagina, "texto": separar_rotulos(texto)})
+    relido = _cronograma(paginas)
+    atual = [dict(linha) for linha in plano.cronograma]
+    if len(relido) != len(atual):
+        return 0
+    alteracoes = 0
+    for linha, origem in zip(atual, relido):
+        if linha.get("mes") != origem.get("mes"):
+            return 0
+        if not _mesmo_dinheiro(linha.get("repasse"), origem.get("repasse")):
+            return 0
+        if not _mesmo_dinheiro(linha.get("contrapartida"), origem.get("contrapartida")):
+            return 0
+        if linha.get("ano") != origem.get("ano"):
+            linha["ano"] = origem["ano"]
+            alteracoes += 1
+    if alteracoes:
+        plano.cronograma = atual
+        plano.save(update_fields=["cronograma", "atualizado_em"])
+    return alteracoes
+
+
+def _ano_que_precede(marcadores: list[tuple[int, int]], posicao: int) -> int | None:
+    ano = None
+    for inicio, valor in marcadores:
+        if inicio < posicao:
+            ano = valor
+        else:
+            break
+    return ano
+
+
+def _mesmo_dinheiro(atual, relido) -> bool:
+    return dinheiro(str(atual or "")) == dinheiro(str(relido or ""))
 
 
 def _recursos_por_posicao(caminho) -> dict:

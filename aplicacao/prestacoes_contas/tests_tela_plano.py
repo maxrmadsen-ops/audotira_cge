@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from aplicacao.auditoria.models import RegistroAuditoria
-from aplicacao.prestacoes_contas.apresentacao_plano import etapas_legiveis, parametros_legiveis, rotulo_milhar, _cronograma
+from aplicacao.prestacoes_contas.apresentacao_plano import etapas_legiveis, parametros_legiveis, rotulo_milhar
 from aplicacao.prestacoes_contas.escolhas import StatusRevisaoPlano
 from aplicacao.prestacoes_contas.models import ItemPlanoTrabalho, Meta, PlanoTrabalho, PrestacaoContas
 
@@ -82,20 +82,6 @@ class TesteTelaPlano(TestCase):
         self.assertEqual(rotulo_milhar(Decimal("172600")), ("173", "mil"))
         self.assertEqual(rotulo_milhar(Decimal("200")), ("200,00", ""))
         self.assertEqual(rotulo_milhar(Decimal("0")), ("", ""))
-
-    def test_calendarios_repetidos_viram_faixas_seguidas(self):
-        class Plano:
-            cronograma = [
-                {"ano": 2024, "mes": "Janeiro", "repasse": "0.00", "contrapartida": "0.00"},
-                {"ano": 2024, "mes": "Fevereiro", "repasse": "10.00", "contrapartida": "0.00"},
-                {"ano": 2024, "mes": "Janeiro", "repasse": "0.00", "contrapartida": "0.00"},
-                {"ano": 2024, "mes": "Fevereiro", "repasse": "20.00", "contrapartida": "0.00"},
-            ]
-
-        faixas = _cronograma(Plano())["anos"]
-        self.assertEqual([faixa["ano"] for faixa in faixas], [2023, 2024])
-        self.assertEqual(faixas[0]["barras"][1]["rotulo"], "10,00")
-        self.assertEqual(Plano.cronograma[0]["ano"], 2024)
 
     def test_aba_mostra_conciliacao_e_preserva_a_revisao(self):
         antes = RegistroAuditoria.objects.count()

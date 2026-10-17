@@ -14,7 +14,7 @@ from aplicacao.documentos.qualidade import avaliar_qualidade
 from aplicacao.documentos.servico import _estruturar_termo
 from aplicacao.instrumentos.models import TermoFomento
 from aplicacao.prestacoes_contas.escolhas import StatusRevisaoPlano
-from aplicacao.prestacoes_contas.extracao_plano import extrair_plano, estruturar_plano
+from aplicacao.prestacoes_contas.extracao_plano import atualizar_anos_cronograma, extrair_plano, estruturar_plano
 from aplicacao.prestacoes_contas.models import ItemPlanoTrabalho, PlanoTrabalho, PrestacaoContas
 
 Usuario = get_user_model()
@@ -107,6 +107,24 @@ class TesteExtracaoPlano(TestCase):
         self.assertEqual(analise["itens"][0]["tipo_despesa"], "Serviço")
         self.assertEqual(analise["itens"][0]["unidade"], "Un")
         self.assertEqual(sum(Decimal(linha["repasse"]) for linha in analise["cronograma"] if linha["repasse"]), Decimal("350.00"))
+        self.assertTrue(all(linha["ano"] == 2024 for linha in analise["cronograma"]))
+
+    def test_ano_colado_ao_rotulo_permanece_no_mes_seguinte(self):
+        texto = """
+        RelatorioAno Base: 2026 Listar Plano
+        Cronograma
+        Despesas CorrentesAno2024Repasse ContrapartidaMês
+        Janeiro 0,00 0,00
+        Fevereiro 10,00 0,00
+        Total 0.00 10,00Ano2025Repasse ContrapartidaMês
+        Janeiro 0,00 0,00
+        Fevereiro 20,00 0,00
+        """
+        analise = extrair_plano([{"numero_pagina": 4, "texto_extraido": texto}])
+        self.assertEqual([linha["ano"] for linha in analise["cronograma"]], [2024, 2024, 2025, 2025])
+        self.assertEqual(analise["cronograma"][0]["repasse"], "0.00")
+        self.assertEqual(analise["cronograma"][1]["repasse"], "10.00")
+        self.assertEqual(analise["cronograma"][3]["repasse"], "20.00")
 
     def test_fonte_de_uso_privado_volta_a_texto_e_nao_pede_ocr(self):
         codificado = "".join(chr(ord(caractere) + 0xF000) if ord(caractere) < 256 else caractere for caractere in TEXTO_PLANO)
@@ -175,3 +193,57 @@ class TesteExtracaoPlano(TestCase):
         self.assertEqual(ItemPlanoTrabalho.objects.filter(plano=plano).count(), 2)
         item.refresh_from_db()
         self.assertEqual(item.status_revisao, StatusRevisaoPlano.CONFIRMADO)
+
+    def test_atualizar_anos_nao_mexe_em_valor_nem_em_revisao(self):
+        usuario = Usuario.objects.create_user(
+            username="auditor-ano-plano",
+            password="Isolada-apenas-no-teste",
+            perfil=Usuario.Perfil.AUDITOR,
+        )
+        prestacao = PrestacaoContas.objects.create(numero_processo="PROC-ANO-PLANO", criado_por=usuario)
+        documento = Documento.objects.create(
+            prestacao_contas=prestacao,
+            nome_original="plano-anos.pdf",
+            nome_armazenado="plano-anos.pdf",
+            tipo_documento=TipoDocumento.PLANO_TRABALHO,
+            criado_por=usuario,
+        )
+        texto = """
+        Cronograma
+        Despesas CorrentesAno2024Repasse ContrapartidaMês
+        Janeiro 0,00 0,00
+        Fevereiro 10,00 0,00
+        Total 0.00 10,00Ano2025Repasse ContrapartidaMês
+        Janeiro 0,00 0,00
+        Fevereiro 20,00 0,00
+        """
+        PaginaDocumento.objects.create(
+            documento=documento,
+            numero_pagina=1,
+            texto_extraido=texto,
+            metodo_extracao=MetodoExtracao.NATIVO,
+            qualidade_extracao=QualidadeExtracao.SUFICIENTE,
+            quantidade_caracteres=len(texto),
+        )
+        plano = PlanoTrabalho.objects.create(
+            prestacao=prestacao,
+            titulo="Plano sintético de dois anos",
+            documento=documento,
+            cronograma_status=StatusRevisaoPlano.CONFIRMADO,
+            cronograma=[
+                {"ano": 2025, "mes": "Janeiro", "repasse": "0.00", "contrapartida": "0.00", "pagina": 1, "trecho": "Janeiro 0,00 0,00"},
+                {"ano": 2025, "mes": "Fevereiro", "repasse": "10.00", "contrapartida": "0.00", "pagina": 1, "trecho": "Fevereiro 10,00 0,00"},
+                {"ano": 2025, "mes": "Janeiro", "repasse": "0.00", "contrapartida": "0.00", "pagina": 1, "trecho": "Janeiro 0,00 0,00"},
+                {"ano": 2025, "mes": "Fevereiro", "repasse": "20.00", "contrapartida": "0.00", "pagina": 1, "trecho": "Fevereiro 20,00 0,00"},
+            ],
+        )
+        antes = RegistroAuditoria.objects.count()
+        self.assertEqual(atualizar_anos_cronograma(plano), 4)
+        plano.refresh_from_db()
+        self.assertEqual([linha["ano"] for linha in plano.cronograma], [2024, 2024, 2025, 2025])
+        self.assertEqual([linha["repasse"] for linha in plano.cronograma], ["0.00", "10.00", "0.00", "20.00"])
+        self.assertEqual([linha["trecho"] for linha in plano.cronograma][0], "Janeiro 0,00 0,00")
+        self.assertEqual(plano.cronograma_status, StatusRevisaoPlano.CONFIRMADO)
+        self.assertEqual(PlanoTrabalho.objects.filter(prestacao=prestacao).count(), 1)
+        self.assertEqual(RegistroAuditoria.objects.count(), antes)
+        self.assertEqual(atualizar_anos_cronograma(plano), 0)
