@@ -19,43 +19,45 @@
 </nav>
 {% endif %}
 {% if aba_atual == "visao" %}
-<div class="visao-grade">
-    <aside class="coluna-filtros">{% include "painel/_filtros.html" %}</aside>
+<div class="cockpit">
+    {% include "painel/_filtros.html" %}
     <div class="visao-principal">
         {% include "painel/_kpis.html" %}
         <div class="visao-meio">
-            <section class="cartao grafico-painel">
-                <div class="cartao-cabeca">
-                    <div>
-                        <h2 class="h6">Evolução das análises</h2>
-                        <p class="small text-secondary">Prestações por situação ao longo do tempo.</p>
-                    </div>
+            <details class="cartao grafico-painel painel-bloco" open>
+                <summary>
+                    <span>Evolução das análises</span>
+                    <small>Prestações por situação ao longo do tempo.</small>
+                </summary>
+                <div class="painel-bloco-corpo">
                     <div class="janelas" role="group" aria-label="Período da série">
                         {% for rotulo, consulta in janelas %}
                             <a href="?{{ consulta }}">{{ rotulo }}</a>
                         {% endfor %}
                     </div>
+                    {% if painel.historico %}
+                        <ul class="barras">
+                            {% for serie in painel.historico.series %}
+                                <li>
+                                    <span>{{ serie.rotulo }}</span>
+                                    <span class="barra-trilho" aria-hidden="true"><span class="barra-valor" style="width: {{ serie.percentual }}%"></span></span>
+                                    <strong>{{ serie.exibicao }}</strong>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="estado-vazio">{{ painel.mensagem_historico }}</p>
+                    {% endif %}
                 </div>
-                {% if painel.historico %}
-                    <ul class="barras">
-                        {% for serie in painel.historico.series %}
-                            <li>
-                                <span>{{ serie.rotulo }}</span>
-                                <span class="barra-trilho" aria-hidden="true"><span class="barra-valor" style="width: {{ serie.percentual }}%"></span></span>
-                                <strong>{{ serie.exibicao }}</strong>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="estado-vazio">{{ painel.mensagem_historico }}</p>
-                {% endif %}
-            </section>
+            </details>
             {% with grafico=painel.graficos.1 %}{% include "painel/_grafico.html" %}{% endwith %}
         </div>
         {% if painel.pipeline %}
-        <section class="cartao bloco-pipeline">
-            <h2>Pipeline da análise</h2>
-            <p>Objetos ligados às prestações do recorte, da entrada à revisão humana. A barra compara as quantidades entre si e não é taxa de conversão.</p>
+        <details class="cartao bloco-pipeline painel-bloco" open>
+            <summary>
+                <span>Pipeline da análise</span>
+                <small>A barra compara as quantidades entre si e não é taxa de conversão.</small>
+            </summary>
             <ol class="pipeline">
                 {% for etapa in painel.pipeline %}
                     <li>
@@ -67,20 +69,18 @@
                     </li>
                 {% endfor %}
             </ol>
-        </section>
+        </details>
         {% endif %}
         <div class="visao-base">
             {% with grafico=painel.graficos.0 %}{% include "painel/_grafico.html" %}{% endwith %}
             {% with grafico=painel.graficos.2 %}{% include "painel/_grafico.html" %}{% endwith %}
         </div>
-        <section class="cartao bloco-atencao">
-            <div class="cartao-cabeca">
-                <div>
-                    <h2>Central de Atenção</h2>
-                    <p>Ordenada pela criticidade registrada — não é score calculado.</p>
-                </div>
+        <details class="cartao bloco-atencao painel-bloco" {% if painel.atencao %}open{% endif %}>
+            <summary>
+                <span>Central de Atenção</span>
+                <small>Ordenada pela criticidade registrada — não é score calculado.</small>
                 <span class="badge-contagem">{{ painel.atencao|length }}</span>
-            </div>
+            </summary>
             {% if painel.atencao %}
                 <ul class="lista-atencao">
                     {% for item in painel.atencao %}
@@ -94,7 +94,7 @@
             {% else %}
                 <p class="estado-vazio">{{ painel.vazio_atencao }}</p>
             {% endif %}
-        </section>
+        </details>
     </div>
 </div>
 {% else %}
