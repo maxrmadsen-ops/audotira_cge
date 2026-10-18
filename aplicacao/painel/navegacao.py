@@ -17,6 +17,7 @@ class ItemMenu:
     contagem: int | None = None
     descricao: str = ""
     futuro: bool = False
+    parcial: bool = False
     chave: str = ""
 
 
@@ -121,7 +122,7 @@ def _itens_do_processo(prestacao) -> list[ItemMenu]:
         ItemMenu("Linha do tempo", aba("linha-do-tempo"), True, "painel", "preparacao", chave="linha", descricao="Histórico registrado deste processo."),
         ItemMenu("Documentos", aba("documentos"), True, "documentos", "execucao", chave="documentos", descricao="Entrada e classificação dos PDFs deste processo. Não é a prestação de contas parcial."),
         ItemMenu("Prestações de Contas Parciais", reverse("prestacoes_contas:etapa_futura", kwargs={"pk": pk, "slug": "prestacoes-parciais"}), True, "pendencias", "execucao", chave="parciais", futuro=True, descricao="Etapa futura. O recebimento de arquivos continua em Documentos."),
-        ItemMenu("Financeiro", aba("financeiro"), True, "finops", "execucao", chave="financeiro", descricao="Registros financeiros já informados. Esta tela não extrai execução financeira."),
+        ItemMenu("Financeiro", aba("financeiro"), True, "finops", "execucao", chave="financeiro", parcial=True, descricao="Registros já informados. A execução financeira ainda não foi apurada."),
         ItemMenu("Folha de pagamento", aba("folha"), True, "administracao", "execucao", chave="folha", descricao="Folha vinculada a este processo."),
         ItemMenu("Diligências", aba("diligencias"), True, "diligencia", "execucao", chave="diligencias", descricao="Diligências já registradas. Esta tela não dispara diligência externa."),
         ItemMenu("Verificações", aba("analise"), True, "regras", "analise_processo", chave="verificacoes", descricao="Execução das regras neste processo. Não conclui a prestação."),

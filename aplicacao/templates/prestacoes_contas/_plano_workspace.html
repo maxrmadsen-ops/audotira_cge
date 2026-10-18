@@ -206,7 +206,8 @@
                 </select>
                 <button class="btn btn-primary btn-sm" type="submit">Filtrar</button>
             </form>
-            <p class="mb-0 plano-totalizador">{{ total_visivel_plano }} de {{ total_itens_plano }} itens · soma exibida {{ soma_visivel_plano|moeda_br }} · extraído {{ plano.valor_extraido|moeda_br }} · confirmado {{ plano.valor_previsto|moeda_br }}</p>
+            <p class="mb-0 plano-totalizador">{{ total_visivel_plano }} de {{ total_itens_plano }} itens · soma exibida {{ soma_visivel_plano|moeda_br }} · extraído {{ plano.valor_extraido|moeda_br }} · extração validada {{ plano.valor_previsto|moeda_br }}</p>
+            <p class="texto-apoio mb-0">A extração validada refere-se à conferência dos dados do Plano de Trabalho. Não representa execução ou comprovação financeira.</p>
             <p class="plano-conferencia-acesso mb-0">
                 <a class="btn btn-primary btn-sm" href="{% url 'prestacoes_contas:conferencia_despesas' prestacao.pk plano.pk %}?q={{ filtros_plano.q|urlencode }}&amp;estado={{ filtros_plano.estado|urlencode }}&amp;natureza={{ filtros_plano.natureza|urlencode }}&amp;ordem={{ filtros_plano.ordem|urlencode }}">Iniciar conferência</a>
                 {% if filtros_plano.q or filtros_plano.estado or filtros_plano.natureza or filtros_plano.ordem != "padrao" %}

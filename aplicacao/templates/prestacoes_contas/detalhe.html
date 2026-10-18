@@ -1,4 +1,5 @@
 {% extends "base_autenticado.html" %}
+{% load moeda %}
 {% block titulo %}{{ prestacao.numero_processo }} · CGE{% endblock %}
 {% block conteudo %}
 <header class="cabeca-processo">
@@ -63,10 +64,12 @@
         </div>
         <div class="col-lg-5">
             <article class="cartao">
-                <h2>Previsto × executado</h2>
-                <p>Previsto: {% if prestacao.valor_previsto != None %}R$ {{ prestacao.valor_previsto }}{% else %}Não informado{% endif %}</p>
-                <p>Executado: {% if prestacao.valor_executado != None %}R$ {{ prestacao.valor_executado }}{% else %}Não informado{% endif %}</p>
-                <p class="mb-0">Diferença: {% if prestacao.diferenca_previsto_executado != None %}R$ {{ prestacao.diferenca_previsto_executado }}{% else %}Não calculável{% endif %}</p>
+                <h2>Valores do Plano de Trabalho</h2>
+                <p>Total previsto no Plano de Trabalho: {% if prestacao.valor_planejado != None %}{{ prestacao.valor_planejado|moeda_br }}{% else %}Não informado{% endif %}</p>
+                <p>Valor previsto com extração validada: {% if prestacao.valor_extracao_validada != None %}{{ prestacao.valor_extracao_validada|moeda_br }}{% else %}Nenhum item confirmado{% endif %}</p>
+                <p class="texto-apoio">Refere-se à conferência dos dados do Plano de Trabalho. Não representa execução ou comprovação financeira.</p>
+                <p>Execução financeira: Ainda não apurada</p>
+                <p class="mb-0">Despesas comprovadas: Ainda não apuradas</p>
             </article>
         </div>
     </div>
@@ -124,13 +127,16 @@
         </details>
     {% endif %}
 {% elif aba == "financeiro" %}
+    <article class="cartao mb-3">
+        <p class="mb-0">A execução financeira e as despesas comprovadas ainda não foram apuradas. Os lançamentos abaixo, quando existirem, não fecham a prestação e não substituem essa apuração.</p>
+    </article>
     <div class="row g-3">
-        <div class="col-lg-6"><article class="cartao"><h2>Despesas</h2>{% for despesa in prestacao.despesas.all %}<p>{{ despesa.descricao|default:"Sem descrição" }} — {% if despesa.valor != None %}R$ {{ despesa.valor }}{% else %}valor não informado{% endif %}</p>{% empty %}<p>Nenhuma despesa.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Documentos fiscais</h2>{% for documento in prestacao.documentos_fiscais.all %}<p>{{ documento }}</p>{% empty %}<p>Nenhum documento fiscal.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Pagamentos</h2>{% for pagamento in prestacao.pagamentos.all %}<p>{{ pagamento }} {% if pagamento.valor != None %}— R$ {{ pagamento.valor }}{% endif %}</p>{% empty %}<p>Nenhum pagamento.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Movimentações</h2>{% for movimento in prestacao.movimentacoes.all %}<p>{{ movimento }}</p>{% empty %}<p>Nenhuma movimentação.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Contrapartidas</h2>{% for item in prestacao.contrapartidas.all %}<p>{{ item }}</p>{% empty %}<p>Nenhuma contrapartida.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Devoluções</h2>{% for item in prestacao.devolucoes.all %}<p>{{ item }}</p>{% empty %}<p>Nenhuma devolução.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Despesas</h2>{% for despesa in prestacao.despesas.all %}<p>{{ despesa.descricao|default:"Sem descrição" }} — {% if despesa.valor != None %}R$ {{ despesa.valor }}{% else %}valor não informado{% endif %}</p>{% empty %}<p>Ainda não apuradas.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Documentos fiscais</h2>{% for documento in prestacao.documentos_fiscais.all %}<p>{{ documento }}</p>{% empty %}<p>Ainda não apurados.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Pagamentos</h2>{% for pagamento in prestacao.pagamentos.all %}<p>{{ pagamento }} {% if pagamento.valor != None %}— R$ {{ pagamento.valor }}{% endif %}</p>{% empty %}<p>Ainda não apurados.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Movimentações</h2>{% for movimento in prestacao.movimentacoes.all %}<p>{{ movimento }}</p>{% empty %}<p>Ainda não apuradas.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Contrapartidas</h2>{% for item in prestacao.contrapartidas.all %}<p>{{ item }}</p>{% empty %}<p>Ainda não apuradas.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Devoluções</h2>{% for item in prestacao.devolucoes.all %}<p>{{ item }}</p>{% empty %}<p>Ainda não apuradas.</p>{% endfor %}</article></div>
     </div>
     {% if pode_alterar %}
         <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_despesa' prestacao.pk %}">{% csrf_token %}<h2>Despesa</h2>{% include "prestacoes_contas/_campos.html" with form=form_despesa %}<button class="btn btn-primary btn-sm" type="submit">Incluir</button></form>

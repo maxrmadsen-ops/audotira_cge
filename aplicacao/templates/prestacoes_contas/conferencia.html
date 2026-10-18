@@ -33,7 +33,7 @@
             <div><dt>Unidade</dt><dd>{{ item.unidade|default:"Não identificada" }}</dd></div>
             <div><dt>Quantidade</dt><dd>{% if item.quantidade != None %}{{ item.quantidade }}{% else %}Não identificada{% endif %}</dd></div>
             <div><dt>Valor unitário</dt><dd>{{ item.valor_unitario|moeda_br }}</dd></div>
-            <div><dt>Valor total</dt><dd>{{ item.valor_previsto|moeda_br }}</dd></div>
+            <div><dt>Valor total previsto</dt><dd>{{ item.valor_previsto|moeda_br }}</dd></div>
             <div><dt>Natureza sugerida</dt><dd>{{ item.get_natureza_display }}</dd></div>
             <div><dt>Trecho</dt><dd>{{ item.trecho|default:"Não indicado" }}</dd></div>
         </dl>

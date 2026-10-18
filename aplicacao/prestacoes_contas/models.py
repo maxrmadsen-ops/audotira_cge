@@ -117,14 +117,24 @@ class PrestacaoContas(Rastreavel):
         return instrumento.get_tipo_display() if instrumento else ""
 
     @property
-    def valor_previsto(self) -> Decimal | None:
-        total_itens = _soma(
+    def valor_extracao_validada(self) -> Decimal | None:
+        """Soma dos itens cuja extração foi confirmada ou corrigida. Não é execução."""
+        return _soma(
             ItemPlanoTrabalho.objects.filter(
                 plano__prestacao=self,
                 status_revisao__in=(StatusRevisaoPlano.CONFIRMADO, StatusRevisaoPlano.CORRIGIDO),
             ),
             "valor_previsto",
         )
+
+    @property
+    def valor_planejado(self) -> Decimal | None:
+        """Soma de todos os itens extraídos do plano, independentemente da revisão."""
+        return _soma(ItemPlanoTrabalho.objects.filter(plano__prestacao=self), "valor_previsto")
+
+    @property
+    def valor_previsto(self) -> Decimal | None:
+        total_itens = self.valor_extracao_validada
         if total_itens is not None:
             return total_itens
         instrumento = self.instrumento_principal
