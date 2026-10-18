@@ -44,7 +44,7 @@ def montar_jornada(prestacao) -> list[dict]:
                 _passo("Verificações", f"{base}?aba=analise", "Disponível", 0, 0, responsavel, "Executar regras sem concluir a prestação."),
                 _passo("Achados", f"{base}?aba=achados", "Registrados" if prestacao.achados.exists() else "Sem achados", prestacao.achados.count(), 0, responsavel, "Concordar ou discordar de cada achado."),
                 _passo("Pré-análise", f"{base}?aba=pre-analise", "Separada da conclusão", prestacao.pre_analises.count(), 0, responsavel, "Ler a síntese sem tratá-la como parecer final."),
-                _passo("Parecer", reverse("pareceres:parecer_final", kwargs={"pk": prestacao.pk}), "Decisão humana", prestacao.pareceres_finais.count(), 0, responsavel, "Elaborar o parecer quando for o caso."),
+                _passo("Parecer", reverse("pareceres:parecer_final", kwargs={"prestacao_pk": prestacao.pk}), "Decisão humana", prestacao.pareceres_finais.count(), 0, responsavel, "Elaborar o parecer quando for o caso."),
             ],
         },
     ]
