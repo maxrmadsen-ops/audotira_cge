@@ -95,11 +95,12 @@ class TesteCiclo5(TestCase):
 
     def test_jornada_abre_instrumento_normas_e_plano(self):
         resposta = self.client.get(reverse("prestacoes_contas:detalhe", kwargs={"pk": self.prestacao.pk}))
-        self.assertContains(resposta, "Instrumento de parceria")
+        self.assertContains(resposta, "Identificação da Parceria")
         self.assertContains(resposta, reverse("instrumentos:instrumento", kwargs={"pk": self.prestacao.pk}))
         self.assertContains(resposta, reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}))
         self.assertContains(resposta, "?aba=plano")
         self.assertContains(resposta, "FinOps")
+        self.assertNotContains(resposta, "nav-pills")
 
     def test_integracao_nao_configurada(self):
         resposta = self.client.get(reverse("documentos:lista"))

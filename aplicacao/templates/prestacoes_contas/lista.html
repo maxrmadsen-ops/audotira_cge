@@ -8,33 +8,37 @@
         <a class="btn btn-primary" href="{% url 'prestacoes_contas:nova' %}">Nova prestação</a>
     {% endif %}
 </div>
-<form class="row g-2 my-3" method="get">
-    <div class="col-md-4">
-        <label class="form-label" for="q">Busca</label>
-        <input class="form-control" id="q" name="q" value="{{ filtros.q }}" placeholder="Processo, objeto ou entidade">
-    </div>
-    <div class="col-md-3">
-        <label class="form-label" for="situacao">Situação</label>
-        <select class="form-select" id="situacao" name="situacao">
-            <option value="">Todas</option>
-            {% for valor, rotulo in situacoes %}
-                <option value="{{ valor }}" {% if filtros.situacao == valor %}selected{% endif %}>{{ rotulo }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="col-md-3">
-        <label class="form-label" for="fase">Fase</label>
-        <select class="form-select" id="fase" name="fase">
-            <option value="">Todas</option>
-            {% for valor, rotulo in fases %}
-                <option value="{{ valor }}" {% if filtros.fase == valor %}selected{% endif %}>{{ rotulo }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="col-md-2 d-flex align-items-end">
-        <button class="btn btn-outline-primary w-100" type="submit">Filtrar</button>
-    </div>
-</form>
+<details class="filtros-recolhiveis" {% if filtros.q or filtros.situacao or filtros.fase %}open{% endif %}>
+    <summary>Filtros{% if filtros.q or filtros.situacao or filtros.fase %} <span class="filtros-contagem">ativos</span>{% endif %}</summary>
+    <form class="row g-2 my-3" method="get">
+        <div class="col-md-4">
+            <label class="form-label" for="q">Busca</label>
+            <input class="form-control" id="q" name="q" value="{{ filtros.q }}" placeholder="Processo, objeto ou entidade">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="situacao">Situação</label>
+            <select class="form-select" id="situacao" name="situacao">
+                <option value="">Todas</option>
+                {% for valor, rotulo in situacoes %}
+                    <option value="{{ valor }}" {% if filtros.situacao == valor %}selected{% endif %}>{{ rotulo }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="fase">Fase</label>
+            <select class="form-select" id="fase" name="fase">
+                <option value="">Todas</option>
+                {% for valor, rotulo in fases %}
+                    <option value="{{ valor }}" {% if filtros.fase == valor %}selected{% endif %}>{{ rotulo }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end gap-2">
+            <button class="btn btn-outline-primary w-100" type="submit">Filtrar</button>
+            <a href="{% url 'prestacoes_contas:lista' %}">Limpar</a>
+        </div>
+    </form>
+</details>
 <div class="table-responsive cartao p-0">
     <table class="table tabela-cge mb-0">
         <thead>

@@ -94,7 +94,10 @@ class TestePreparacaoInstrumento(TestCase):
         resposta = self.client.get(reverse("instrumentos:instrumento", kwargs={"pk": self.prestacao.pk}))
         self.assertEqual(resposta.status_code, 403)
         self.client.force_login(self.analista)
-        self.assertEqual(self.client.get(reverse("instrumentos:preparacao", kwargs={"pk": self.prestacao.pk})).status_code, 200)
+        self.assertRedirects(
+            self.client.get(reverse("instrumentos:preparacao", kwargs={"pk": self.prestacao.pk})),
+            reverse("prestacoes_contas:detalhe", kwargs={"pk": self.prestacao.pk}),
+        )
 
     def test_fluxo_de_validacao_preserva_extraido_e_audita(self):
         usos = UsoInteligenciaArtificial.objects.count()
@@ -202,7 +205,10 @@ class TestePreparacaoInstrumento(TestCase):
         termo.refresh_from_db()
         self.assertTrue(termo.congelado)
         self.client.force_login(self.admin)
-        self.assertEqual(self.client.get(reverse("instrumentos:preparacao", kwargs={"pk": self.prestacao.pk})).status_code, 200)
+        self.assertRedirects(
+            self.client.get(reverse("instrumentos:preparacao", kwargs={"pk": self.prestacao.pk})),
+            reverse("prestacoes_contas:detalhe", kwargs={"pk": self.prestacao.pk}),
+        )
 
     def test_upload_seleciona_sem_chamar_ia(self):
         self.client.force_login(self.analista)

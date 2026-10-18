@@ -227,6 +227,10 @@ class RevisaoPlanoView(LoginRequiredMixin, View):
         if not descricao:
             messages.error(request, "A descrição do item não pode ficar vazia.")
             return
+        justificativa = (request.POST.get("justificativa") or "").strip()
+        if not justificativa:
+            messages.error(request, "Corrigir o item exige justificativa.")
+            return
         quantidade, quantidade_valida = _dinheiro_post(request.POST.get("quantidade"))
         unitario, unitario_valido = _dinheiro_post(request.POST.get("valor_unitario"))
         total, total_valido = _dinheiro_post(request.POST.get("valor_previsto"), obrigatorio=True)
@@ -249,7 +253,7 @@ class RevisaoPlanoView(LoginRequiredMixin, View):
         item.natureza = natureza
         self._marcar(item, request.user, StatusRevisaoPlano.CORRIGIDO)
         item.save()
-        self._auditar(request, prestacao, plano, "corrigir_item", item=item)
+        self._auditar(request, prestacao, plano, "corrigir_item", item=item, justificativa=justificativa)
         messages.success(request, "Item corrigido. A descrição original e os outros itens foram preservados.")
 
     def _item(self, plano, identificador):

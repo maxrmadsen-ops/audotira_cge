@@ -1,25 +1,20 @@
 {% extends "base_autenticado.html" %}
 {% block titulo %}{{ prestacao.numero_processo }} · CGE{% endblock %}
 {% block conteudo %}
-<p class="trilho"><a href="{% url 'prestacoes_contas:lista' %}">Prestações de Contas</a> / {{ prestacao.numero_processo }}</p>
-<div class="d-flex justify-content-between flex-wrap gap-2 align-items-start">
-    <div>
-        <h1 class="h3">{{ prestacao.numero_processo }}</h1>
-        <p class="mb-0"><a href="{% url 'instrumentos:preparacao' prestacao.pk %}">Preparar instrumento da parceria</a></p>
-        {% if prestacao.demonstracao %}<p><span class="estado estado-aguardando">Dados de demonstração</span></p>{% endif %}
+<header class="cabeca-processo">
+    <p class="trilho"><a href="{% url 'prestacoes_contas:lista' %}">Processos</a> / {{ prestacao.numero_processo }}</p>
+    <div class="d-flex justify-content-between flex-wrap gap-2 align-items-start">
+        <div>
+            <h1 class="h3">{{ prestacao.numero_processo }}</h1>
+            <p class="mb-1">{{ prestacao.concedente|default:"Concedente não informado" }} · {{ prestacao.beneficiario|default:"Beneficiário não informado" }}</p>
+            <p class="mb-0">Situação: {{ prestacao.get_situacao_display }} · Fase: {{ prestacao.get_fase_display }}</p>
+            {% if prestacao.demonstracao %}<p class="mt-2 mb-0"><span class="estado estado-aguardando">Dados de demonstração</span></p>{% endif %}
+        </div>
+        {% if pode_alterar %}
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'prestacoes_contas:editar' prestacao.pk %}">Editar</a>
+        {% endif %}
     </div>
-    {% if pode_alterar %}
-        <a class="btn btn-outline-primary btn-sm" href="{% url 'prestacoes_contas:editar' prestacao.pk %}">Editar</a>
-    {% endif %}
-</div>
-{% include "prestacoes_contas/_jornada.html" %}
-<ul class="nav nav-pills my-3 flex-wrap">
-    {% for codigo, rotulo in abas %}
-        <li class="nav-item">
-            <a class="nav-link {% if aba == codigo %}active{% endif %}" href="?aba={{ codigo }}">{{ rotulo }}</a>
-        </li>
-    {% endfor %}
-</ul>
+</header>
 
 {% if aba == "geral" %}
     <div class="row g-3">
@@ -65,35 +60,6 @@
                     </table>
                 </div>
             </article>
-            <article class="cartao mt-3" id="diligencias">
-                <h2>Diligências</h2>
-                <p class="texto-apoio mb-2">Solicitações formais vinculadas a este processo. A resposta do beneficiário nunca é inventada pelo sistema.</p>
-                {% if pode_alterar %}
-                    <p class="mb-2"><a class="btn btn-primary btn-sm" href="{% url 'diligencias:nova' prestacao.pk %}">Nova diligência</a></p>
-                {% endif %}
-                <ul class="mb-0">
-                    {% for item in diligencias %}
-                    <li>
-                        <a href="{% url 'diligencias:detalhe' item.pk %}">{{ item.identificador }}</a>
-                        · {{ item.get_situacao_display }} · {{ item.get_motivo_display }}
-                    </li>
-                    {% empty %}
-                    <li>Nenhuma diligência aberta.</li>
-                    {% endfor %}
-                </ul>
-            </article>
-            <article class="cartao mt-3">
-                <h2>Parecer final</h2>
-                <p class="texto-apoio mb-2">A sugestão de IA, quando houver, permanece separada da versão do analista e da versão final.</p>
-                <p class="mb-2"><a class="btn btn-outline-primary btn-sm" href="{% url 'pareceres:parecer_final' prestacao.pk %}">Abrir parecer final</a></p>
-                <ul class="mb-0">
-                    {% for item in pareceres_finais %}
-                    <li>v{{ item.versao }} · {{ item.get_status_display }} · {{ item.autor.username|default:"—" }}</li>
-                    {% empty %}
-                    <li>Nenhum parecer final elaborado.</li>
-                    {% endfor %}
-                </ul>
-            </article>
         </div>
         <div class="col-lg-5">
             <article class="cartao">
@@ -104,6 +70,25 @@
             </article>
         </div>
     </div>
+{% elif aba == "diligencias" %}
+    <article class="cartao" id="diligencias">
+        <h2>Diligências</h2>
+        <p class="texto-apoio mb-2">Solicitações formais vinculadas a este processo. A resposta do beneficiário nunca é inventada pelo sistema. Esta tela não dispara diligência externa.</p>
+        {% if pode_alterar %}
+            <p class="mb-2"><a class="btn btn-primary btn-sm" href="{% url 'diligencias:nova' prestacao.pk %}">Nova diligência</a></p>
+        {% endif %}
+        <ul class="mb-0">
+            {% for item in diligencias %}
+            <li>
+                <a href="{% url 'diligencias:detalhe' item.pk %}">{{ item.identificador }}</a>
+                · {{ item.get_situacao_display }} · {{ item.get_motivo_display }}
+            </li>
+            {% empty %}
+            <li>Nenhuma diligência aberta.</li>
+            {% endfor %}
+        </ul>
+    </article>
+
 {% elif aba == "linha-do-tempo" %}
     <ol class="list-group">
         {% for marco in linha_do_tempo %}

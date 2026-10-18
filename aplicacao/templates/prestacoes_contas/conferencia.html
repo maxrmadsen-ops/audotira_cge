@@ -1,0 +1,117 @@
+{% extends "base_autenticado.html" %}
+{% load moeda %}
+{% block titulo %}Conferência de despesas · {{ prestacao.numero_processo }}{% endblock %}
+{% block conteudo %}
+<header class="cabeca-processo">
+    <p class="trilho"><a href="{% url 'prestacoes_contas:lista' %}">Processos</a> / <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}?aba=plano">{{ prestacao.numero_processo }}</a> / Conferência</p>
+    <div class="d-flex justify-content-between flex-wrap gap-2 align-items-start">
+        <div>
+            <h1 class="h3">Conferência de despesas</h1>
+            <p class="mb-0">{{ prestacao.numero_processo }} · {{ prestacao.concedente|default:"Concedente não informado" }} · {{ prestacao.beneficiario|default:"Beneficiário não informado" }}</p>
+        </div>
+        <a class="btn btn-outline-primary btn-sm" href="{{ lista_url }}">Voltar à lista</a>
+    </div>
+</header>
+{% if not item %}
+    <article class="cartao"><p class="mb-0">Este plano não tem despesas previstas para conferir.</p></article>
+{% else %}
+<nav class="conferencia-nav" aria-label="Itens da conferência">
+    {% if anterior_url %}<a class="btn btn-outline-primary btn-sm" href="{{ anterior_url }}">Anterior</a>{% else %}<span class="btn btn-outline-primary btn-sm disabled">Anterior</span>{% endif %}
+    <strong>Item {{ indice }} de {{ total }}</strong>
+    <span class="{{ item.status_revisao|classe_revisao }}">{{ rotulo }}</span>
+    {% if proximo_url %}<a class="btn btn-outline-primary btn-sm" href="{{ proximo_url }}">Próximo</a>{% else %}<span class="btn btn-outline-primary btn-sm disabled">Próximo</span>{% endif %}
+</nav>
+<div class="conferencia">
+    <article class="cartao">
+        <p class="plano-kicker">Item {{ item.ordem }} · página {% if item.pagina %}{{ item.pagina }}{% else %}não indicada{% endif %}</p>
+        <h2>Dados extraídos</h2>
+        <dl class="plano-ficha plano-ficha-uma">
+            <div><dt>Descrição original</dt><dd>{{ item.descricao_original|default:item.descricao }}</dd></div>
+            <div><dt>Classificação orçamentária</dt><dd>{{ item.classificacao_orcamentaria|default:"Não identificada" }}</dd></div>
+            <div><dt>Tipo de despesa</dt><dd>{{ item.tipo_despesa|default:"Não identificado" }}</dd></div>
+            <div><dt>Recurso</dt><dd>{{ item.recurso|default:"Não identificado" }}</dd></div>
+            <div><dt>Unidade</dt><dd>{{ item.unidade|default:"Não identificada" }}</dd></div>
+            <div><dt>Quantidade</dt><dd>{% if item.quantidade != None %}{{ item.quantidade }}{% else %}Não identificada{% endif %}</dd></div>
+            <div><dt>Valor unitário</dt><dd>{{ item.valor_unitario|moeda_br }}</dd></div>
+            <div><dt>Valor total</dt><dd>{{ item.valor_previsto|moeda_br }}</dd></div>
+            <div><dt>Natureza sugerida</dt><dd>{{ item.get_natureza_display }}</dd></div>
+            <div><dt>Trecho</dt><dd>{{ item.trecho|default:"Não indicado" }}</dd></div>
+        </dl>
+        {% if item.revisado_por %}
+            <p>Revisado por {{ item.revisado_por.username }} em {{ item.revisado_em|date:"d/m/Y H:i" }}.</p>
+        {% endif %}
+        {% if pode_alterar %}
+            <div class="conferencia-acoes">
+                <form method="post" action="{{ url_revisao }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="confirmar_item">
+                    <input type="hidden" name="item_id" value="{{ item.pk }}">
+                    <input type="hidden" name="retorno" value="conferencia">
+                    <button class="btn btn-primary btn-sm" type="submit">Confirmar</button>
+                </form>
+                {% if item.status_revisao == "aguardando_validacao" %}
+                    {% if proximo_url %}
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ proximo_url }}">Manter pendente</a>
+                    {% else %}
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ lista_url }}">Manter pendente</a>
+                    {% endif %}
+                {% endif %}
+            </div>
+            <details class="plano-correcao">
+                <summary>Corrigir este item</summary>
+                <form method="post" action="{{ url_revisao }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="corrigir_item">
+                    <input type="hidden" name="item_id" value="{{ item.pk }}">
+                    <input type="hidden" name="retorno" value="conferencia">
+                    <textarea class="form-control mb-1" name="descricao" rows="3">{{ item.descricao }}</textarea>
+                    <input class="form-control mb-1" name="classificacao_orcamentaria" value="{{ item.classificacao_orcamentaria }}" placeholder="Classificação">
+                    <input class="form-control mb-1" name="tipo_despesa" value="{{ item.tipo_despesa }}" placeholder="Tipo de despesa">
+                    <input class="form-control mb-1" name="recurso" value="{{ item.recurso }}" placeholder="Recurso">
+                    <input class="form-control mb-1" name="unidade" value="{{ item.unidade }}" placeholder="Unidade">
+                    <input class="form-control mb-1" name="quantidade" value="{{ item.quantidade|default_if_none:'' }}" placeholder="Quantidade">
+                    <input class="form-control mb-1" name="valor_unitario" value="{{ item.valor_unitario|default_if_none:'' }}" placeholder="Valor unitário">
+                    <input class="form-control mb-1" name="valor_previsto" value="{{ item.valor_previsto|default_if_none:'' }}" placeholder="Valor total">
+                    <select class="form-select mb-1" name="natureza">
+                        {% for codigo, rotulo_natureza in naturezas %}
+                            <option value="{{ codigo }}" {% if item.natureza == codigo %}selected{% endif %}>{{ rotulo_natureza }}</option>
+                        {% endfor %}
+                    </select>
+                    <textarea class="form-control mb-1" name="justificativa" rows="2" required placeholder="Justificativa da correção"></textarea>
+                    <button class="btn btn-outline-primary btn-sm" type="submit">Salvar correção</button>
+                </form>
+            </details>
+            <details class="plano-correcao">
+                <summary>Marcar como não correspondente</summary>
+                <form method="post" action="{{ url_revisao }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="acao" value="rejeitar_item">
+                    <input type="hidden" name="item_id" value="{{ item.pk }}">
+                    <input type="hidden" name="retorno" value="conferencia">
+                    <textarea class="form-control mb-1" name="justificativa" rows="2" required placeholder="Justificativa"></textarea>
+                    <button class="btn btn-outline-secondary btn-sm" type="submit">Registrar não correspondente</button>
+                </form>
+            </details>
+        {% endif %}
+    </article>
+    <article class="cartao plano-documento">
+        <div class="plano-linha-titulo">
+            <h2>Página do documento</h2>
+            {% if plano.documento_id %}
+                <a href="{% url 'documentos:arquivo' plano.documento.pk %}#page={{ pagina_pdf }}" target="_blank" rel="noopener">Abrir página {{ pagina_pdf }}</a>
+            {% endif %}
+        </div>
+        {% if mostrar_pdf %}
+            {% include "prestacoes_contas/_plano_pdf.html" %}
+        {% else %}
+            <p class="mb-0">Não há página de PDF vinculada a este item.</p>
+        {% endif %}
+    </article>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if mostrar_pdf %}
+    {% include "prestacoes_contas/_plano_pdf_script.html" %}
+{% endif %}
+{% endblock %}

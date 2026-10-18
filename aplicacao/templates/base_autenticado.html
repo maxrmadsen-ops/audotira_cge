@@ -17,7 +17,29 @@
             <button class="recolher-menu" type="button" aria-expanded="true" aria-controls="menu-principal" aria-label="Recolher menu">‹</button>
         </div>
         <div class="menu-lista">
-            {% for codigo, rotulo_grupo in grupos_menu %}
+            {% if processo_menu %}
+                <div class="processo-menu">
+                    <span class="processo-menu-kicker">Processo selecionado</span>
+                    <strong>{{ processo_menu.numero_processo }}</strong>
+                    <a href="{% url 'prestacoes_contas:lista' %}">Trocar processo</a>
+                </div>
+            {% endif %}
+            {% for codigo, rotulo_grupo, direto in grupos_menu %}
+                {% if direto %}
+                    {% for item in itens_menu %}
+                        {% if item.grupo == codigo %}
+                            <div class="item-menu item-menu-direto {% if item.ativo %}ativo{% endif %}">
+                                <a href="{{ item.url }}" title="{{ item.rotulo }}" {% if item.ativo %}aria-current="page"{% endif %}>
+                                    {% include "componentes/icone.html" with nome=item.identificador %}
+                                    <span>{{ item.rotulo }}</span>
+                                    {% if item.contagem %}<span class="badge-menu">{{ item.contagem }}</span>{% endif %}
+                                    {% if item.futuro %}<span class="selo-menu">Etapa futura</span>{% elif not item.disponivel %}<span class="selo-menu">Em preparação</span>{% endif %}
+                                </a>
+                                {% if item.descricao %}<button class="info-menu" type="button" title="{{ item.descricao }}" aria-label="{{ item.descricao }}">i</button>{% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
                 <details class="grupo-menu-bloco" {% for item in itens_menu %}{% if item.grupo == codigo and item.ativo %}open{% endif %}{% endfor %}>
                     <summary>{{ rotulo_grupo }}</summary>
                     {% for item in itens_menu %}
@@ -27,14 +49,20 @@
                                     {% include "componentes/icone.html" with nome=item.identificador %}
                                     <span>{{ item.rotulo }}</span>
                                     {% if item.contagem %}<span class="badge-menu">{{ item.contagem }}</span>{% endif %}
-                                    {% if not item.disponivel %}<span class="selo-menu">Em preparação</span>{% endif %}
+                                    {% if item.futuro %}<span class="selo-menu">Etapa futura</span>{% elif not item.disponivel %}<span class="selo-menu">Em preparação</span>{% endif %}
                                 </a>
                                 {% if item.descricao %}<button class="info-menu" type="button" title="{{ item.descricao }}" aria-label="{{ item.descricao }}">i</button>{% endif %}
                             </div>
                         {% endif %}
                     {% endfor %}
                 </details>
+                {% endif %}
             {% endfor %}
+            {% if campos_filtro and not processo_menu %}
+                <div class="menu-filtros">
+                    {% include "painel/_filtros.html" %}
+                </div>
+            {% endif %}
         </div>
         <div class="menu-usuario">
             <span class="avatar" aria-hidden="true">{{ user.username|slice:":2"|upper }}</span>

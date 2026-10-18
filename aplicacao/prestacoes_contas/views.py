@@ -50,6 +50,7 @@ ABAS = (
     ("achados", "Achados"),
     ("pre-analise", "Pré-Análise"),
     ("avaliacao", "Avaliação"),
+    ("diligencias", "Diligências"),
 )
 ABAS_PREPARADAS = set()
 PERFIS_ALTERACAO = (
@@ -164,6 +165,19 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
         aba = request.GET.get("aba", "geral")
         if aba not in {codigo for codigo, _ in ABAS}:
             aba = "geral"
+        if aba == "plano" and request.GET.get("secao") == "despesas" and request.GET.get("item"):
+            plano = prestacao.planos.order_by("versao", "id").first()
+            pedido = request.GET.get("plano")
+            if pedido and str(pedido).isdigit():
+                escolhido = prestacao.planos.filter(pk=int(pedido)).first()
+                if escolhido is not None:
+                    plano = escolhido
+            if plano is not None:
+                destino = reverse(
+                    "prestacoes_contas:conferencia_despesas",
+                    kwargs={"pk": prestacao.pk, "plano_pk": plano.pk},
+                )
+                return redirect(f"{destino}?item={request.GET.get('item')}")
         return render(request, "prestacoes_contas/detalhe.html", self._contexto(request, prestacao, aba))
 
     def _prestacao(self, pk):
