@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from unittest import mock
 
@@ -26,10 +27,33 @@ class TesteReleaseOnda10(SimpleTestCase):
 
     def test_compose_nao_publica_banco_nem_redis(self):
         texto = (RAIZ / "docker-compose.yml").read_text(encoding="utf-8")
-        self.assertEqual(texto.count("cge_aplicacao:onda10-rc1"), 3)
         self.assertNotIn("5432:", texto)
         self.assertNotIn("6379:", texto)
         self.assertNotIn(":latest", texto)
+        imagens_poc = re.findall(r"image:\s*cge_aplicacao:poc\b", texto)
+        imagens_onda = re.findall(r"image:\s*(cge_aplicacao:onda\d+-rc\d+)\b", texto)
+        if "name: cge_poc" in texto:
+            self.assertNotRegex(texto, r"(?m)^name: cge$")
+            self.assertEqual(imagens_poc, ["image: cge_aplicacao:poc"] * 3)
+            self.assertEqual(imagens_onda, [])
+            self.assertIn("Não usar no diretório /max/auditoria_cge.", texto)
+            self.assertIn("127.0.0.1:8008:80", texto)
+            self.assertIn("--concurrency=1", texto)
+            self.assertNotIn("--concurrency=2", texto)
+        else:
+            self.assertRegex(texto, r"(?m)^name: cge$")
+            self.assertNotIn("name: cge_poc", texto)
+            self.assertEqual(imagens_poc, [])
+            self.assertEqual(len(imagens_onda), 3)
+            self.assertEqual(len(set(imagens_onda)), 1)
+            self.assertNotIn("127.0.0.1:8008:80", texto)
+            self.assertIn("--concurrency=2", texto)
+            self.assertNotIn("--concurrency=1", texto)
+        script = RAIZ / "scripts" / "atualizar_poc.sh"
+        if script.exists():
+            protecao = script.read_text(encoding="utf-8")
+            self.assertIn('if [ "$raiz" = "/max/auditoria_cge" ]', protecao)
+            self.assertIn("name: cge_poc", protecao)
 
     def test_exemplo_de_ambiente_sem_segredo(self):
         texto = (RAIZ / ".env.example").read_text(encoding="utf-8")
