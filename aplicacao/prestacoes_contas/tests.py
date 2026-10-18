@@ -223,8 +223,8 @@ class TesteInterfaceEPermissoes(BaseDominio):
         self.assertContains(lista, prestacao.numero_processo)
         self.assertNotContains(lista, "Nova prestação")
         detalhe = self.client.get(reverse("prestacoes_contas:detalhe", kwargs={"pk": prestacao.pk}))
-        self.assertContains(detalhe, "Visão Geral")
-        self.assertContains(detalhe, "Linha do Tempo")
+        self.assertContains(detalhe, "Identificação da Parceria")
+        self.assertContains(detalhe, "Linha do tempo")
         self.assertContains(detalhe, "FinOps")
         self.assertEqual(self.client.get(reverse("prestacoes_contas:nova")).status_code, 403)
         self.assertEqual(
