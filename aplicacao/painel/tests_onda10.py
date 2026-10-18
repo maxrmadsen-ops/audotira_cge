@@ -12,8 +12,8 @@ class TesteReleaseOnda10(SimpleTestCase):
     def test_versao_da_release(self):
         from aplicacao.configuracao.versao import ONDA_ATUAL, VERSAO_APLICACAO
 
-        self.assertEqual(VERSAO_APLICACAO, "1.0.0-rc1")
-        self.assertEqual(ONDA_ATUAL, 10)
+        self.assertEqual(VERSAO_APLICACAO, "onda12-rc2")
+        self.assertEqual(ONDA_ATUAL, 12)
 
     def test_cookie_seguro_exige_variavel(self):
         from aplicacao.configuracao.settings import cookies_seguros_habilitados, proxy_reverso_habilitado
@@ -78,17 +78,28 @@ class TesteReleaseOnda10(SimpleTestCase):
         self.assertEqual(CSRF_COOKIE_SAMESITE, "Lax")
 
     def test_entrada_usa_a_onda_corrente(self):
+        from aplicacao.configuracao.versao import ONDA_ATUAL, VERSAO_APLICACAO
+
         resposta = self.client.get("/entrar/")
         self.assertEqual(resposta.status_code, 200)
-        self.assertContains(resposta, "Versão 1.0.0-rc1")
-        self.assertContains(resposta, "Onda 10")
-        self.assertNotContains(resposta, "Onda 9")
+        self.assertContains(resposta, f"Versão {VERSAO_APLICACAO}")
+        self.assertContains(resposta, f"Onda {ONDA_ATUAL}")
+        self.assertNotContains(resposta, "Onda 10")
+        self.assertNotContains(resposta, "1.0.0-rc1")
         for relativo in (
+            "aplicacao/templates/base.html",
+            "aplicacao/templates/base_autenticado.html",
             "aplicacao/templates/painel/entrar.html",
-            "aplicacao/templates/painel/administracao.html",
-            "aplicacao/templates/inteligencia_artificial/consumo.html",
         ):
-            self.assertNotIn("Onda 9", (RAIZ / relativo).read_text(encoding="utf-8"))
+            texto = (RAIZ / relativo).read_text(encoding="utf-8")
+            self.assertNotIn("Onda 10", texto)
+            self.assertNotIn("1.0.0-rc1", texto)
+            self.assertIn("versao_aplicacao", texto)
+        for relativo in (
+            "aplicacao/templates/base_autenticado.html",
+            "aplicacao/templates/painel/entrar.html",
+        ):
+            self.assertIn("onda_atual", (RAIZ / relativo).read_text(encoding="utf-8"))
 
     def test_periodo_permanece_empilhado(self):
         html = (RAIZ / "aplicacao/templates/painel/_filtros.html").read_text(encoding="utf-8")
@@ -103,5 +114,8 @@ class TesteSaudeDaRelease(TestCase):
 
         nomes = {item.nome: item for item in coletar_saude()}
         self.assertEqual(nomes["Migrations"].estado, "Operacional")
-        self.assertIn("1.0.0-rc1", nomes["Aplicação Django"].detalhe)
+        from aplicacao.configuracao.versao import ONDA_ATUAL, VERSAO_APLICACAO
+
+        self.assertIn(VERSAO_APLICACAO, nomes["Aplicação Django"].detalhe)
+        self.assertIn(f"onda {ONDA_ATUAL}", nomes["Aplicação Django"].detalhe)
         self.assertEqual(nomes["Celery Beat"].estado, "Não verificado")
