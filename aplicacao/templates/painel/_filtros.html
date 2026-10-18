@@ -1,5 +1,5 @@
 <details class="filtros-recolhiveis" {% if filtros.ativos %}open{% endif %}>
-    <summary>Filtros</summary>
+    <summary>Filtros{% if filtros.ativos %} <span class="filtros-contagem">{{ filtros.ativos|length }}</span>{% endif %}</summary>
 <form class="filtros-painel cartao" method="get">
     <div class="filtros-cabeca">
         <h2>Filtros</h2>

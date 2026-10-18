@@ -1,6 +1,9 @@
-<section class="cartao grafico-painel">
-    <h2 class="h6">{{ grafico.titulo }}</h2>
-    {% if grafico.descricao %}<p class="small text-secondary">{{ grafico.descricao }}</p>{% endif %}
+<details class="cartao grafico-painel painel-bloco" open>
+    <summary>
+        <span>{{ grafico.titulo }}</span>
+        {% if grafico.descricao %}<small>{{ grafico.descricao }}</small>{% endif %}
+    </summary>
+    <div class="painel-bloco-corpo">
     {% if grafico.tem_dados and grafico.formato == "donut" %}
         <div class="donut-bloco">
             <svg class="donut" viewBox="0 0 36 36" role="img" aria-label="{{ grafico.titulo }}: {{ grafico.total }}">
@@ -34,4 +37,5 @@
     {% else %}
         <p class="estado-vazio mb-0">{{ grafico.vazio }}</p>
     {% endif %}
-</section>
+    </div>
+</details>

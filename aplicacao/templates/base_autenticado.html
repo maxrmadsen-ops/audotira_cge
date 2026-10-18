@@ -9,10 +9,13 @@
 <div class="layout-app">
     {% if request.GET.incorporado != "1" %}
     <nav id="menu-principal" class="menu-lateral collapse d-lg-flex py-2" aria-label="Menu principal">
-        <a class="marca-menu" href="{% url 'painel:inicio' %}">
-            <strong>CGE/SC</strong>
-            <small>Prestação de contas</small>
-        </a>
+        <div class="marca-menu-linha">
+            <a class="marca-menu" href="{% url 'painel:inicio' %}">
+                <strong>CGE/SC</strong>
+                <small>Prestação de contas</small>
+            </a>
+            <button class="recolher-menu" type="button" aria-expanded="true" aria-controls="menu-principal" aria-label="Recolher menu">‹</button>
+        </div>
         <div class="menu-lista">
             {% for codigo, rotulo_grupo in grupos_menu %}
                 <details class="grupo-menu-bloco" {% for item in itens_menu %}{% if item.grupo == codigo and item.ativo %}open{% endif %}{% endfor %}>
@@ -20,7 +23,7 @@
                     {% for item in itens_menu %}
                         {% if item.grupo == codigo %}
                             <div class="item-menu {% if item.ativo %}ativo{% endif %}">
-                                <a href="{{ item.url }}" {% if item.ativo %}aria-current="page"{% endif %}>
+                                <a href="{{ item.url }}" title="{{ item.rotulo }}" {% if item.ativo %}aria-current="page"{% endif %}>
                                     {% include "componentes/icone.html" with nome=item.identificador %}
                                     <span>{{ item.rotulo }}</span>
                                     {% if item.contagem %}<span class="badge-menu">{{ item.contagem }}</span>{% endif %}
@@ -67,4 +70,33 @@
     </main>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var nav = document.getElementById("menu-principal");
+    var botao = nav && nav.querySelector(".recolher-menu");
+    if (!nav || !botao) return;
+    function grupos(recolhido) {
+        nav.querySelectorAll("details").forEach(function (grupo) {
+            grupo.open = recolhido || !!grupo.querySelector(".ativo");
+        });
+    }
+    function aplicar(recolhido) {
+        nav.classList.toggle("recolhido", recolhido);
+        botao.setAttribute("aria-expanded", recolhido ? "false" : "true");
+        botao.setAttribute("aria-label", recolhido ? "Expandir menu" : "Recolher menu");
+        botao.textContent = recolhido ? "›" : "‹";
+        grupos(recolhido);
+    }
+    var guardado = false;
+    try { guardado = localStorage.getItem("cge-menu") === "recolhido"; } catch (erro) { guardado = false; }
+    aplicar(guardado);
+    botao.addEventListener("click", function () {
+        var recolhido = !nav.classList.contains("recolhido");
+        aplicar(recolhido);
+        try { localStorage.setItem("cge-menu", recolhido ? "recolhido" : "aberto"); } catch (erro) {}
+    });
+})();
+</script>
 {% endblock %}
