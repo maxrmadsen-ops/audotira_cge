@@ -4,14 +4,10 @@
 <div class="pagina-instrumento">
 <p class="trilho">
     <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
-    / <a href="{% url 'instrumentos:preparacao' prestacao.pk %}">Preparação da análise</a>
     / Base normativa
 </p>
 <h1 class="h3">Base Normativa</h1>
 <p class="small mb-2"><strong>Piloto: revisão humana obrigatória.</strong> A vigência não verificada não autoriza uso conclusivo da norma.</p>
-<div class="mapa-etapas-compacto">
-{% include "instrumentos/_navegacao_processo.html" %}
-</div>
 
 <p class="mensagem-base">{{ mensagem_base }}</p>
 <section class="resumo-base" aria-label="Resumo da base normativa">

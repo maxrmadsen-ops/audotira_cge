@@ -94,7 +94,10 @@ class TestePreparacaoInstrumento(TestCase):
         resposta = self.client.get(reverse("instrumentos:instrumento", kwargs={"pk": self.prestacao.pk}))
         self.assertEqual(resposta.status_code, 403)
         self.client.force_login(self.analista)
-        self.assertEqual(self.client.get(reverse("instrumentos:preparacao", kwargs={"pk": self.prestacao.pk})).status_code, 200)
+        self.assertRedirects(
+            self.client.get(reverse("instrumentos:preparacao", kwargs={"pk": self.prestacao.pk})),
+            reverse("prestacoes_contas:detalhe", kwargs={"pk": self.prestacao.pk}),
+        )
 
     def test_fluxo_de_validacao_preserva_extraido_e_audita(self):
         usos = UsoInteligenciaArtificial.objects.count()
@@ -202,7 +205,10 @@ class TestePreparacaoInstrumento(TestCase):
         termo.refresh_from_db()
         self.assertTrue(termo.congelado)
         self.client.force_login(self.admin)
-        self.assertEqual(self.client.get(reverse("instrumentos:preparacao", kwargs={"pk": self.prestacao.pk})).status_code, 200)
+        self.assertRedirects(
+            self.client.get(reverse("instrumentos:preparacao", kwargs={"pk": self.prestacao.pk})),
+            reverse("prestacoes_contas:detalhe", kwargs={"pk": self.prestacao.pk}),
+        )
 
     def test_upload_seleciona_sem_chamar_ia(self):
         self.client.force_login(self.analista)
@@ -310,8 +316,8 @@ class TestePreparacaoInstrumento(TestCase):
             self.assertContains(pagina, "Valor extraído pelo sistema")
             self.assertContains(pagina, "Valor validado pelo auditor")
             self.assertContains(pagina, "Situação da conferência")
-            self.assertContains(pagina, "Acompanhamento e análise das prestações")
-            self.assertContains(pagina, "Encerramento e parecer final")
+            self.assertContains(pagina, "Execução e Comprovação")
+            self.assertContains(pagina, "Análise Assistida")
             self.assertContains(pagina, "A prestação de contas não é concluída")
             self.assertContains(pagina, 'data-filtro-botao="pendentes"')
             self.assertContains(pagina, 'data-filtro-botao="divergentes"')

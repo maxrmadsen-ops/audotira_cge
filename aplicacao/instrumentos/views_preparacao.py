@@ -99,18 +99,7 @@ class _PreparacaoMixin:
 class PreparacaoAnaliseView(_PreparacaoMixin, View):
     def get(self, request, pk):
         prestacao = self._prestacao(request, pk)
-        preparacao = obter_preparacao(prestacao)
-        return render(
-            request,
-            "instrumentos/preparacao.html",
-            {
-                "prestacao": prestacao,
-                "preparacao": preparacao,
-                "passos_futuros": PASSOS_FUTUROS,
-                "navegacao": self._navegacao(prestacao, preparacao, "preparacao"),
-                "pode_preparar": pode_atuar_na_prestacao(request.user, prestacao),
-            },
-        )
+        return redirect("prestacoes_contas:detalhe", pk=prestacao.pk)
 
 
 class InstrumentoParceriaView(_PreparacaoMixin, View):

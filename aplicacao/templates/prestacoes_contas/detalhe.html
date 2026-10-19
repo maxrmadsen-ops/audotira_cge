@@ -1,25 +1,21 @@
 {% extends "base_autenticado.html" %}
+{% load moeda %}
 {% block titulo %}{{ prestacao.numero_processo }} · CGE{% endblock %}
 {% block conteudo %}
-<p class="trilho"><a href="{% url 'prestacoes_contas:lista' %}">Prestações de Contas</a> / {{ prestacao.numero_processo }}</p>
-<div class="d-flex justify-content-between flex-wrap gap-2 align-items-start">
-    <div>
-        <h1 class="h3">{{ prestacao.numero_processo }}</h1>
-        <p class="mb-0"><a href="{% url 'instrumentos:preparacao' prestacao.pk %}">Preparar instrumento da parceria</a></p>
-        {% if prestacao.demonstracao %}<p><span class="estado estado-aguardando">Dados de demonstração</span></p>{% endif %}
+<header class="cabeca-processo">
+    <p class="trilho"><a href="{% url 'prestacoes_contas:lista' %}">Processos</a> / {{ prestacao.numero_processo }}</p>
+    <div class="d-flex justify-content-between flex-wrap gap-2 align-items-start">
+        <div>
+            <h1 class="h3">{{ prestacao.numero_processo }}</h1>
+            <p class="mb-1">{{ prestacao.concedente|default:"Concedente não informado" }} · {{ prestacao.beneficiario|default:"Beneficiário não informado" }}</p>
+            <p class="mb-0">Situação: {{ prestacao.get_situacao_display }} · Fase: {{ prestacao.get_fase_display }}</p>
+            {% if prestacao.demonstracao %}<p class="mt-2 mb-0"><span class="estado estado-aguardando">Dados de demonstração</span></p>{% endif %}
+        </div>
+        {% if pode_alterar %}
+            <a class="btn btn-outline-primary btn-sm" href="{% url 'prestacoes_contas:editar' prestacao.pk %}">Editar</a>
+        {% endif %}
     </div>
-    {% if pode_alterar %}
-        <a class="btn btn-outline-primary btn-sm" href="{% url 'prestacoes_contas:editar' prestacao.pk %}">Editar</a>
-    {% endif %}
-</div>
-{% include "prestacoes_contas/_jornada.html" %}
-<ul class="nav nav-pills my-3 flex-wrap">
-    {% for codigo, rotulo in abas %}
-        <li class="nav-item">
-            <a class="nav-link {% if aba == codigo %}active{% endif %}" href="?aba={{ codigo }}">{{ rotulo }}</a>
-        </li>
-    {% endfor %}
-</ul>
+</header>
 
 {% if aba == "geral" %}
     <div class="row g-3">
@@ -65,45 +61,37 @@
                     </table>
                 </div>
             </article>
-            <article class="cartao mt-3" id="diligencias">
-                <h2>Diligências</h2>
-                <p class="texto-apoio mb-2">Solicitações formais vinculadas a este processo. A resposta do beneficiário nunca é inventada pelo sistema.</p>
-                {% if pode_alterar %}
-                    <p class="mb-2"><a class="btn btn-primary btn-sm" href="{% url 'diligencias:nova' prestacao.pk %}">Nova diligência</a></p>
-                {% endif %}
-                <ul class="mb-0">
-                    {% for item in diligencias %}
-                    <li>
-                        <a href="{% url 'diligencias:detalhe' item.pk %}">{{ item.identificador }}</a>
-                        · {{ item.get_situacao_display }} · {{ item.get_motivo_display }}
-                    </li>
-                    {% empty %}
-                    <li>Nenhuma diligência aberta.</li>
-                    {% endfor %}
-                </ul>
-            </article>
-            <article class="cartao mt-3">
-                <h2>Parecer final</h2>
-                <p class="texto-apoio mb-2">A sugestão de IA, quando houver, permanece separada da versão do analista e da versão final.</p>
-                <p class="mb-2"><a class="btn btn-outline-primary btn-sm" href="{% url 'pareceres:parecer_final' prestacao.pk %}">Abrir parecer final</a></p>
-                <ul class="mb-0">
-                    {% for item in pareceres_finais %}
-                    <li>v{{ item.versao }} · {{ item.get_status_display }} · {{ item.autor.username|default:"—" }}</li>
-                    {% empty %}
-                    <li>Nenhum parecer final elaborado.</li>
-                    {% endfor %}
-                </ul>
-            </article>
         </div>
         <div class="col-lg-5">
             <article class="cartao">
-                <h2>Previsto × executado</h2>
-                <p>Previsto: {% if prestacao.valor_previsto != None %}R$ {{ prestacao.valor_previsto }}{% else %}Não informado{% endif %}</p>
-                <p>Executado: {% if prestacao.valor_executado != None %}R$ {{ prestacao.valor_executado }}{% else %}Não informado{% endif %}</p>
-                <p class="mb-0">Diferença: {% if prestacao.diferenca_previsto_executado != None %}R$ {{ prestacao.diferenca_previsto_executado }}{% else %}Não calculável{% endif %}</p>
+                <h2>Valores do Plano de Trabalho</h2>
+                <p>Total previsto no Plano de Trabalho: {% if prestacao.valor_planejado != None %}{{ prestacao.valor_planejado|moeda_br }}{% else %}Não informado{% endif %}</p>
+                <p>Valor previsto com extração validada: {% if prestacao.valor_extracao_validada != None %}{{ prestacao.valor_extracao_validada|moeda_br }}{% else %}Nenhum item confirmado{% endif %}</p>
+                <p class="texto-apoio">Refere-se à conferência dos dados do Plano de Trabalho. Não representa execução ou comprovação financeira.</p>
+                <p>Execução financeira: Ainda não apurada</p>
+                <p class="mb-0">Despesas comprovadas: Ainda não apuradas</p>
             </article>
         </div>
     </div>
+{% elif aba == "diligencias" %}
+    <article class="cartao" id="diligencias">
+        <h2>Diligências</h2>
+        <p class="texto-apoio mb-2">Solicitações formais vinculadas a este processo. A resposta do beneficiário nunca é inventada pelo sistema. Esta tela não dispara diligência externa.</p>
+        {% if pode_alterar %}
+            <p class="mb-2"><a class="btn btn-primary btn-sm" href="{% url 'diligencias:nova' prestacao.pk %}">Nova diligência</a></p>
+        {% endif %}
+        <ul class="mb-0">
+            {% for item in diligencias %}
+            <li>
+                <a href="{% url 'diligencias:detalhe' item.pk %}">{{ item.identificador }}</a>
+                · {{ item.get_situacao_display }} · {{ item.get_motivo_display }}
+            </li>
+            {% empty %}
+            <li>Nenhuma diligência aberta.</li>
+            {% endfor %}
+        </ul>
+    </article>
+
 {% elif aba == "linha-do-tempo" %}
     <ol class="list-group">
         {% for marco in linha_do_tempo %}
@@ -139,13 +127,16 @@
         </details>
     {% endif %}
 {% elif aba == "financeiro" %}
+    <article class="cartao mb-3">
+        <p class="mb-0">A execução financeira e as despesas comprovadas ainda não foram apuradas. Os lançamentos abaixo, quando existirem, não fecham a prestação e não substituem essa apuração.</p>
+    </article>
     <div class="row g-3">
-        <div class="col-lg-6"><article class="cartao"><h2>Despesas</h2>{% for despesa in prestacao.despesas.all %}<p>{{ despesa.descricao|default:"Sem descrição" }} — {% if despesa.valor != None %}R$ {{ despesa.valor }}{% else %}valor não informado{% endif %}</p>{% empty %}<p>Nenhuma despesa.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Documentos fiscais</h2>{% for documento in prestacao.documentos_fiscais.all %}<p>{{ documento }}</p>{% empty %}<p>Nenhum documento fiscal.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Pagamentos</h2>{% for pagamento in prestacao.pagamentos.all %}<p>{{ pagamento }} {% if pagamento.valor != None %}— R$ {{ pagamento.valor }}{% endif %}</p>{% empty %}<p>Nenhum pagamento.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Movimentações</h2>{% for movimento in prestacao.movimentacoes.all %}<p>{{ movimento }}</p>{% empty %}<p>Nenhuma movimentação.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Contrapartidas</h2>{% for item in prestacao.contrapartidas.all %}<p>{{ item }}</p>{% empty %}<p>Nenhuma contrapartida.</p>{% endfor %}</article></div>
-        <div class="col-lg-6"><article class="cartao"><h2>Devoluções</h2>{% for item in prestacao.devolucoes.all %}<p>{{ item }}</p>{% empty %}<p>Nenhuma devolução.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Despesas</h2>{% for despesa in prestacao.despesas.all %}<p>{{ despesa.descricao|default:"Sem descrição" }} — {% if despesa.valor != None %}R$ {{ despesa.valor }}{% else %}valor não informado{% endif %}</p>{% empty %}<p>Ainda não apuradas.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Documentos fiscais</h2>{% for documento in prestacao.documentos_fiscais.all %}<p>{{ documento }}</p>{% empty %}<p>Ainda não apurados.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Pagamentos</h2>{% for pagamento in prestacao.pagamentos.all %}<p>{{ pagamento }} {% if pagamento.valor != None %}— R$ {{ pagamento.valor }}{% endif %}</p>{% empty %}<p>Ainda não apurados.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Movimentações</h2>{% for movimento in prestacao.movimentacoes.all %}<p>{{ movimento }}</p>{% empty %}<p>Ainda não apuradas.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Contrapartidas</h2>{% for item in prestacao.contrapartidas.all %}<p>{{ item }}</p>{% empty %}<p>Ainda não apuradas.</p>{% endfor %}</article></div>
+        <div class="col-lg-6"><article class="cartao"><h2>Devoluções</h2>{% for item in prestacao.devolucoes.all %}<p>{{ item }}</p>{% empty %}<p>Ainda não apuradas.</p>{% endfor %}</article></div>
     </div>
     {% if pode_alterar %}
         <form class="cartao mt-3" method="post" action="{% url 'prestacoes_contas:incluir_despesa' prestacao.pk %}">{% csrf_token %}<h2>Despesa</h2>{% include "prestacoes_contas/_campos.html" with form=form_despesa %}<button class="btn btn-primary btn-sm" type="submit">Incluir</button></form>

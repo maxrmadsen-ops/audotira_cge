@@ -5,16 +5,12 @@
 <div class="pagina-instrumento">
 <p class="trilho">
     <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
-    / <a href="{% url 'instrumentos:preparacao' prestacao.pk %}">Preparação da análise</a>
     / Instrumento da parceria
 </p>
 <h1 class="h3">Instrumento da Parceria</h1>
 <p class="small mb-2"><strong>Piloto: revisão humana obrigatória.</strong> Durante o piloto, os instrumentos são submetidos e validados manualmente.</p>
 
 <div class="topo-instrumento">
-    <div class="topo-macros">
-        {% include "instrumentos/_navegacao_processo.html" %}
-    </div>
     <aside class="cartao instrumento-analise" aria-label="Instrumento em análise">
         <h2 class="h6">Instrumento em análise</h2>
         <p class="mb-1"><strong>{% if termo %}{{ termo.identificacao_completa|default:"Instrumento em conferência" }}{% else %}Ainda não processado{% endif %}</strong></p>

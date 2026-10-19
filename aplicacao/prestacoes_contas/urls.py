@@ -22,6 +22,7 @@ from aplicacao.prestacoes_contas.views import (
 )
 from aplicacao.prestacoes_contas.revisao_lote import RevisaoLotePlanoView
 from aplicacao.prestacoes_contas.revisao_plano import RevisaoPlanoView
+from aplicacao.prestacoes_contas.conferencia_despesas import ConferenciaDespesasView, EtapaFuturaView
 
 app_name = "prestacoes_contas"
 
@@ -37,6 +38,8 @@ urlpatterns = [
     path("prestacoes/<int:pk>/plano/", IncluirPlanoView.as_view(), name="incluir_plano"),
     path("prestacoes/<int:pk>/planos/<int:plano_pk>/revisao/", RevisaoPlanoView.as_view(), name="revisao_plano"),
     path("prestacoes/<int:pk>/planos/<int:plano_pk>/revisao-lote/", RevisaoLotePlanoView.as_view(), name="revisao_lote_plano"),
+    path("prestacoes/<int:pk>/planos/<int:plano_pk>/conferencia/", ConferenciaDespesasView.as_view(), name="conferencia_despesas"),
+    path("prestacoes/<int:pk>/etapa/<slug:slug>/", EtapaFuturaView.as_view(), name="etapa_futura"),
     path("prestacoes/<int:pk>/itens/", IncluirItemView.as_view(), name="incluir_item"),
     path("prestacoes/<int:pk>/metas/", IncluirMetaView.as_view(), name="incluir_meta"),
     path("prestacoes/<int:pk>/parciais/", IncluirParcialView.as_view(), name="incluir_parcial"),

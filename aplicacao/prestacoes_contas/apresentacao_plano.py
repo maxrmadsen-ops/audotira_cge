@@ -190,6 +190,13 @@ def montar_contexto_plano(request, prestacao, plano) -> dict:
 
 
 def url_workspace(prestacao, plano, dados, acao: str = "") -> str:
+    if (dados.get("retorno") or "") == "conferencia":
+        item = dados.get("item_id") or dados.get("item") or ""
+        destino = reverse(
+            "prestacoes_contas:conferencia_despesas",
+            kwargs={"pk": prestacao.pk, "plano_pk": plano.pk},
+        )
+        return f"{destino}?item={item}" if item else destino
     secao = dados.get("retorno_secao") or dados.get("secao") or _secao_da_acao(acao)
     if secao not in SECOES:
         secao = "resumo"

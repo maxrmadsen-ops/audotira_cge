@@ -1,0 +1,38 @@
+{% load static %}
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}"></script>
+<script>
+(function () {
+    const tela = document.getElementById("plano-pdf-tela");
+    if (!tela || !window.pdfjsLib) return;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "{% static 'vendor/pdfjs/pdf.worker.min.js' %}";
+    const canvas = document.getElementById("plano-pdf-canvas");
+    const contexto = canvas.getContext("2d");
+    const rotulo = document.getElementById("plano-pdf-rotulo");
+    let documento = null;
+    let paginaAtual = parseInt(tela.dataset.pagina || "1", 10);
+    let escala = 1.15;
+    function desenhar(numero) {
+        documento.getPage(numero).then(function (pagina) {
+            const viewport = pagina.getViewport({ scale: escala });
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            pagina.render({ canvasContext: contexto, viewport: viewport });
+            paginaAtual = numero;
+            if (rotulo) rotulo.textContent = "Página " + numero + " de " + documento.numPages;
+        });
+    }
+    pdfjsLib.getDocument({ url: tela.dataset.arquivo, withCredentials: true }).promise.then(function (pdf) {
+        documento = pdf;
+        if (paginaAtual < 1 || paginaAtual > pdf.numPages) paginaAtual = 1;
+        desenhar(paginaAtual);
+    }).catch(function () {
+        if (rotulo) rotulo.textContent = "Não foi possível desenhar o PDF nesta página. Use o link para abri-lo em outra aba.";
+    });
+    document.getElementById("plano-pdf-anterior").addEventListener("click", function () {
+        if (documento && paginaAtual > 1) desenhar(paginaAtual - 1);
+    });
+    document.getElementById("plano-pdf-proxima").addEventListener("click", function () {
+        if (documento && paginaAtual < documento.numPages) desenhar(paginaAtual + 1);
+    });
+})();
+</script>

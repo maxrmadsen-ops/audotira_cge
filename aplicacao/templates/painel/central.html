@@ -20,7 +20,6 @@
 {% endif %}
 {% if aba_atual == "visao" %}
 <div class="cockpit">
-    {% include "painel/_filtros.html" %}
     <div class="visao-principal">
         {% include "painel/_kpis.html" %}
         <div class="visao-meio">
@@ -99,7 +98,6 @@
 </div>
 {% else %}
 <div class="aba-grade">
-    <aside class="coluna-filtros">{% include "painel/_filtros.html" %}</aside>
     <div>
         {% if painel.avisos %}
             {% for aviso in painel.avisos %}<p class="aviso-painel">{{ aviso }}</p>{% endfor %}
