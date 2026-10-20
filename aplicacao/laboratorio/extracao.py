@@ -136,7 +136,7 @@ def _nome_trabalhador(texto: str) -> str:
         "MARIA ROSALINA",
     }
     for padrao in padroes:
-        for achado in re.finditer(padrao, texto or ""):
+        for achado in re.finditer(padrao, texto or "", flags=re.IGNORECASE):
             nome = re.sub(r"\s+", " ", achado.group(1)).strip(" :-|")
             if any(bloco in nome.upper() for bloco in bloqueados):
                 continue
