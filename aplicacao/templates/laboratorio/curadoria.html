@@ -1,0 +1,242 @@
+{% extends "base_autenticado.html" %}
+{% load static laboratorio_tags %}
+{% block titulo %}Curadoria · página {{ pagina.numero_fisico }}{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / <a href="{% url 'laboratorio:processo' prestacao.pk %}">Laboratório</a>
+    / <a href="{% url 'laboratorio:lote' lote.pk %}">Inventário</a>
+    / Curadoria
+</p>
+<div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h1 class="h3">Curadoria documental</h1>
+        <p class="texto-apoio mb-0">
+            Processo parcial {{ lote.numero_processo_parcial }} · página física {{ pagina.numero_fisico }}
+            {% if pagina.numero_impresso %}· impressa {{ pagina.numero_impresso }}{% endif %}
+            · proveniência {{ pagina.proveniencia }}
+        </p>
+        <p class="texto-apoio mb-0">
+            Estados distintos: classificação · extração · vínculo · regra · despesa.
+            Nenhuma destas etapas aprova a prestação de contas.
+        </p>
+    </div>
+    <div class="laboratorio-nav">
+        {% if pagina.numero_fisico > 1 %}
+        <a class="btn btn-outline-secondary btn-sm" href="?pagina={{ pagina.numero_fisico|add:'-1' }}">Anterior</a>
+        {% endif %}
+        <form class="d-inline-flex gap-1 align-items-center" method="get">
+            <label class="small" for="pagina-ir">Página</label>
+            <input class="form-control form-control-sm" id="pagina-ir" name="pagina" type="number" min="1" max="{{ total_paginas }}" value="{{ pagina.numero_fisico }}" style="width:5rem">
+            <button class="btn btn-outline-secondary btn-sm" type="submit">Ir</button>
+        </form>
+        {% if pagina.numero_fisico < total_paginas %}
+        <a class="btn btn-outline-secondary btn-sm" href="?pagina={{ pagina.numero_fisico|add:'1' }}">Próxima</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="laboratorio-curadoria">
+    <section class="cartao">
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-anterior">Anterior</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-proxima">Próxima</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-menos">−</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-mais">+</button>
+        </div>
+        <div class="laboratorio-visor" id="laboratorio-visor" data-arquivo="{{ arquivo_url }}" data-pagina="{{ pagina.numero_fisico }}">
+            <canvas id="pdf-canvas"></canvas>
+            <div id="regioes-overlay" class="regioes-overlay" aria-hidden="true">
+                {% for regiao in regioes %}
+                <div class="regiao-box" style="left:{{ regiao.x|pct }}%;top:{{ regiao.y|pct }}%;width:{{ regiao.largura|pct }}%;height:{{ regiao.altura|pct }}%;" title="{{ regiao.tipo_documental|tipo_documental }}"></div>
+                {% endfor %}
+            </div>
+        </div>
+        <p class="texto-apoio mt-2 mb-0">
+            Técnica: {{ pagina.get_tecnica_utilizada_display|default:pagina.tecnica_recomendada }}
+            · qualidade {{ pagina.get_qualidade_extracao_display }}
+            · {{ pagina.quantidade_caracteres }} caracteres
+        </p>
+        {% if pagina.trecho_amostra %}
+        <pre class="texto-extraido mt-2 mb-0">{{ pagina.trecho_amostra }}</pre>
+        {% endif %}
+        <form class="mt-2" method="post" action="{% url 'laboratorio:marcar_ilegivel' lote.pk pagina.pk %}">
+            {% csrf_token %}
+            {{ form_ilegivel.justificativa }}
+            <button class="btn btn-outline-secondary btn-sm mt-1" type="submit">Marcar ilegibilidade</button>
+        </form>
+    </section>
+
+    <section>
+        {% for regiao in regioes %}
+        <article class="cartao mb-3">
+            <h2 class="h5">Peça {{ regiao.ordem }} · {{ regiao.tipo_documental|tipo_documental }}</h2>
+            <p class="texto-apoio">
+                Detecção: {{ regiao.metodo_deteccao }}
+                {% if regiao.confianca %}· confiança {{ regiao.confianca }}{% endif %}
+                · {{ regiao.get_estado_classificacao_display }}
+                · {{ regiao.get_estado_revisao_display }}
+                · versão {{ regiao.versao_classificacao }}
+            </p>
+            <p class="texto-apoio">Coordenadas relativas: x={{ regiao.x }} y={{ regiao.y }} w={{ regiao.largura }} h={{ regiao.altura }}</p>
+            <form method="post" action="{% url 'laboratorio:revisar_regiao' lote.pk regiao.pk %}" class="row g-2 mb-3">
+                {% csrf_token %}
+                <div class="col-md-6">
+                    <label class="form-label">Tipo documental</label>
+                    <select class="form-select form-select-sm" name="tipo_documental">
+                        {% for codigo, rotulo in form_classificacao.fields.tipo_documental.choices %}
+                        <option value="{{ codigo }}" {% if codigo == regiao.tipo_documental %}selected{% endif %}>{{ rotulo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3"><label class="form-label">Y</label><input class="form-control form-control-sm" name="y" value="{{ regiao.y }}"></div>
+                <div class="col-md-3"><label class="form-label">Altura</label><input class="form-control form-control-sm" name="altura" value="{{ regiao.altura }}"></div>
+                <div class="col-12"><label class="form-label">Justificativa</label><textarea class="form-control form-control-sm" name="justificativa" rows="2"></textarea></div>
+                <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Confirmar ou corrigir classificação</button></div>
+            </form>
+
+            <h3 class="h6">Campos extraídos</h3>
+            {% for campo in regiao.campos.all %}
+            <div class="campo-extraido border-bottom py-2">
+                <div class="d-flex justify-content-between gap-2 flex-wrap">
+                    <strong>{{ campo.rotulo }}</strong>
+                    <span class="texto-apoio">{{ campo.get_estado_revisao_display }} · {{ campo.estado_confianca|default:"—" }}</span>
+                </div>
+                <p class="mb-1"><span class="texto-apoio">Original:</span> {{ campo.valor_original|default:"(ausente na evidência)" }}</p>
+                {% if campo.trecho_evidencia %}<p class="texto-apoio small mb-1">Evidência: {{ campo.trecho_evidencia }}</p>{% endif %}
+                <form method="post" action="{% url 'laboratorio:revisar_campo' lote.pk campo.pk %}" class="row g-1">
+                    {% csrf_token %}
+                    <div class="col-md-6"><textarea class="form-control form-control-sm" name="valor_original" rows="2">{{ campo.valor_original }}</textarea></div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" name="acao">
+                            <option value="confirmar">Confirmar</option>
+                            <option value="corrigir">Corrigir</option>
+                            <option value="ausente">Ausente</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3"><input class="form-control form-control-sm" name="justificativa" placeholder="Justificativa"></div>
+                    <div class="col-12"><button class="btn btn-sm btn-outline-secondary" type="submit">Registrar revisão do campo</button></div>
+                </form>
+            </div>
+            {% empty %}
+            <p class="texto-apoio">Nenhum campo materializado nesta peça.</p>
+            {% endfor %}
+        </article>
+        {% empty %}
+        <article class="cartao"><p class="mb-0">Nenhuma região nesta página.</p></article>
+        {% endfor %}
+
+        <article class="cartao mb-3">
+            <h2 class="h5">Vínculos sugeridos</h2>
+            {% for vinculo in vinculos %}
+            <div class="border-bottom py-2">
+                <p class="mb-1"><strong>{{ vinculo.tipo_vinculo }}</strong> · {{ vinculo.get_estado_display }}</p>
+                <p class="texto-apoio small mb-1">
+                    Origem p.{{ vinculo.origem.pagina.numero_fisico }} ({{ vinculo.origem.tipo_documental|tipo_documental }})
+                    → destino p.{{ vinculo.destino.pagina.numero_fisico }} ({{ vinculo.destino.tipo_documental|tipo_documental }})
+                </p>
+                <p class="texto-apoio small mb-1">Critérios: {{ vinculo.criterios }}</p>
+                {% if vinculo.divergencias %}<p class="texto-apoio small mb-1">Divergências: {{ vinculo.divergencias }}</p>{% endif %}
+                <form method="post" action="{% url 'laboratorio:revisar_vinculo' lote.pk vinculo.pk %}" class="row g-1">
+                    {% csrf_token %}
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" name="estado">
+                            {% for codigo, rotulo in form_vinculo.fields.estado.choices %}
+                            <option value="{{ codigo }}" {% if codigo == vinculo.estado %}selected{% endif %}>{{ rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5"><input class="form-control form-control-sm" name="justificativa" placeholder="Justificativa"></div>
+                    <div class="col-md-3"><button class="btn btn-sm btn-outline-secondary" type="submit">Atualizar vínculo</button></div>
+                </form>
+            </div>
+            {% empty %}
+            <p class="texto-apoio mb-0">Nenhum vínculo sugerido ainda neste lote.</p>
+            {% endfor %}
+        </article>
+
+        <article class="cartao mb-3">
+            <h2 class="h5">Pendências documentais</h2>
+            <form method="post" action="{% url 'laboratorio:criar_pendencia' lote.pk %}" class="mb-3">
+                {% csrf_token %}
+                <input type="hidden" name="pagina" value="{{ pagina.numero_fisico }}">
+                <div class="mb-2"><textarea class="form-control form-control-sm" name="motivo" rows="2" placeholder="Motivo" required></textarea></div>
+                <div class="mb-2"><textarea class="form-control form-control-sm" name="solicitacao_esclarecimento" rows="2" placeholder="Solicitação de esclarecimento (não dispara diligência)"></textarea></div>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" name="prioridade">
+                            {% for codigo, rotulo in form_pendencia.fields.prioridade.choices %}
+                            <option value="{{ codigo }}">{{ rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" name="status">
+                            {% for codigo, rotulo in form_pendencia.fields.status.choices %}
+                            <option value="{{ codigo }}">{{ rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4"><button class="btn btn-sm btn-outline-primary" type="submit">Registrar pendência</button></div>
+                </div>
+            </form>
+            {% for pendencia in pendencias %}
+            <p class="mb-1"><strong>{{ pendencia.get_prioridade_display }}</strong> · {{ pendencia.get_status_display }} — {{ pendencia.motivo }}</p>
+            {% empty %}
+            <p class="texto-apoio mb-0">Sem pendências abertas.</p>
+            {% endfor %}
+        </article>
+
+        <article class="cartao">
+            <h2 class="h5">Histórico de revisões</h2>
+            {% for revisao in revisoes %}
+            <p class="mb-1 small">{{ revisao.criado_em }} · {{ revisao.responsavel }} · {{ revisao.acao }} {% if revisao.justificativa %}— {{ revisao.justificativa }}{% endif %}</p>
+            {% empty %}
+            <p class="texto-apoio mb-0">Ainda sem revisões humanas neste lote.</p>
+            {% endfor %}
+        </article>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/pdfjs/pdf.min.js' %}"></script>
+<script>
+(function () {
+    var tela = document.getElementById("laboratorio-visor");
+    if (!tela || !window.pdfjsLib) return;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "{% static 'vendor/pdfjs/pdf.worker.min.js' %}";
+    var canvas = document.getElementById("pdf-canvas");
+    var ctx = canvas.getContext("2d");
+    var paginaAtual = Number(tela.dataset.pagina || 1);
+    var escala = 1.1;
+    var pdfDoc = null;
+    function desenhar(numero) {
+        return pdfDoc.getPage(numero).then(function (page) {
+            var viewport = page.getViewport({ scale: escala });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            return page.render({ canvasContext: ctx, viewport: viewport }).promise;
+        });
+    }
+    pdfjsLib.getDocument({ url: tela.dataset.arquivo, withCredentials: true }).promise.then(function (pdf) {
+        pdfDoc = pdf;
+        return desenhar(paginaAtual);
+    });
+    document.getElementById("pdf-anterior").addEventListener("click", function () {
+        if (paginaAtual <= 1) return;
+        window.location.search = "?pagina=" + (paginaAtual - 1);
+    });
+    document.getElementById("pdf-proxima").addEventListener("click", function () {
+        window.location.search = "?pagina=" + (paginaAtual + 1);
+    });
+    document.getElementById("pdf-menos").addEventListener("click", function () {
+        escala = Math.max(0.6, escala - 0.15);
+        if (pdfDoc) desenhar(paginaAtual);
+    });
+    document.getElementById("pdf-mais").addEventListener("click", function () {
+        escala = Math.min(2.4, escala + 0.15);
+        if (pdfDoc) desenhar(paginaAtual);
+    });
+})();
+</script>
+{% endblock %}

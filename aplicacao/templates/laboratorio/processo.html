@@ -1,0 +1,58 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Laboratório documental · {{ prestacao.numero_processo }}{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / Laboratório documental
+</p>
+<h1 class="h3">Laboratório de classificação documental</h1>
+<p class="texto-apoio">
+    Inventário, classificação por região, extração tipada e curadoria humana.
+    Classificação confirmada, extração confirmada e vínculo confirmado permanecem etapas distintas da análise de despesa e da aprovação da prestação.
+</p>
+
+<article class="cartao">
+    <h2>Lotes importados</h2>
+    {% if lotes %}
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Processo parcial</th>
+                <th>Instrumento</th>
+                <th>Páginas</th>
+                <th>SHA-256</th>
+                <th>Importado em</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lote in lotes %}
+            <tr>
+                <td>{{ lote.numero_processo_parcial }}</td>
+                <td>{{ lote.numero_instrumento|default:"—" }}</td>
+                <td>{{ lote.quantidade_paginas }}</td>
+                <td><code class="small">{{ lote.hash_sha256|slice:":16" }}…</code></td>
+                <td>{{ lote.importado_em }}</td>
+                <td class="text-nowrap">
+                    <a href="{% url 'laboratorio:lote' lote.pk %}">Inventário</a>
+                    · <a href="{% url 'laboratorio:curadoria' lote.pk %}">Curadoria</a>
+                    · <a href="{% url 'laboratorio:relatorio' lote.pk %}">Relatório</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="mb-0">Nenhum lote importado neste processo. A importação preserva o PDF original com hash SHA-256.</p>
+    {% endif %}
+</article>
+
+<article class="cartao mt-3">
+    <h2>Catálogo inicial de tipos</h2>
+    <ul class="mb-0">
+        {% for item in catalogo %}
+        <li><strong>{{ item.rotulo }}</strong> — {{ item.descricao }}</li>
+        {% endfor %}
+    </ul>
+</article>
+{% endblock %}

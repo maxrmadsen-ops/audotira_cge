@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "aplicacao.diligencias.apps.DiligenciasConfig",
     "aplicacao.avaliacao.apps.AvaliacaoConfig",
     "aplicacao.painel.apps.PainelConfig",
+    "aplicacao.laboratorio.apps.LaboratorioConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

@@ -16,6 +16,7 @@ urlpatterns = [
     path("", include("aplicacao.normas.urls")),
     path("", include("aplicacao.instrumentos.urls")),
     path("", include("aplicacao.documentos.urls")),
+    path("", include("aplicacao.laboratorio.urls")),
     path("", include("aplicacao.prestacoes_contas.urls")),
     path("", include("aplicacao.usuarios.urls")),
     path("", include("aplicacao.painel.urls")),

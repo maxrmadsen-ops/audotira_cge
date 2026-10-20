@@ -911,3 +911,30 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     .conferencia { grid-template-columns: 1fr; }
 }
 
+.laboratorio-curadoria {
+    display: grid;
+    grid-template-columns: minmax(18rem, 1.05fr) minmax(18rem, 0.95fr);
+    gap: 0.9rem;
+    align-items: start;
+}
+.laboratorio-nav { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+.laboratorio-visor {
+    position: relative;
+    overflow: auto;
+    border: 1px solid var(--cge-borda);
+    background: #f8faf9;
+    min-height: 28rem;
+}
+.laboratorio-visor canvas { display: block; max-width: 100%; height: auto; }
+.regioes-overlay { position: absolute; inset: 0; pointer-events: none; }
+.regiao-box {
+    position: absolute;
+    border: 2px solid rgba(31, 122, 77, 0.85);
+    background: rgba(47, 158, 100, 0.12);
+    box-sizing: border-box;
+}
+.campo-extraido:last-child { border-bottom: 0 !important; }
+@media (max-width: 991px) {
+    .laboratorio-curadoria { grid-template-columns: 1fr; }
+}
+

@@ -1,0 +1,74 @@
+{% extends "base_autenticado.html" %}
+{% load laboratorio_tags %}
+{% block titulo %}Relatório do laboratório · {{ lote.numero_processo_parcial }}{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / <a href="{% url 'laboratorio:processo' prestacao.pk %}">Laboratório</a>
+    / Relatório
+</p>
+<h1 class="h3">Relatório técnico do Ciclo 6.0</h1>
+<p class="texto-apoio">
+    Medição a partir do inventário real deste lote. Percentuais de precisão só entram após amostra revisada por humano.
+</p>
+
+<article class="cartao">
+    <h2>Identificação</h2>
+    <ul>
+        <li>Processo da parceria: {{ relatorio.processo_parceria }}</li>
+        <li>Processo parcial: {{ relatorio.processo_parcial }}</li>
+        <li>Instrumento: {{ relatorio.instrumento|default:"Conferência pendente" }}</li>
+        <li>SHA-256: <code>{{ relatorio.hash_sha256 }}</code></li>
+        <li>Duração do processamento: {% if relatorio.duracao_ms %}{{ relatorio.duracao_ms }} ms{% else %}Não registrada{% endif %}</li>
+    </ul>
+</article>
+
+<article class="cartao mt-3">
+    <h2>Cobertura</h2>
+    <ul>
+        <li>Páginas inventariadas: {{ relatorio.paginas_inventariadas }}</li>
+        <li>Páginas com candidato tipado: {{ relatorio.paginas_classificadas }}</li>
+        <li>Páginas com múltiplas peças: {{ relatorio.paginas_multiplas_pecas }}</li>
+        <li>Peças totais: {{ relatorio.pecas_total }}</li>
+        <li>Peças com classificação confirmada: {{ relatorio.pecas_confirmadas }}</li>
+        <li>Peças com revisão pendente: {{ relatorio.pecas_pendentes }}</li>
+        <li>Campos com valor extraído: {{ relatorio.campos_extraidos }}</li>
+        <li>Campos revisados: {{ relatorio.campos_revisados }}</li>
+        <li>Casos ilegíveis ou ambíguos (pendências abertas): {{ relatorio.ilegivel_ou_ambiguo }}</li>
+    </ul>
+</article>
+
+<article class="cartao mt-3">
+    <h2>Tipos documentais encontrados neste arquivo</h2>
+    {% if relatorio.tipos_encontrados %}
+    <ul>
+        {% for codigo, quantidade in relatorio.tipos_encontrados.items %}
+        <li>{{ codigo|tipo_documental }}: {{ quantidade }}</li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="mb-0">Nenhum tipo conclusivo materializado ainda. Contagens só incluem categorias efetivamente detectadas.</p>
+    {% endif %}
+</article>
+
+<article class="cartao mt-3">
+    <h2>Cobertura por técnica</h2>
+    <ul>
+        {% for tecnica, quantidade in relatorio.cobertura_tecnica.items %}
+        <li>{{ tecnica }}: {{ quantidade }}</li>
+        {% empty %}
+        <li>Sem técnica registrada.</li>
+        {% endfor %}
+    </ul>
+</article>
+
+<article class="cartao mt-3">
+    <h2>Limitações e próximos passos</h2>
+    <p>{{ relatorio.limitacoes|default:"Sem limitações adicionais registradas." }}</p>
+    <ul class="mb-0">
+        <li>Ciclo 6.1: aprofundar OCR seletivo nas páginas de amostra, tabelas e vínculos com o Plano de Trabalho após conferência humana.</li>
+        <li>Manter IA externa desligada até autorização e configuração segura.</li>
+        <li>Não emitir parecer nem julgar regularidade neste laboratório.</li>
+    </ul>
+</article>
+{% endblock %}

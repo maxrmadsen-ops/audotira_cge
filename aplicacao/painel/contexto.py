@@ -43,6 +43,8 @@ def _chave_navegacao(caminho: str, consulta) -> str:
         return "base"
     if "/conferencia/" in caminho:
         return "plano"
+    if "/laboratorio/" in caminho or re.match(r"^/prestacoes/\d+/laboratorio/?", caminho or ""):
+        return "laboratorio"
     if "/etapa/prestacoes-parciais/" in caminho:
         return "parciais"
     if "/etapa/prestacao-final/" in caminho:

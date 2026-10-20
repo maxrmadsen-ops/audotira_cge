@@ -1,0 +1,90 @@
+{% extends "base_autenticado.html" %}
+{% load laboratorio_tags %}
+{% block titulo %}Inventário · {{ lote.numero_processo_parcial }}{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / <a href="{% url 'laboratorio:processo' prestacao.pk %}">Laboratório</a>
+    / Inventário
+</p>
+<div class="d-flex justify-content-between flex-wrap gap-2">
+    <div>
+        <h1 class="h3">Inventário documental</h1>
+        <p class="mb-1">Processo parcial: <strong>{{ lote.numero_processo_parcial }}</strong></p>
+        <p class="mb-1">Processo da parceria: <strong>{{ prestacao.numero_processo }}</strong></p>
+        <p class="mb-1">Instrumento: <strong>{{ lote.numero_instrumento|default:"Conferência pendente" }}</strong>
+            · {{ lote.get_estado_conferencia_instrumento_display }}</p>
+        <p class="texto-apoio mb-0">SHA-256: <code>{{ lote.hash_sha256 }}</code> · {{ lote.tamanho_bytes }} bytes · {{ lote.quantidade_paginas }} páginas</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-start">
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratorio:curadoria' lote.pk %}">Abrir curadoria</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratorio:relatorio' lote.pk %}">Relatório</a>
+        <form method="post" action="{% url 'laboratorio:reprocessar' lote.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="motivo" value="Reprocessamento solicitado pela curadoria.">
+            <button class="btn btn-outline-secondary btn-sm" type="submit">Reprocessar localmente</button>
+        </form>
+    </div>
+</div>
+
+{% if lote.limitacoes %}
+<article class="cartao mt-3">
+    <h2>Limitações registradas</h2>
+    <p class="mb-0">{{ lote.limitacoes }}</p>
+</article>
+{% endif %}
+
+<article class="cartao mt-3">
+    <h2>Resumo</h2>
+    <div class="row g-2">
+        <div class="col-md-3"><strong>{{ relatorio.paginas_inventariadas }}</strong><br><span class="texto-apoio">páginas inventariadas</span></div>
+        <div class="col-md-3"><strong>{{ relatorio.paginas_classificadas }}</strong><br><span class="texto-apoio">páginas com candidato</span></div>
+        <div class="col-md-3"><strong>{{ relatorio.paginas_multiplas_pecas }}</strong><br><span class="texto-apoio">páginas com múltiplas peças</span></div>
+        <div class="col-md-3"><strong>{{ relatorio.pecas_total }}</strong><br><span class="texto-apoio">peças/regiões</span></div>
+    </div>
+</article>
+
+<article class="cartao mt-3">
+    <h2>Páginas</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>Física</th>
+                    <th>Impressa</th>
+                    <th>Candidatos</th>
+                    <th>Regiões</th>
+                    <th>Texto</th>
+                    <th>Qualidade</th>
+                    <th>Técnica</th>
+                    <th>Classificação</th>
+                    <th>Revisão</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pagina in paginas %}
+                <tr>
+                    <td>{{ pagina.numero_fisico }}</td>
+                    <td>{{ pagina.numero_impresso|default:"—" }}</td>
+                    <td class="small">
+                        {% if pagina.tipos_candidatos %}
+                            {% for tipo in pagina.tipos_candidatos %}{{ tipo|tipo_documental }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                        {% else %}
+                            Sem classificação conclusiva
+                        {% endif %}
+                    </td>
+                    <td>{{ pagina.quantidade_regioes }}</td>
+                    <td>{% if pagina.tem_texto_digital %}Digital{% else %}Imagem{% endif %}</td>
+                    <td>{{ pagina.get_qualidade_extracao_display }}</td>
+                    <td>{{ pagina.get_tecnica_utilizada_display|default:pagina.tecnica_recomendada }}</td>
+                    <td>{{ pagina.get_estado_classificacao_display }}</td>
+                    <td>{{ pagina.get_estado_revisao_display }}</td>
+                    <td><a href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ pagina.numero_fisico }}">Curar</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>
+{% endblock %}
