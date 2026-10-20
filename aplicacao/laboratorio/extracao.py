@@ -118,7 +118,7 @@ def _nome_trabalhador(texto: str) -> str:
         if len(candidato.split()) >= 2 and "APAE" not in candidato.upper():
             return candidato
     padroes = (
-        r"(?:nome\s+do\s+empregado|nome\s+do\s+funcion[aá]rio|funcion[aá]rio|empregado|trabalhador)\s*[:\-]?\s*([A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç .']{6,90})",
+        r"(?:nome\s+do\s+empregado|nome\s+do\s+funcion[aá]rio|funcion[aá]rio|empregado|trabalhador)\s*[:\-]?\s*([A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç .']{2,90})",
         r"\b([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}){2,5})\b",
     )
     bloqueados = {
