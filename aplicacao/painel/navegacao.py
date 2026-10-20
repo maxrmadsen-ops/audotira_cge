@@ -30,16 +30,16 @@ def grupos_para(prestacao) -> tuple[tuple[str, str, bool], ...]:
     if prestacao is None:
         return (
             ("painel", "Painel", True),
-            ("gestao", "Processos", False),
+            ("gestao", "Gestão", False),
             ("analise", "Análise", False),
             ("institucional", "Base Normativa Institucional", True),
             ("governanca", "Governança e configurações", False),
         )
     return (
         ("painel", "Painel", True),
-        ("gestao", "Processos", True),
-        ("preparacao", "Preparação da Parceria", False),
-        ("execucao", "Execução e Comprovação", False),
+        ("gestao", "Gestão", True),
+        ("preparacao", "Etapa de Preparação", False),
+        ("execucao", "Etapa de Execução", False),
         ("analise_processo", "Análise Assistida", False),
         ("fila", "Minha fila", True),
         ("institucional", "Base Normativa Institucional", True),
@@ -115,14 +115,14 @@ def _itens_do_processo(prestacao) -> list[ItemMenu]:
         return f"{detalhe}?aba={codigo}"
 
     return [
-        ItemMenu("Identificação da Parceria", aba("geral"), True, "prestacoes-de-contas", "preparacao", chave="geral", descricao="Identificação do processo, das entidades e do estado atual."),
+        ItemMenu("Identificação dos Envolvidos", aba("geral"), True, "prestacoes-de-contas", "preparacao", chave="geral", descricao="Concedente, beneficiário, instrumento e valores com proveniência."),
         ItemMenu("Instrumento", reverse("instrumentos:instrumento", kwargs={"pk": pk}), True, "documentos", "preparacao", chave="instrumento", descricao="Termo e campos extraídos. A conferência humana não é automática."),
         ItemMenu("Base Normativa", reverse("instrumentos:base_normativa", kwargs={"pk": pk}), True, "normas", "preparacao", chave="base", descricao="Normas vinculadas a este processo."),
         ItemMenu("Plano de Trabalho", aba("plano"), True, "documentos", "preparacao", chave="plano", descricao="Resumo, metas, despesas previstas, cronograma e documento original."),
         ItemMenu("Linha do tempo", aba("linha-do-tempo"), True, "painel", "preparacao", chave="linha", descricao="Histórico registrado deste processo."),
-        ItemMenu("Documentos", aba("documentos"), True, "documentos", "execucao", chave="documentos", descricao="Entrada e classificação dos PDFs deste processo. Não é a prestação de contas parcial."),
-        ItemMenu("Laboratório documental", reverse("laboratorio:processo", kwargs={"pk": pk}), True, "documentos", "execucao", chave="laboratorio", descricao="Inventário, classificação por região, extração tipada e curadoria da prestação parcial."),
-        ItemMenu("Prestações de Contas Parciais", reverse("prestacoes_contas:etapa_futura", kwargs={"pk": pk, "slug": "prestacoes-parciais"}), True, "pendencias", "execucao", chave="parciais", futuro=True, descricao="Etapa futura. O laboratório documental já recebe a amostra; esta etapa permanece sem workflow completo."),
+        ItemMenu("Documentos do Processo", aba("documentos"), True, "documentos", "execucao", chave="documentos", descricao="PDFs do processo, com acesso direto à classificação das páginas."),
+        ItemMenu("Classificação e Extração", reverse("laboratorio:processo", kwargs={"pk": pk}), True, "documentos", "execucao", chave="laboratorio", descricao="Inventário, classificação por região, extração tipada e conferência humana."),
+        ItemMenu("Prestações de Contas Parciais", reverse("prestacoes_contas:etapa_futura", kwargs={"pk": pk, "slug": "prestacoes-parciais"}), True, "pendencias", "execucao", chave="parciais", futuro=True, descricao="Etapa futura. A classificação das páginas já ocorre em Classificação e Extração."),
         ItemMenu("Financeiro", aba("financeiro"), True, "finops", "execucao", chave="financeiro", parcial=True, descricao="Registros já informados. A execução financeira ainda não foi apurada."),
         ItemMenu("Folha de pagamento", aba("folha"), True, "administracao", "execucao", chave="folha", descricao="Folha vinculada a este processo."),
         ItemMenu("Diligências", aba("diligencias"), True, "diligencia", "execucao", chave="diligencias", descricao="Diligências já registradas. Esta tela não dispara diligência externa."),

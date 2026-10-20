@@ -9,11 +9,12 @@ class FormularioAtribuicaoAnalista(forms.Form):
         queryset=Usuario.objects.none(),
         required=False,
         empty_label="Sem analista responsável",
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
     justificativa = forms.CharField(
         label="Justificativa",
         required=False,
-        widget=forms.Textarea(attrs={"rows": 3}),
+        widget=forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
     )
 
     def __init__(self, *args, **kwargs):

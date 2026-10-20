@@ -65,7 +65,7 @@ def _documento_para_atuar(request, pk):
 
 
 def contexto_aba(request, prestacao):
-    base = Documento.objects.ativos().filter(prestacao_contas=prestacao)
+    base = Documento.objects.ativos().filter(prestacao_contas=prestacao).select_related("lote_laboratorio")
     consulta = filtrar_documentos(base, request.GET)
     return {
         "documentos": consulta,

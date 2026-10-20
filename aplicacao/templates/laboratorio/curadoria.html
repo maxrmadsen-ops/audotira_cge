@@ -1,24 +1,23 @@
 {% extends "base_autenticado.html" %}
 {% load static laboratorio_tags %}
-{% block titulo %}Curadoria · página {{ pagina.numero_fisico }}{% endblock %}
+{% block titulo %}Conferência · página {{ pagina.numero_fisico }}{% endblock %}
 {% block conteudo %}
 <p class="trilho">
     <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
-    / <a href="{% url 'laboratorio:processo' prestacao.pk %}">Laboratório</a>
+    / <a href="{% url 'laboratorio:processo' prestacao.pk %}">Classificação e Extração</a>
     / <a href="{% url 'laboratorio:lote' lote.pk %}">Inventário</a>
-    / Curadoria
+    / Conferência
 </p>
 <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
     <div>
-        <h1 class="h3">Curadoria documental</h1>
+        <h1 class="h3">Conferência documental</h1>
         <p class="texto-apoio mb-0">
-            Processo parcial {{ lote.numero_processo_parcial }} · página física {{ pagina.numero_fisico }}
-            {% if pagina.numero_impresso %}· impressa {{ pagina.numero_impresso }}{% endif %}
-            · proveniência {{ pagina.proveniencia }}
+            <strong>{{ lote.documento.nome_original }}</strong>
+            · página física {{ pagina.numero_fisico }}{% if pagina.numero_impresso %} · impressa {{ pagina.numero_impresso }}{% endif %}
+            · {{ resumo_pagina }}
         </p>
         <p class="texto-apoio mb-0">
-            Estados distintos: classificação · extração · vínculo · regra · despesa.
-            Nenhuma destas etapas aprova a prestação de contas.
+            Classificação sugerida ≠ classificação confirmada ≠ extração confirmada ≠ despesa analisada ≠ prestação aprovada.
         </p>
     </div>
     <div class="laboratorio-nav">
@@ -38,105 +37,125 @@
 
 <div class="laboratorio-curadoria">
     <section class="cartao">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h2 class="h5 mb-0">PDF original</h2>
+            <span class="selo-pecas">{% if regioes %}{{ regioes|length }} peça{{ regioes|length|pluralize }}{% else %}Sem peça identificada{% endif %}</span>
+        </div>
         <div class="d-flex flex-wrap gap-2 mb-2">
-            <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-anterior">Anterior</button>
-            <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-proxima">Próxima</button>
             <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-menos">−</button>
             <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-mais">+</button>
         </div>
         <div class="laboratorio-visor" id="laboratorio-visor" data-arquivo="{{ arquivo_url }}" data-pagina="{{ pagina.numero_fisico }}">
             <canvas id="pdf-canvas"></canvas>
-            <div id="regioes-overlay" class="regioes-overlay" aria-hidden="true">
+            <div id="regioes-overlay" class="regioes-overlay">
                 {% for regiao in regioes %}
-                <div class="regiao-box" style="left:{{ regiao.x|pct }}%;top:{{ regiao.y|pct }}%;width:{{ regiao.largura|pct }}%;height:{{ regiao.altura|pct }}%;" title="{{ regiao.tipo_documental|tipo_documental }}"></div>
+                <a class="regiao-box {% if peca and peca.pk == regiao.pk %}regiao-ativa{% endif %}"
+                   href="?pagina={{ pagina.numero_fisico }}&peca={{ regiao.pk }}"
+                   style="left:{{ regiao.x|pct }}%;top:{{ regiao.y|pct }}%;width:{{ regiao.largura|pct }}%;height:{{ regiao.altura|pct }}%;"
+                   title="{{ regiao.tipo_documental|tipo_documental }}"></a>
                 {% endfor %}
             </div>
         </div>
         <p class="texto-apoio mt-2 mb-0">
             Técnica: {{ pagina.get_tecnica_utilizada_display|default:pagina.tecnica_recomendada }}
-            · qualidade {{ pagina.get_qualidade_extracao_display }}
-            · {{ pagina.quantidade_caracteres }} caracteres
+            · {{ pagina.get_qualidade_extracao_display }} · {{ pagina.quantidade_caracteres }} caracteres
         </p>
-        {% if pagina.trecho_amostra %}
-        <pre class="texto-extraido mt-2 mb-0">{{ pagina.trecho_amostra }}</pre>
-        {% endif %}
+        <p class="texto-apoio">O auditor seleciona a região superior ou inferior da página na lista à direita.</p>
         <form class="mt-2" method="post" action="{% url 'laboratorio:marcar_ilegivel' lote.pk pagina.pk %}">
             {% csrf_token %}
-            {{ form_ilegivel.justificativa }}
+            <textarea class="form-control form-control-sm" name="justificativa" rows="2" placeholder="Justificativa de ilegibilidade" required></textarea>
             <button class="btn btn-outline-secondary btn-sm mt-1" type="submit">Marcar ilegibilidade</button>
         </form>
     </section>
 
     <section>
-        {% for regiao in regioes %}
         <article class="cartao mb-3">
-            <h2 class="h5">Peça {{ regiao.ordem }} · {{ regiao.tipo_documental|tipo_documental }}</h2>
+            <h2 class="h5">Peças identificadas</h2>
+            {% if regioes %}
+            <ul class="lista-pecas">
+                {% for regiao in regioes %}
+                <li class="{% if peca and peca.pk == regiao.pk %}peca-ativa{% endif %}">
+                    <a href="?pagina={{ pagina.numero_fisico }}&peca={{ regiao.pk }}">
+                        <strong>Peça {{ regiao.ordem }} — {{ regiao.tipo_documental|tipo_documental }}</strong>
+                        <span class="texto-apoio d-block">
+                            {% if regiao.estado_classificacao == "confirmado" or regiao.estado_classificacao == "corrigido" %}
+                                Classificação confirmada
+                            {% else %}
+                                Tipo sugerido · revisão pendente
+                            {% endif %}
+                            · {{ regiao.metodo_deteccao }}
+                        </span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="texto-apoio mb-0">Nenhuma peça tipada nesta página. A página permanece inventariada como inconclusiva até haver evidência suficiente.</p>
+            {% endif %}
+        </article>
+
+        {% if peca %}
+        <article class="cartao mb-3">
+            <h2 class="h5">Conferência da peça {{ peca.ordem }}</h2>
+            <p class="mb-1"><strong>{{ peca.tipo_documental|tipo_documental }}</strong></p>
             <p class="texto-apoio">
-                Detecção: {{ regiao.metodo_deteccao }}
-                {% if regiao.confianca %}· confiança {{ regiao.confianca }}{% endif %}
-                · {{ regiao.get_estado_classificacao_display }}
-                · {{ regiao.get_estado_revisao_display }}
-                · versão {{ regiao.versao_classificacao }}
+                Estado: {{ peca.get_estado_classificacao_display }} · {{ peca.get_estado_revisao_display }}
+                · versão {{ peca.versao_classificacao }}
+                {% if peca.confianca %}· confiança {{ peca.confianca }}{% endif %}
             </p>
-            <p class="texto-apoio">Coordenadas relativas: x={{ regiao.x }} y={{ regiao.y }} w={{ regiao.largura }} h={{ regiao.altura }}</p>
-            <form method="post" action="{% url 'laboratorio:revisar_regiao' lote.pk regiao.pk %}" class="row g-2 mb-3">
+            <form method="post" action="{% url 'laboratorio:revisar_regiao' lote.pk peca.pk %}" class="row g-2 mb-3">
                 {% csrf_token %}
-                <div class="col-md-6">
+                <div class="col-md-8">
                     <label class="form-label">Tipo documental</label>
                     <select class="form-select form-select-sm" name="tipo_documental">
                         {% for codigo, rotulo in form_classificacao.fields.tipo_documental.choices %}
-                        <option value="{{ codigo }}" {% if codigo == regiao.tipo_documental %}selected{% endif %}>{{ rotulo }}</option>
+                        <option value="{{ codigo }}" {% if codigo == peca.tipo_documental %}selected{% endif %}>{{ rotulo }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3"><label class="form-label">Y</label><input class="form-control form-control-sm" name="y" value="{{ regiao.y }}"></div>
-                <div class="col-md-3"><label class="form-label">Altura</label><input class="form-control form-control-sm" name="altura" value="{{ regiao.altura }}"></div>
-                <div class="col-12"><label class="form-label">Justificativa</label><textarea class="form-control form-control-sm" name="justificativa" rows="2"></textarea></div>
-                <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Confirmar ou corrigir classificação</button></div>
+                <div class="col-md-4"><label class="form-label">Y relativo</label><input class="form-control form-control-sm" name="y" value="{{ peca.y }}"></div>
+                <div class="col-md-4"><label class="form-label">Altura</label><input class="form-control form-control-sm" name="altura" value="{{ peca.altura }}"></div>
+                <div class="col-md-8"><label class="form-label">Justificativa</label><textarea class="form-control form-control-sm" name="justificativa" rows="2" placeholder="Obrigatória ao corrigir"></textarea></div>
+                <div class="col-12">
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Confirmar ou corrigir classificação</button>
+                </div>
             </form>
 
             <h3 class="h6">Campos extraídos</h3>
-            {% for campo in regiao.campos.all %}
+            {% for campo in campos %}
             <div class="campo-extraido border-bottom py-2">
                 <div class="d-flex justify-content-between gap-2 flex-wrap">
                     <strong>{{ campo.rotulo }}</strong>
-                    <span class="texto-apoio">{{ campo.get_estado_revisao_display }} · {{ campo.estado_confianca|default:"—" }}</span>
+                    <span class="texto-apoio">{{ campo.get_estado_revisao_display }}</span>
                 </div>
-                <p class="mb-1"><span class="texto-apoio">Original:</span> {{ campo.valor_original|default:"(ausente na evidência)" }}</p>
-                {% if campo.trecho_evidencia %}<p class="texto-apoio small mb-1">Evidência: {{ campo.trecho_evidencia }}</p>{% endif %}
-                <form method="post" action="{% url 'laboratorio:revisar_campo' lote.pk campo.pk %}" class="row g-1">
+                <p class="mb-0"><span class="texto-apoio">Original:</span> {{ campo.valor_original|default:"(ausente na evidência)" }}</p>
+                {% if campo.valor_normalizado %}<p class="mb-0"><span class="texto-apoio">Normalizado:</span> {{ campo.valor_normalizado }}</p>{% endif %}
+                {% if campo.trecho_evidencia %}<p class="texto-apoio small mb-1">Evidência (pág. {{ campo.numero_pagina }}): {{ campo.trecho_evidencia }}</p>{% endif %}
+                <form method="post" action="{% url 'laboratorio:revisar_campo' lote.pk campo.pk %}" class="row g-1 mt-1">
                     {% csrf_token %}
-                    <div class="col-md-6"><textarea class="form-control form-control-sm" name="valor_original" rows="2">{{ campo.valor_original }}</textarea></div>
+                    <div class="col-md-5"><textarea class="form-control form-control-sm" name="valor_original" rows="2">{{ campo.valor_original }}</textarea></div>
                     <div class="col-md-3">
                         <select class="form-select form-select-sm" name="acao">
                             <option value="confirmar">Confirmar</option>
                             <option value="corrigir">Corrigir</option>
-                            <option value="ausente">Ausente</option>
+                            <option value="ausente">Ausente / pendente</option>
                         </select>
                     </div>
-                    <div class="col-md-3"><input class="form-control form-control-sm" name="justificativa" placeholder="Justificativa"></div>
-                    <div class="col-12"><button class="btn btn-sm btn-outline-secondary" type="submit">Registrar revisão do campo</button></div>
+                    <div class="col-md-4"><input class="form-control form-control-sm" name="justificativa" placeholder="Justificativa"></div>
+                    <div class="col-12"><button class="btn btn-sm btn-outline-secondary" type="submit">Registrar revisão</button></div>
                 </form>
             </div>
             {% empty %}
-            <p class="texto-apoio">Nenhum campo materializado nesta peça.</p>
+            <p class="texto-apoio">Nenhum campo estruturado útil nesta peça. A ausência permanece registrada sem preenchimento inventado.</p>
             {% endfor %}
         </article>
-        {% empty %}
-        <article class="cartao"><p class="mb-0">Nenhuma região nesta página.</p></article>
-        {% endfor %}
 
         <article class="cartao mb-3">
-            <h2 class="h5">Vínculos sugeridos</h2>
+            <h2 class="h5">Vínculos e pendências desta peça</h2>
             {% for vinculo in vinculos %}
             <div class="border-bottom py-2">
                 <p class="mb-1"><strong>{{ vinculo.tipo_vinculo }}</strong> · {{ vinculo.get_estado_display }}</p>
-                <p class="texto-apoio small mb-1">
-                    Origem p.{{ vinculo.origem.pagina.numero_fisico }} ({{ vinculo.origem.tipo_documental|tipo_documental }})
-                    → destino p.{{ vinculo.destino.pagina.numero_fisico }} ({{ vinculo.destino.tipo_documental|tipo_documental }})
-                </p>
                 <p class="texto-apoio small mb-1">Critérios: {{ vinculo.criterios }}</p>
-                {% if vinculo.divergencias %}<p class="texto-apoio small mb-1">Divergências: {{ vinculo.divergencias }}</p>{% endif %}
                 <form method="post" action="{% url 'laboratorio:revisar_vinculo' lote.pk vinculo.pk %}" class="row g-1">
                     {% csrf_token %}
                     <div class="col-md-4">
@@ -147,22 +166,19 @@
                         </select>
                     </div>
                     <div class="col-md-5"><input class="form-control form-control-sm" name="justificativa" placeholder="Justificativa"></div>
-                    <div class="col-md-3"><button class="btn btn-sm btn-outline-secondary" type="submit">Atualizar vínculo</button></div>
+                    <div class="col-md-3"><button class="btn btn-sm btn-outline-secondary" type="submit">Atualizar</button></div>
                 </form>
             </div>
             {% empty %}
-            <p class="texto-apoio mb-0">Nenhum vínculo sugerido ainda neste lote.</p>
+            <p class="texto-apoio">Nenhum vínculo sugerido para esta peça.</p>
             {% endfor %}
-        </article>
-
-        <article class="cartao mb-3">
-            <h2 class="h5">Pendências documentais</h2>
-            <form method="post" action="{% url 'laboratorio:criar_pendencia' lote.pk %}" class="mb-3">
+            <form method="post" action="{% url 'laboratorio:criar_pendencia' lote.pk %}" class="mt-2">
                 {% csrf_token %}
                 <input type="hidden" name="pagina" value="{{ pagina.numero_fisico }}">
-                <div class="mb-2"><textarea class="form-control form-control-sm" name="motivo" rows="2" placeholder="Motivo" required></textarea></div>
-                <div class="mb-2"><textarea class="form-control form-control-sm" name="solicitacao_esclarecimento" rows="2" placeholder="Solicitação de esclarecimento (não dispara diligência)"></textarea></div>
-                <div class="row g-2">
+                <input type="hidden" name="peca" value="{{ peca.pk }}">
+                <textarea class="form-control form-control-sm mb-1" name="motivo" rows="2" placeholder="Motivo da pendência" required></textarea>
+                <textarea class="form-control form-control-sm mb-1" name="solicitacao_esclarecimento" rows="2" placeholder="Solicitação de esclarecimento (não dispara diligência)"></textarea>
+                <div class="row g-1">
                     <div class="col-md-4">
                         <select class="form-select form-select-sm" name="prioridade">
                             {% for codigo, rotulo in form_pendencia.fields.prioridade.choices %}
@@ -181,20 +197,10 @@
                 </div>
             </form>
             {% for pendencia in pendencias %}
-            <p class="mb-1"><strong>{{ pendencia.get_prioridade_display }}</strong> · {{ pendencia.get_status_display }} — {{ pendencia.motivo }}</p>
-            {% empty %}
-            <p class="texto-apoio mb-0">Sem pendências abertas.</p>
+            <p class="mb-1 mt-2 small"><strong>{{ pendencia.get_prioridade_display }}</strong> · {{ pendencia.get_status_display }} — {{ pendencia.motivo }}</p>
             {% endfor %}
         </article>
-
-        <article class="cartao">
-            <h2 class="h5">Histórico de revisões</h2>
-            {% for revisao in revisoes %}
-            <p class="mb-1 small">{{ revisao.criado_em }} · {{ revisao.responsavel }} · {{ revisao.acao }} {% if revisao.justificativa %}— {{ revisao.justificativa }}{% endif %}</p>
-            {% empty %}
-            <p class="texto-apoio mb-0">Ainda sem revisões humanas neste lote.</p>
-            {% endfor %}
-        </article>
+        {% endif %}
     </section>
 </div>
 {% endblock %}
@@ -208,26 +214,24 @@
     var canvas = document.getElementById("pdf-canvas");
     var ctx = canvas.getContext("2d");
     var paginaAtual = Number(tela.dataset.pagina || 1);
-    var escala = 1.1;
+    var escala = 1.15;
     var pdfDoc = null;
+    var overlay = document.getElementById("regioes-overlay");
     function desenhar(numero) {
         return pdfDoc.getPage(numero).then(function (page) {
             var viewport = page.getViewport({ scale: escala });
             canvas.height = viewport.height;
             canvas.width = viewport.width;
+            if (overlay) {
+                overlay.style.width = viewport.width + "px";
+                overlay.style.height = viewport.height + "px";
+            }
             return page.render({ canvasContext: ctx, viewport: viewport }).promise;
         });
     }
     pdfjsLib.getDocument({ url: tela.dataset.arquivo, withCredentials: true }).promise.then(function (pdf) {
         pdfDoc = pdf;
         return desenhar(paginaAtual);
-    });
-    document.getElementById("pdf-anterior").addEventListener("click", function () {
-        if (paginaAtual <= 1) return;
-        window.location.search = "?pagina=" + (paginaAtual - 1);
-    });
-    document.getElementById("pdf-proxima").addEventListener("click", function () {
-        window.location.search = "?pagina=" + (paginaAtual + 1);
     });
     document.getElementById("pdf-menos").addEventListener("click", function () {
         escala = Math.max(0.6, escala - 0.15);

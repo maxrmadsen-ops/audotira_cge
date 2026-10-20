@@ -1,54 +1,55 @@
 {% extends "base_autenticado.html" %}
-{% block titulo %}Laboratório documental · {{ prestacao.numero_processo }}{% endblock %}
+{% block titulo %}Classificação e Extração · {{ prestacao.numero_processo }}{% endblock %}
 {% block conteudo %}
 <p class="trilho">
     <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
-    / Laboratório documental
+    / Classificação e Extração
 </p>
-<h1 class="h3">Laboratório de classificação documental</h1>
+<h1 class="h3">Classificação e Extração</h1>
 <p class="texto-apoio">
-    Inventário, classificação por região, extração tipada e curadoria humana.
-    Classificação confirmada, extração confirmada e vínculo confirmado permanecem etapas distintas da análise de despesa e da aprovação da prestação.
+    Inventário das páginas, classificação por região e conferência humana.
+    Inventariar não é classificar. Classificação sugerida, confirmada e inconclusiva são estados distintos.
+    Nenhuma confirmação desta etapa aprova a prestação de contas.
 </p>
 
-<article class="cartao">
-    <h2>Lotes importados</h2>
-    {% if lotes %}
-    <table class="table table-sm">
-        <thead>
-            <tr>
-                <th>Processo parcial</th>
-                <th>Instrumento</th>
-                <th>Páginas</th>
-                <th>SHA-256</th>
-                <th>Importado em</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for lote in lotes %}
-            <tr>
-                <td>{{ lote.numero_processo_parcial }}</td>
-                <td>{{ lote.numero_instrumento|default:"—" }}</td>
-                <td>{{ lote.quantidade_paginas }}</td>
-                <td><code class="small">{{ lote.hash_sha256|slice:":16" }}…</code></td>
-                <td>{{ lote.importado_em }}</td>
-                <td class="text-nowrap">
-                    <a href="{% url 'laboratorio:lote' lote.pk %}">Inventário</a>
-                    · <a href="{% url 'laboratorio:curadoria' lote.pk %}">Curadoria</a>
-                    · <a href="{% url 'laboratorio:relatorio' lote.pk %}">Relatório</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p class="mb-0">Nenhum lote importado neste processo. A importação preserva o PDF original com hash SHA-256.</p>
-    {% endif %}
+{% for item in itens %}
+<article class="cartao mb-3">
+    <div class="d-flex justify-content-between flex-wrap gap-2">
+        <div>
+            <h2 class="h5 mb-1">{{ item.lote.documento.nome_original }}</h2>
+            <p class="mb-1">Processo parcial: <strong>{{ item.lote.numero_processo_parcial }}</strong>
+                · Instrumento: <strong>{{ item.lote.numero_instrumento|default:"Conferência pendente" }}</strong></p>
+            <p class="texto-apoio mb-0">
+                ID interno {{ item.lote.documento_id }} · SHA-256 <code>{{ item.lote.hash_sha256|slice:":16" }}…</code>
+                · {{ item.lote.tamanho_bytes }} bytes · {{ item.lote.quantidade_paginas }} páginas
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-start">
+            <a class="btn btn-primary btn-sm" href="{% url 'laboratorio:lote' item.lote.pk %}">Abrir inventário</a>
+            <a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratorio:curadoria' item.lote.pk %}?pagina=17">Conferir página 17</a>
+            <a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratorio:relatorio' item.lote.pk %}">Relatório</a>
+        </div>
+    </div>
+    <div class="row g-2 mt-3">
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Inventariadas</span><strong>{{ item.relatorio.paginas_inventariadas }}</strong></article></div>
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Com candidato</span><strong>{{ item.relatorio.paginas_com_candidato }}</strong></article></div>
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Inconclusivas</span><strong>{{ item.relatorio.paginas_inconclusivas }}</strong></article></div>
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Múltiplas peças</span><strong>{{ item.relatorio.paginas_multiplas_pecas }}</strong></article></div>
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Peças identificadas</span><strong>{{ item.relatorio.pecas_identificadas }}</strong></article></div>
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Campos úteis</span><strong>{{ item.relatorio.campos_extraidos }}</strong></article></div>
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Classif. confirmada</span><strong>{{ item.relatorio.paginas_classificacao_confirmada }}</strong></article></div>
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Pendências</span><strong>{{ item.relatorio.pendencias_abertas }}</strong></article></div>
+    </div>
+    <p class="texto-apoio mt-2 mb-0">{{ item.relatorio.aviso_inventario }}</p>
 </article>
+{% empty %}
+<article class="cartao">
+    <p class="mb-0">Nenhum lote importado. Envie o PDF em Documentos do Processo e processe a classificação.</p>
+</article>
+{% endfor %}
 
 <article class="cartao mt-3">
-    <h2>Catálogo inicial de tipos</h2>
+    <h2>Catálogo de tipos</h2>
     <ul class="mb-0">
         {% for item in catalogo %}
         <li><strong>{{ item.rotulo }}</strong> — {{ item.descricao }}</li>

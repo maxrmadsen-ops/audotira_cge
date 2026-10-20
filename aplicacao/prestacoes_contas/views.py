@@ -247,6 +247,10 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             "fluxos": None,
             "form_funcionario": FormularioFuncionario(),
         }
+        if aba == "geral":
+            from aplicacao.prestacoes_contas.identificacao import montar_identificacao
+
+            contexto["identificacao"] = montar_identificacao(prestacao)
         if aba == "plano" and plano is not None:
             from aplicacao.prestacoes_contas.apresentacao_plano import montar_contexto_plano
 
@@ -255,6 +259,18 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             from aplicacao.documentos.views import contexto_aba
 
             contexto.update(contexto_aba(request, prestacao))
+            from aplicacao.laboratorio.models import LoteLaboratorio
+            from aplicacao.laboratorio.servico import montar_relatorio
+
+            lotes = list(
+                LoteLaboratorio.objects.filter(prestacao_parceria=prestacao)
+                .select_related("documento")
+                .order_by("-importado_em")
+            )
+            contexto["lotes_laboratorio"] = [
+                {"lote": lote, "relatorio": montar_relatorio(lote)} for lote in lotes
+            ]
+
         if aba == "analise":
             from aplicacao.regras.views import contexto_aba_analise
 

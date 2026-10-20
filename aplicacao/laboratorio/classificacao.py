@@ -59,27 +59,19 @@ def segmentar_regioes(texto: str, candidatos: list[dict]) -> list[dict]:
     """
     Heurística de segmentação vertical quando há múltiplos tipos na mesma página.
     Coordenadas são relativas (0–1) à página.
+    Página sem candidato tipado não gera peça placeholder.
     """
     if not candidatos:
-        return [
-            {
-                "tipo": "outros_nao_classificados",
-                "ordem": 1,
-                "x": 0.0,
-                "y": 0.0,
-                "largura": 1.0,
-                "altura": 1.0,
-                "metodo_deteccao": "pagina_inteira_inconclusiva",
-                "confianca": None,
-            }
-        ]
+        return []
     unicos = []
     vistos = set()
     for item in candidatos:
-        if item["tipo"] in vistos:
+        if item["tipo"] in vistos or item["tipo"] == "outros_nao_classificados":
             continue
         vistos.add(item["tipo"])
         unicos.append(item)
+    if not unicos:
+        return []
     if len(unicos) == 1:
         item = unicos[0]
         return [
@@ -92,8 +84,20 @@ def segmentar_regioes(texto: str, candidatos: list[dict]) -> list[dict]:
                 "altura": 1.0,
                 "metodo_deteccao": item["metodo"],
                 "confianca": item["confianca"],
+                "placeholder": False,
             }
         ]
+    # Ordena transferência acima do holerite quando ambos aparecem.
+    prioridade = {
+        "comprovante_transferencia": 0,
+        "holerite": 1,
+        "guia_fgts": 0,
+        "comprovante_fgts": 1,
+        "termo_rescisao": 0,
+        "termo_quitacao": 1,
+        "comunicacao_dispensa": 2,
+    }
+    unicos.sort(key=lambda item: prioridade.get(item["tipo"], 50))
     regioes = []
     altura = 1.0 / len(unicos)
     for indice, item in enumerate(unicos):
@@ -107,6 +111,7 @@ def segmentar_regioes(texto: str, candidatos: list[dict]) -> list[dict]:
                 "altura": round(altura, 4),
                 "metodo_deteccao": "segmentacao_heuristica_multipessa",
                 "confianca": item["confianca"],
+                "placeholder": False,
             }
         )
     return regioes

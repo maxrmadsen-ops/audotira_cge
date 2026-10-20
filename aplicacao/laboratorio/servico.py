@@ -6,7 +6,7 @@ import hashlib
 import time
 from pathlib import Path
 
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from aplicacao.auditoria.models import RegistroAuditoria
@@ -412,34 +412,61 @@ def _recomendar(pagina: dict) -> str:
 
 
 def montar_relatorio(lote: LoteLaboratorio) -> dict:
+    """Indicadores verificáveis. Inventário ≠ classificação integral."""
     paginas = list(lote.paginas.all())
-    regioes = list(lote.regioes.all())
-    campos = CampoExtraido.objects.filter(regiao__lote=lote)
+    regioes = list(
+        lote.regioes.exclude(tipo_documental="outros_nao_classificados").exclude(
+            metodo_deteccao="pagina_inteira_inconclusiva"
+        )
+    )
+    placeholders = lote.regioes.filter(
+        models.Q(tipo_documental="outros_nao_classificados")
+        | models.Q(metodo_deteccao="pagina_inteira_inconclusiva")
+    ).count()
+    campos = CampoExtraido.objects.filter(regiao__lote=lote, regiao__in=regioes)
+    campos_uteis = campos.exclude(valor_original="").exclude(chave="titulo").exclude(chave="observacao")
     tipos = {}
     for regiao in regioes:
         tipos[regiao.tipo_documental] = tipos.get(regiao.tipo_documental, 0) + 1
     multiplas = sum(1 for pagina in paginas if pagina.quantidade_regioes > 1)
-    classificadas = sum(
+    com_candidato = sum(1 for pagina in paginas if pagina.tipos_candidatos)
+    confirmadas = sum(
+        1 for pagina in paginas if pagina.estado_classificacao in {EstadoClassificacao.CONFIRMADO, EstadoClassificacao.CORRIGIDO}
+    )
+    inconclusivas = sum(
         1
         for pagina in paginas
-        if pagina.estado_classificacao in {EstadoClassificacao.PROPOSTO, EstadoClassificacao.CONFIRMADO, EstadoClassificacao.CORRIGIDO}
-        and pagina.tipos_candidatos
+        if not pagina.tipos_candidatos or pagina.estado_classificacao == EstadoClassificacao.INCONCLUSIVO
     )
+    revisadas = sum(1 for pagina in paginas if pagina.estado_revisao == EstadoRevisao.REVISADA)
+    pendentes_revisao = sum(1 for pagina in paginas if pagina.estado_revisao == EstadoRevisao.PENDENTE)
+    ilegiveis = sum(1 for pagina in paginas if pagina.estado_revisao == EstadoRevisao.ILEGIVEL or pagina.legibilidade == "ilegivel")
     por_tecnica = {}
     for pagina in paginas:
         chave = pagina.tecnica_utilizada or "indefinida"
         por_tecnica[chave] = por_tecnica.get(chave, 0) + 1
     return {
         "paginas_inventariadas": len(paginas),
-        "paginas_classificadas": classificadas,
+        "paginas_com_candidato": com_candidato,
+        "paginas_classificadas": com_candidato,
+        "paginas_classificacao_confirmada": confirmadas,
+        "paginas_inconclusivas": inconclusivas,
         "paginas_multiplas_pecas": multiplas,
+        "paginas_revisadas": revisadas,
+        "paginas_revisao_pendente": pendentes_revisao,
+        "paginas_ilegiveis": ilegiveis,
         "tipos_encontrados": tipos,
+        "pecas_identificadas": len(regioes),
+        "pecas_placeholder": placeholders,
         "pecas_total": len(regioes),
         "pecas_confirmadas": sum(1 for r in regioes if r.estado_classificacao == EstadoClassificacao.CONFIRMADO),
+        "pecas_sugeridas": sum(1 for r in regioes if r.estado_classificacao == EstadoClassificacao.PROPOSTO),
         "pecas_pendentes": sum(1 for r in regioes if r.estado_revisao == EstadoRevisao.PENDENTE),
-        "campos_extraidos": campos.exclude(valor_original="").count(),
+        "campos_extraidos": campos_uteis.count(),
+        "campos_confirmados": campos.filter(estado_revisao__in={EstadoCampo.CONFIRMADO, EstadoCampo.CORRIGIDO}).count(),
         "campos_revisados": campos.filter(estado_revisao__in={EstadoCampo.CONFIRMADO, EstadoCampo.CORRIGIDO}).count(),
         "ilegivel_ou_ambiguo": lote.pendencias.filter(status=StatusPendencia.ABERTA).count(),
+        "pendencias_abertas": lote.pendencias.filter(status=StatusPendencia.ABERTA).count(),
         "cobertura_tecnica": por_tecnica,
         "duracao_ms": lote.duracao_processamento_ms,
         "limitacoes": lote.limitacoes,
@@ -447,4 +474,9 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
         "processo_parceria": lote.prestacao_parceria.numero_processo,
         "instrumento": lote.numero_instrumento,
         "hash_sha256": lote.hash_sha256,
+        "nome_original": lote.documento.nome_original,
+        "aviso_inventario": (
+            "O inventário registra a existência das páginas. "
+            "Classificação tipada só conta páginas com candidato documental identificado."
+        ),
     }

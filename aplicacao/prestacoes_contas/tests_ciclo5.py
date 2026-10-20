@@ -95,7 +95,7 @@ class TesteCiclo5(TestCase):
 
     def test_jornada_abre_instrumento_normas_e_plano(self):
         resposta = self.client.get(reverse("prestacoes_contas:detalhe", kwargs={"pk": self.prestacao.pk}))
-        self.assertContains(resposta, "Identificação da Parceria")
+        self.assertContains(resposta, "Identificação dos Envolvidos")
         self.assertContains(resposta, reverse("instrumentos:instrumento", kwargs={"pk": self.prestacao.pk}))
         self.assertContains(resposta, reverse("instrumentos:base_normativa", kwargs={"pk": self.prestacao.pk}))
         self.assertContains(resposta, "?aba=plano")

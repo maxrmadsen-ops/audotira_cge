@@ -33,6 +33,29 @@
         <p class="small text-secondary mb-0 mt-2">O processamento ocorre em segundo plano. PDF com texto utilizável não passa por OCR. A classificação é revista depois, separada da origem do arquivo.</p>
     </form>
 {% endif %}
+{% if lotes_laboratorio %}
+<article class="cartao mb-3">
+    <h2>Classificação e Extração</h2>
+    <p class="texto-apoio">Acesso direto às páginas inventariadas dos PDFs já importados no laboratório. Não é necessário voltar ao menu.</p>
+    {% for item in lotes_laboratorio %}
+            <div class="border-bottom py-2">
+                <p class="mb-1"><strong>{{ item.lote.documento.nome_original }}</strong></p>
+                <p class="texto-apoio mb-1">
+                    {{ item.relatorio.paginas_inventariadas }} páginas ·
+                    {{ item.relatorio.paginas_com_candidato }} com candidato ·
+                    {{ item.relatorio.paginas_inconclusivas }} inconclusivas ·
+                    {{ item.relatorio.paginas_multiplas_pecas }} com múltiplas peças ·
+                    {{ item.relatorio.paginas_revisadas }} revisadas ·
+                    {{ item.relatorio.paginas_revisao_pendente }} pendentes ·
+                    {{ item.relatorio.paginas_ilegiveis }} com problema de legibilidade
+                </p>
+                <p class="texto-apoio mb-1">{{ item.relatorio.aviso_inventario }}</p>
+                <a class="btn btn-sm btn-primary" href="{% url 'laboratorio:lote' item.lote.pk %}">Abrir inventário</a>
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'laboratorio:curadoria' item.lote.pk %}?pagina=17">Conferir página 17</a>
+            </div>
+    {% endfor %}
+</article>
+{% endif %}
 {% include "documentos/_entrada.html" %}
 <form class="row g-2 mb-3" method="get">
     <input type="hidden" name="aba" value="documentos">
@@ -68,6 +91,11 @@
                     <td>
                         <a href="{% url 'documentos:detalhe' documento.pk %}">{{ documento.nome_original }}</a>
                         {% if documento.demonstracao %}<span class="estado estado-aguardando ms-1">Dados de demonstração</span>{% endif %}
+                        {% if documento.lote_laboratorio %}
+                        <div class="mt-1">
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'laboratorio:lote' documento.lote_laboratorio.pk %}">Abrir classificação das páginas</a>
+                        </div>
+                        {% endif %}
                     </td>
                     <td>{{ documento.get_tipo_documento_display }}</td>
                     <td>{{ documento.subtipo_documento|default:"—" }}</td>

@@ -316,7 +316,7 @@ class TestePreparacaoInstrumento(TestCase):
             self.assertContains(pagina, "Valor extraído pelo sistema")
             self.assertContains(pagina, "Valor validado pelo auditor")
             self.assertContains(pagina, "Situação da conferência")
-            self.assertContains(pagina, "Execução e Comprovação")
+            self.assertContains(pagina, "Etapa de Execução")
             self.assertContains(pagina, "Análise Assistida")
             self.assertContains(pagina, "A prestação de contas não é concluída")
             self.assertContains(pagina, 'data-filtro-botao="pendentes"')

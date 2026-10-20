@@ -21,21 +21,63 @@
     <div class="row g-3">
         <div class="col-lg-7">
             <article class="cartao">
-                <h2>Identificação</h2>
-                <p>Concedente: {{ prestacao.concedente|default:"Não informado" }}</p>
-                <p>Beneficiário: {{ prestacao.beneficiario|default:"Não informado" }}</p>
-                <p>Instrumento: {{ prestacao.numero_instrumento|default:"Não informado" }} {% if prestacao.tipo_instrumento %}· {{ prestacao.tipo_instrumento }}{% endif %}</p>
-                <p>Objeto: {{ prestacao.objeto|default:"Não informado" }}</p>
-                <p>Analista responsável: {% if prestacao.analista_responsavel %}{{ prestacao.analista_responsavel.username }}{% else %}Não atribuído{% endif %}</p>
-                <p class="mb-0">Situação: {{ prestacao.get_situacao_display }} · Fase: {{ prestacao.get_fase_display }}</p>
+                <h2>Identificação dos envolvidos</h2>
+                <p class="texto-apoio">Cadastro institucional e extração do instrumento são fontes distintas. Extração disponível não equivale a vínculo confirmado.</p>
+                <dl class="identificacao-lista">
+                    <dt>Concedente (cadastro)</dt>
+                    <dd>{% if identificacao.concedente_cadastro %}{{ identificacao.concedente_cadastro }}{% else %}Sem vínculo cadastral confirmado{% endif %}</dd>
+                    <dt>Concedente (extraído do termo)</dt>
+                    <dd>
+                        {% if identificacao.concedente_extraido and identificacao.concedente_extraido.nome %}
+                            {{ identificacao.concedente_extraido.nome }}
+                            <span class="selo-fonte">{{ identificacao.situacao_termo_rotulo }}</span>
+                        {% else %}
+                            Sem extração disponível no termo
+                        {% endif %}
+                    </dd>
+                    <dt>Beneficiário (cadastro)</dt>
+                    <dd>{% if identificacao.beneficiario_cadastro %}{{ identificacao.beneficiario_cadastro }}{% else %}Sem vínculo cadastral confirmado{% endif %}</dd>
+                    <dt>Beneficiário (extraído do termo)</dt>
+                    <dd>
+                        {% if identificacao.beneficiario_extraido and identificacao.beneficiario_extraido.nome %}
+                            {{ identificacao.beneficiario_extraido.nome }}
+                            <span class="selo-fonte">{{ identificacao.situacao_termo_rotulo }}</span>
+                        {% else %}
+                            Sem extração disponível no termo
+                        {% endif %}
+                    </dd>
+                    <dt>Instrumento</dt>
+                    <dd>
+                        {% if prestacao.numero_instrumento %}
+                            {{ prestacao.numero_instrumento }}{% if prestacao.tipo_instrumento %} · {{ prestacao.tipo_instrumento }}{% endif %}
+                        {% else %}
+                            Não localizado
+                        {% endif %}
+                    </dd>
+                    <dt>Objeto</dt>
+                    <dd>{{ prestacao.objeto|default:"Não informado no cadastro do processo" }}</dd>
+                    <dt>Analista responsável</dt>
+                    <dd>{% if prestacao.analista_responsavel %}{{ prestacao.analista_responsavel.username }}{% else %}Não atribuído{% endif %}</dd>
+                    <dt>Situação do processo</dt>
+                    <dd class="mb-0">{{ prestacao.get_situacao_display }} · {{ prestacao.get_fase_display }}</dd>
+                </dl>
             </article>
             {% if pode_distribuir %}
-            <article class="cartao mt-3">
+            <article class="cartao mt-3 distribuicao-processo">
                 <h2>Distribuição do processo</h2>
                 <p class="texto-apoio">Administrador e Auditor podem atribuir ou redistribuir o analista responsável. A troca fica no histórico e na trilha de auditoria.</p>
-                <form method="post" action="{% url 'prestacoes_contas:atribuir' prestacao.pk %}">
+                <form method="post" action="{% url 'prestacoes_contas:atribuir' prestacao.pk %}" class="form-distribuicao">
                     {% csrf_token %}
-                    {% include "prestacoes_contas/_campos.html" with form=form_atribuicao %}
+                    <div class="mb-2">
+                        <label class="form-label" for="{{ form_atribuicao.analista.id_for_label }}">{{ form_atribuicao.analista.label }}</label>
+                        {{ form_atribuicao.analista }}
+                        {% if form_atribuicao.analista.errors %}<div class="text-danger small">{{ form_atribuicao.analista.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="{{ form_atribuicao.justificativa.id_for_label }}">{{ form_atribuicao.justificativa.label }}</label>
+                        {{ form_atribuicao.justificativa }}
+                        {% if form_atribuicao.justificativa.errors %}<div class="text-danger small">{{ form_atribuicao.justificativa.errors|striptags }}</div>{% endif %}
+                    </div>
                     <button class="btn btn-primary btn-sm" type="submit">Salvar atribuição</button>
                 </form>
             </article>
@@ -65,8 +107,17 @@
         <div class="col-lg-5">
             <article class="cartao">
                 <h2>Valores do Plano de Trabalho</h2>
-                <p>Total previsto no Plano de Trabalho: {% if prestacao.valor_planejado != None %}{{ prestacao.valor_planejado|moeda_br }}{% else %}Não informado{% endif %}</p>
-                <p>Valor previsto com extração validada: {% if prestacao.valor_extracao_validada != None %}{{ prestacao.valor_extracao_validada|moeda_br }}{% else %}Nenhum item confirmado{% endif %}</p>
+                <p>Total previsto no Plano de Trabalho:
+                    {% if identificacao.valor_planejado != None %}
+                        {{ identificacao.valor_planejado|moeda_br }}
+                    {% elif identificacao.valor_global_plano != None %}
+                        {{ identificacao.valor_global_plano|moeda_br }}
+                    {% else %}
+                        Não informado
+                    {% endif %}
+                </p>
+                <p class="texto-apoio">Fonte: soma dos itens extraídos do Plano{% if identificacao.plano %} (versão {{ identificacao.plano.versao }}){% endif %}. Situação: {{ identificacao.situacao_plano_rotulo }}.</p>
+                <p>Valor previsto com extração validada: {% if identificacao.valor_extracao_validada != None %}{{ identificacao.valor_extracao_validada|moeda_br }}{% else %}Nenhum item confirmado{% endif %}</p>
                 <p class="texto-apoio">Refere-se à conferência dos dados do Plano de Trabalho. Não representa execução ou comprovação financeira.</p>
                 <p>Execução financeira: Ainda não apurada</p>
                 <p class="mb-0">Despesas comprovadas: Ainda não apuradas</p>

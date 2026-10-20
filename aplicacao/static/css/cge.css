@@ -925,16 +925,59 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     background: #f8faf9;
     min-height: 28rem;
 }
-.laboratorio-visor canvas { display: block; max-width: 100%; height: auto; }
-.regioes-overlay { position: absolute; inset: 0; pointer-events: none; }
+.laboratorio-visor canvas { display: block; max-width: none; height: auto; }
+.regioes-overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
 .regiao-box {
     position: absolute;
     border: 2px solid rgba(31, 122, 77, 0.85);
     background: rgba(47, 158, 100, 0.12);
     box-sizing: border-box;
+    pointer-events: auto;
+    text-decoration: none;
 }
+.regiao-box.regiao-ativa {
+    border-color: #0d3b2e;
+    background: rgba(27, 107, 74, 0.22);
+}
+.selo-pecas {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: var(--cge-verde-100);
+    color: var(--cge-verde-900);
+    font-size: 0.8rem;
+}
+.lista-pecas { list-style: none; padding: 0; margin: 0; }
+.lista-pecas li { border: 1px solid var(--cge-borda); border-radius: 0.4rem; margin-bottom: 0.45rem; }
+.lista-pecas a { display: block; padding: 0.65rem 0.75rem; color: inherit; text-decoration: none; }
+.lista-pecas .peca-ativa { border-color: var(--cge-verde-600); background: var(--cge-verde-050); }
+.indicador-lab {
+    border: 1px solid var(--cge-borda);
+    border-radius: 0.4rem;
+    padding: 0.55rem 0.7rem;
+    background: #fff;
+}
+.indicador-lab span { display: block; color: var(--cge-muted); font-size: 0.78rem; }
+.indicador-lab strong { font-size: 1.15rem; }
+.identificacao-lista { display: grid; grid-template-columns: 12rem 1fr; gap: 0.35rem 0.75rem; margin: 0; }
+.identificacao-lista dt { color: var(--cge-muted); font-weight: 600; }
+.identificacao-lista dd { margin: 0; }
+.selo-fonte {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem;
+    background: var(--cge-verde-100);
+    color: var(--cge-verde-900);
+    font-size: 0.75rem;
+}
+.form-distribuicao .form-label { display: block; }
+.form-distribuicao .form-select,
+.form-distribuicao .form-control { width: 100%; }
+.distribuicao-processo { overflow: hidden; }
 .campo-extraido:last-child { border-bottom: 0 !important; }
 @media (max-width: 991px) {
     .laboratorio-curadoria { grid-template-columns: 1fr; }
+    .identificacao-lista { grid-template-columns: 1fr; }
 }
 

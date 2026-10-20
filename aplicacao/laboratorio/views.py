@@ -6,7 +6,11 @@ from django.views import View
 
 from aplicacao.auditoria.models import RegistroAuditoria
 from aplicacao.auditoria.servicos import registrar_evento
-from aplicacao.laboratorio.catalogo import CATALOGO_TIPOS, rotulo_tipo
+from aplicacao.documentos.escolhas import MetodoExtracao, QualidadeExtracao
+from aplicacao.laboratorio.apresentacao import campos_uteis, filtrar_paginas, resumo_pagina
+from django.db.models import Q
+
+from aplicacao.laboratorio.catalogo import CATALOGO_TIPOS, escolhas_tipo
 from aplicacao.laboratorio.escolhas import (
     EstadoCampo,
     EstadoClassificacao,
@@ -62,6 +66,13 @@ def _registrar_revisao(lote, usuario, alvo, alvo_id, acao, justificativa="", det
     )
 
 
+def _curadoria_url(lote, numero_pagina: int, peca: int | None = None) -> str:
+    url = reverse("laboratorio:curadoria", kwargs={"lote_pk": lote.pk}) + f"?pagina={numero_pagina}"
+    if peca:
+        url += f"&peca={peca}"
+    return url
+
+
 class LaboratorioProcessoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
@@ -73,12 +84,13 @@ class LaboratorioProcessoView(PerfilExigidoMixin, View):
             .select_related("documento")
             .order_by("-importado_em")
         )
+        itens = [{"lote": lote, "relatorio": montar_relatorio(lote)} for lote in lotes]
         return render(
             request,
             "laboratorio/processo.html",
             {
                 "prestacao": prestacao,
-                "lotes": lotes,
+                "itens": itens,
                 "catalogo": CATALOGO_TIPOS,
             },
         )
@@ -90,17 +102,35 @@ class LaboratorioLoteView(PerfilExigidoMixin, View):
     def get(self, request, lote_pk):
         lote = _lote_visivel(request, lote_pk)
         relatorio = montar_relatorio(lote)
-        paginas = lote.paginas.all()
+        paginas = filtrar_paginas(lote, request.GET)
+        linhas = [
+            {
+                "pagina": pagina,
+                "resumo": resumo_pagina(pagina),
+                "pecas": [r for r in pagina.regioes.all() if r.tipo_documental != "outros_nao_classificados"],
+            }
+            for pagina in paginas
+        ]
         return render(
             request,
             "laboratorio/lote.html",
             {
                 "prestacao": lote.prestacao_parceria,
                 "lote": lote,
-                "paginas": paginas,
+                "linhas": linhas,
                 "relatorio": relatorio,
                 "catalogo": CATALOGO_TIPOS,
-                "rotulo_tipo": rotulo_tipo,
+                "filtros": {
+                    "pagina": request.GET.get("pagina", ""),
+                    "tipo": request.GET.get("tipo", ""),
+                    "classificacao": request.GET.get("classificacao", ""),
+                    "qualidade": request.GET.get("qualidade", ""),
+                    "tecnica": request.GET.get("tecnica", ""),
+                    "revisao": request.GET.get("revisao", ""),
+                },
+                "tipos_filtro": escolhas_tipo(),
+                "qualidades": QualidadeExtracao.choices,
+                "tecnicas": MetodoExtracao.choices,
             },
         )
 
@@ -116,10 +146,29 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
             pagina = lote.paginas.order_by("numero_fisico").first()
         regioes = []
         if pagina:
-            regioes = list(pagina.regioes.prefetch_related("campos").order_by("ordem", "id"))
-        vinculos = VinculoEvidencia.objects.filter(lote=lote).select_related("origem", "destino", "origem__pagina", "destino__pagina")[:50]
-        pendencias = lote.pendencias.select_related("pagina", "regiao").order_by("-criado_em")[:30]
-        revisoes = lote.revisoes.select_related("responsavel").order_by("-criado_em")[:20]
+            regioes = [
+                r
+                for r in pagina.regioes.prefetch_related("campos").order_by("ordem", "id")
+                if r.tipo_documental != "outros_nao_classificados"
+            ]
+        peca_id = request.GET.get("peca")
+        peca_selecionada = None
+        if peca_id and str(peca_id).isdigit():
+            peca_selecionada = next((r for r in regioes if r.pk == int(peca_id)), None)
+        if peca_selecionada is None and regioes:
+            peca_selecionada = regioes[0]
+        campos = campos_uteis(peca_selecionada) if peca_selecionada else []
+        vinculos = []
+        pendencias_peca = []
+        if peca_selecionada:
+            vinculos = (
+                VinculoEvidencia.objects.filter(lote=lote)
+                .filter(Q(origem=peca_selecionada) | Q(destino=peca_selecionada))
+                .select_related("origem", "destino", "origem__pagina", "destino__pagina")[:20]
+            )
+            pendencias_peca = list(
+                PendenciaDocumental.objects.filter(lote=lote, regiao=peca_selecionada).order_by("-criado_em")[:10]
+            )
         return render(
             request,
             "laboratorio/curadoria.html",
@@ -128,9 +177,11 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
                 "lote": lote,
                 "pagina": pagina,
                 "regioes": regioes,
+                "peca": peca_selecionada,
+                "campos": campos,
                 "vinculos": vinculos,
-                "pendencias": pendencias,
-                "revisoes": revisoes,
+                "pendencias": pendencias_peca,
+                "revisoes": lote.revisoes.select_related("responsavel").order_by("-criado_em")[:20],
                 "form_classificacao": FormularioClassificacaoRegiao(),
                 "form_campo": FormularioCampo(),
                 "form_vinculo": FormularioVinculo(),
@@ -138,8 +189,8 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
                 "form_ilegivel": FormularioIlegibilidade(),
                 "form_reprocessar": FormularioReprocessamento(),
                 "arquivo_url": reverse("documentos:arquivo", kwargs={"pk": lote.documento_id}),
-                "rotulo_tipo": rotulo_tipo,
                 "total_paginas": lote.quantidade_paginas,
+                "resumo_pagina": resumo_pagina(pagina) if pagina else "",
             },
         )
 
@@ -154,7 +205,7 @@ class RevisarRegiaoView(PerfilExigidoMixin, View):
         form = FormularioClassificacaoRegiao(request.POST)
         if not form.is_valid():
             messages.error(request, "Não foi possível registrar a classificação.")
-            return redirect(_curadoria_url(lote, regiao.pagina.numero_fisico))
+            return redirect(_curadoria_url(lote, regiao.pagina.numero_fisico, regiao.pk))
         anterior = regiao.tipo_documental
         novo = form.cleaned_data["tipo_documental"]
         regiao.tipo_documental = novo
@@ -189,7 +240,7 @@ class RevisarRegiaoView(PerfilExigidoMixin, View):
             {"anterior": anterior, "novo": novo},
         )
         messages.success(request, "Classificação registrada. Isso não aprova a prestação de contas.")
-        return redirect(_curadoria_url(lote, pagina.numero_fisico))
+        return redirect(_curadoria_url(lote, pagina.numero_fisico, regiao.pk))
 
 
 class RevisarCampoView(PerfilExigidoMixin, View):
@@ -202,7 +253,7 @@ class RevisarCampoView(PerfilExigidoMixin, View):
         form = FormularioCampo(request.POST)
         if not form.is_valid():
             messages.error(request, "Não foi possível registrar a revisão do campo.")
-            return redirect(_curadoria_url(lote, campo.numero_pagina))
+            return redirect(_curadoria_url(lote, campo.numero_pagina, campo.regiao_id))
         historico = list(campo.historico_correcoes or [])
         historico.append(
             {
@@ -238,7 +289,7 @@ class RevisarCampoView(PerfilExigidoMixin, View):
             form.cleaned_data.get("justificativa") or "",
         )
         messages.success(request, "Extração revisada. Isso não analisa nem aprova despesa.")
-        return redirect(_curadoria_url(lote, campo.numero_pagina))
+        return redirect(_curadoria_url(lote, campo.numero_pagina, campo.regiao_id))
 
 
 class RevisarVinculoView(PerfilExigidoMixin, View):
@@ -251,7 +302,7 @@ class RevisarVinculoView(PerfilExigidoMixin, View):
         form = FormularioVinculo(request.POST)
         if not form.is_valid():
             messages.error(request, "Não foi possível atualizar o vínculo.")
-            return redirect(_curadoria_url(lote, vinculo.origem.pagina.numero_fisico))
+            return redirect(_curadoria_url(lote, vinculo.origem.pagina.numero_fisico, vinculo.origem_id))
         vinculo.estado = form.cleaned_data["estado"]
         vinculo.justificativa = form.cleaned_data.get("justificativa") or ""
         vinculo.revisado_por = request.user
@@ -266,7 +317,7 @@ class RevisarVinculoView(PerfilExigidoMixin, View):
             vinculo.justificativa,
         )
         messages.success(request, "Vínculo atualizado. Coincidência de valores permanece só um critério.")
-        return redirect(_curadoria_url(lote, vinculo.origem.pagina.numero_fisico))
+        return redirect(_curadoria_url(lote, vinculo.origem.pagina.numero_fisico, vinculo.origem_id))
 
 
 class CriarPendenciaView(PerfilExigidoMixin, View):
@@ -277,13 +328,18 @@ class CriarPendenciaView(PerfilExigidoMixin, View):
         exigir_atuar_na_prestacao(request.user, lote.prestacao_parceria)
         form = FormularioPendencia(request.POST)
         numero = int(request.POST.get("pagina") or 1)
+        peca_id = request.POST.get("peca")
         pagina = lote.paginas.filter(numero_fisico=numero).first()
+        regiao = None
+        if peca_id and str(peca_id).isdigit():
+            regiao = RegiaoDocumental.objects.filter(pk=int(peca_id), lote=lote).first()
         if not form.is_valid():
             messages.error(request, "Não foi possível abrir a pendência.")
-            return redirect(_curadoria_url(lote, numero))
+            return redirect(_curadoria_url(lote, numero, int(peca_id) if peca_id and str(peca_id).isdigit() else None))
         pendencia = PendenciaDocumental.objects.create(
             lote=lote,
             pagina=pagina,
+            regiao=regiao,
             motivo=form.cleaned_data["motivo"],
             prioridade=form.cleaned_data["prioridade"],
             status=form.cleaned_data["status"],
@@ -293,7 +349,7 @@ class CriarPendenciaView(PerfilExigidoMixin, View):
         )
         _registrar_revisao(lote, request.user, "pendencia", pendencia.pk, "pendencia_aberta", pendencia.motivo)
         messages.success(request, "Pendência registrada. Nenhuma diligência externa foi disparada.")
-        return redirect(_curadoria_url(lote, numero))
+        return redirect(_curadoria_url(lote, numero, regiao.pk if regiao else None))
 
 
 class MarcarIlegivelView(PerfilExigidoMixin, View):
@@ -333,8 +389,12 @@ class SolicitarReprocessamentoView(PerfilExigidoMixin, View):
         if not form.is_valid():
             messages.error(request, "Informe o motivo do reprocessamento.")
             return redirect(reverse("laboratorio:lote", kwargs={"lote_pk": lote.pk}))
+        paginas_ocr = set()
+        raw = (request.POST.get("ocr_paginas") or "").strip()
+        if raw:
+            paginas_ocr = {int(item.strip()) for item in raw.split(",") if item.strip().isdigit()}
         _registrar_revisao(lote, request.user, "lote", lote.pk, "reprocessamento_solicitado", form.cleaned_data["motivo"])
-        processar_lote(lote.pk, usuario=request.user)
+        processar_lote(lote.pk, usuario=request.user, paginas_ocr=paginas_ocr or None)
         messages.success(request, "Reprocessamento local concluído. O PDF original permanece imutável.")
         return redirect(reverse("laboratorio:lote", kwargs={"lote_pk": lote.pk}))
 
@@ -351,10 +411,5 @@ class RelatorioLaboratorioView(PerfilExigidoMixin, View):
                 "prestacao": lote.prestacao_parceria,
                 "lote": lote,
                 "relatorio": montar_relatorio(lote),
-                "rotulo_tipo": rotulo_tipo,
             },
         )
-
-
-def _curadoria_url(lote, numero_pagina: int) -> str:
-    return reverse("laboratorio:curadoria", kwargs={"lote_pk": lote.pk}) + f"?pagina={numero_pagina}"
