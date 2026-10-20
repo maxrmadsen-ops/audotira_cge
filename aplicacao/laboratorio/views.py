@@ -1,5 +1,4 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -63,7 +62,7 @@ def _registrar_revisao(lote, usuario, alvo, alvo_id, acao, justificativa="", det
     )
 
 
-class LaboratorioProcessoView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class LaboratorioProcessoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, pk):
@@ -85,7 +84,7 @@ class LaboratorioProcessoView(LoginRequiredMixin, PerfilExigidoMixin, View):
         )
 
 
-class LaboratorioLoteView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class LaboratorioLoteView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, lote_pk):
@@ -106,7 +105,7 @@ class LaboratorioLoteView(LoginRequiredMixin, PerfilExigidoMixin, View):
         )
 
 
-class LaboratorioCuradoriaView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, lote_pk):
@@ -145,7 +144,7 @@ class LaboratorioCuradoriaView(LoginRequiredMixin, PerfilExigidoMixin, View):
         )
 
 
-class RevisarRegiaoView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class RevisarRegiaoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, regiao_pk):
@@ -193,7 +192,7 @@ class RevisarRegiaoView(LoginRequiredMixin, PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, pagina.numero_fisico))
 
 
-class RevisarCampoView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class RevisarCampoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, campo_pk):
@@ -242,7 +241,7 @@ class RevisarCampoView(LoginRequiredMixin, PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, campo.numero_pagina))
 
 
-class RevisarVinculoView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class RevisarVinculoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, vinculo_pk):
@@ -270,7 +269,7 @@ class RevisarVinculoView(LoginRequiredMixin, PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, vinculo.origem.pagina.numero_fisico))
 
 
-class CriarPendenciaView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class CriarPendenciaView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk):
@@ -297,7 +296,7 @@ class CriarPendenciaView(LoginRequiredMixin, PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, numero))
 
 
-class MarcarIlegivelView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class MarcarIlegivelView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, pagina_pk):
@@ -324,7 +323,7 @@ class MarcarIlegivelView(LoginRequiredMixin, PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, pagina.numero_fisico))
 
 
-class SolicitarReprocessamentoView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class SolicitarReprocessamentoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk):
@@ -340,7 +339,7 @@ class SolicitarReprocessamentoView(LoginRequiredMixin, PerfilExigidoMixin, View)
         return redirect(reverse("laboratorio:lote", kwargs={"lote_pk": lote.pk}))
 
 
-class RelatorioLaboratorioView(LoginRequiredMixin, PerfilExigidoMixin, View):
+class RelatorioLaboratorioView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, lote_pk):
