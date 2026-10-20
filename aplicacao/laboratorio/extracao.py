@@ -107,11 +107,19 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
 
 
 def _nome_trabalhador(texto: str) -> str:
+    # Holerite escaneado: cabeçalho "Nome do Funcionário" e linha seguinte com o nome.
+    apos_rotulo = re.search(
+        r"nome\s+do\s+funcion[aá]rio[^\n]{0,100}\n\s*(?:\d+\s+)?([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç .']{6,70})",
+        texto or "",
+        flags=re.IGNORECASE,
+    )
+    if apos_rotulo:
+        candidato = re.sub(r"\s+", " ", apos_rotulo.group(1)).strip(" :-|")
+        if len(candidato.split()) >= 2 and "APAE" not in candidato.upper():
+            return candidato
     padroes = (
-        r"(?:nome\s+do\s+empregado|nome\s+do\s+funcion[aá]rio|funcion[aá]rio|empregado|trabalhador|nome)\s*[:\-]?\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç .']{6,90})",
-        # Nome logo antes do CPF (comum em holerites escaneados).
-        r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç .']{6,70})\s*(?=\d{3}\.\d{3}\.\d{3}-\d{2})",
-        r"\b([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}){1,5})\b",
+        r"(?:nome\s+do\s+empregado|nome\s+do\s+funcion[aá]rio|funcion[aá]rio|empregado|trabalhador)\s*[:\-]?\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç .']{6,90})",
+        r"\b([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}){2,5})\b",
     )
     bloqueados = {
         "BANCO DO BRASIL",
@@ -124,10 +132,12 @@ def _nome_trabalhador(texto: str) -> str:
         "RECIBO DE PAGAMENTO",
         "DEMONSTRATIVO DE",
         "APAE MRD",
+        "APAE ASSOC",
+        "MARIA ROSALINA",
     }
     for padrao in padroes:
         for achado in re.finditer(padrao, texto or ""):
-            nome = re.sub(r"\s+", " ", achado.group(1)).strip(" :-")
+            nome = re.sub(r"\s+", " ", achado.group(1)).strip(" :-|")
             if any(bloco in nome.upper() for bloco in bloqueados):
                 continue
             if len(nome.split()) >= 2 and not re.search(r"\d", nome):
@@ -157,23 +167,48 @@ def _moeda_no_contexto(texto: str, rotulos: tuple[str, ...]) -> str:
 
 def _extrair_holerite(texto: str) -> dict[str, str]:
     funcionario = _nome_trabalhador(texto)
+    cargo = _buscar(
+        (
+            rf"{re.escape(funcionario.split()[0]) if funcionario else 'FUNCIONARIO'}[^\n]{{0,40}}\n\s*([A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç ]{{3,40}})\s+Data\s+Admiss",
+            r"(?:cargo|fun[cç][aã]o)\s*[:\-]?\s*(?!presidente)([^\n]{3,60})",
+            r"\b(Professor|Professora|Assistente|Auxiliar|Coordenador[a]?|Cuidador[a]?)\b",
+        ),
+        texto,
+    )
+    if cargo.lower().startswith("presidente"):
+        cargo = _buscar((r"\b(Professor|Professora|Assistente|Auxiliar|Coordenador[a]?|Cuidador[a]?)\b",), texto)
     return {
-        "empregador": _buscar((r"(?:empregador|empresa|raz[aã]o social|assoc\.?de|apae)[^\n]{0,80}",), texto),
+        "empregador": _buscar(
+            (
+                r"(APAE\s+ASSOC\.?[^\n]{0,40})",
+                r"(?:empregador|empresa|raz[aã]o social)\s*[:\-]?\s*([^\n]{3,80})",
+            ),
+            texto,
+        ),
         "funcionario": funcionario,
-        "identificadores": _buscar((r"(?:\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})", r"(?:cpf|matr[ií]cula|pis)\s*[:\-]?\s*([0-9.\-/]+)"), texto),
-        "cargo": _buscar((r"(?:cargo|fun[cç][aã]o)\s*[:\-]?\s*([^\n]{3,60})",), texto),
+        "identificadores": _buscar(
+            (
+                r"(?:matr[ií]cula|pis)\s*[:\-]?\s*([0-9.\-/]+)",
+                r"\b(\d{3}\.\d{3}\.\d{3}-\d{2})\b",
+            ),
+            texto,
+        ),
+        "cargo": cargo,
         "competencia": _buscar(
             (
                 r"(?:compet[eê]ncia|refer[eê]ncia|m[eê]s/?ano|per[ií]odo)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{2,4})",
+                r"\b((?:0?[1-9]|1[0-2])[/.\-]20[0-9]{2})\s+Mensal\b",
                 r"\b((?:0?[1-9]|1[0-2])[/.\-]20[0-9]{2})\b",
             ),
             texto,
         ),
         "data_admissao": _buscar((r"(?:admiss[aã]o|data de admiss[aã]o)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
-        "salario_base": _moeda_no_contexto(texto, ("sal[aá]rio[\\s\\-]?base", "sal[aá]rio")),
-        "total_proventos": _moeda_no_contexto(texto, ("total\\s+de\\s+proventos", "proventos")),
-        "total_descontos": _moeda_no_contexto(texto, ("total\\s+de\\s+descontos", "descontos")),
-        "valor_liquido": _moeda_no_contexto(texto, ("l[ií]quido\\s+a\\s+receber", "valor\\s+l[ií]quido", "l[ií]quido")),
+        "salario_base": _moeda_no_contexto(texto, ("sal[aá]rio[\\s\\-]?base",)),
+        "total_proventos": _buscar((r"Total\s+([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s+[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}",), texto)
+        or _moeda_no_contexto(texto, ("total\\s+de\\s+proventos", "proventos")),
+        "total_descontos": _buscar((r"Total\s+[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}\s+([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",), texto)
+        or _moeda_no_contexto(texto, ("total\\s+de\\s+descontos", "descontos")),
+        "valor_liquido": _moeda_no_contexto(texto, ("total\\s+l[ií]quido", "l[ií]quido\\s+a\\s+receber", "valor\\s+l[ií]quido", "l[ií]quido")),
         "irrf": _moeda_no_contexto(texto, ("irrf", "i\\.?r\\.?r\\.?f\\.?")),
         "inss": _moeda_no_contexto(texto, ("inss",)),
         "rubricas_proventos": _listar_rubricas(texto, "provento"),
@@ -206,17 +241,36 @@ def _extrair_comprovante(texto: str) -> dict[str, str]:
         "instituicao": _buscar((r"(banco\s+do\s+brasil|caixa econ[oô]mica|sicredi|sicoob|bradesco|ita[uú]|banco\s+[^\n]{2,40})",), texto),
         "titular_origem": _buscar((r"(?:titular|nome do pagador|cliente)\s*[:\-]?\s*([^\n]{3,80})",), texto),
         "conta_origem": _buscar((r"(?:agencia|ag[eê]ncia)\s*[:\-]?\s*([0-9.\-]+).{0,40}conta\s*[:\-]?\s*([0-9.\-X]+)", r"conta\s*[:\-]?\s*([0-9.\-X]+)"), texto),
-        "beneficiario": _buscar((r"(?:favorecido|benefici[aá]rio|destinat[aá]rio|creditado)\s*[:\-]?\s*([^\n]{3,80})",), texto),
-        "dados_destino": _buscar((r"(?:conta destino|destino|conta creditada)\s*[:\-]?\s*([^\n]{3,80})",), texto),
+        "beneficiario": _buscar(
+            (
+                r"(?:transferido para|creditado para)[\s\S]{0,120}?cliente\s*[:\-]?\s*([^\n]{3,80})",
+                r"(?:favorecido|benefici[aá]rio|destinat[aá]rio|creditado)\s*[:\-]?\s*([^\n]{3,80})",
+            ),
+            texto,
+        ),
+        "dados_destino": _buscar(
+            (
+                r"(?:transferido para)[\s\S]{0,160}?ag[eê]ncia\s*[:\-]?\s*([0-9.\-]+\s*conta\s*[:\-]?\s*[0-9.\-X]+)",
+                r"(?:conta destino|destino|conta creditada)\s*[:\-]?\s*([^\n]{3,80})",
+            ),
+            texto,
+        ),
         "data_hora": _buscar(
             (
+                r"(?:data da transfer[eê]ncia)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",
                 r"([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4}(?:\s+[0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?)?)",
             ),
             texto,
         ),
-        "valor": _moeda_no_contexto(texto, ("valor da transfer[eê]ncia", "valor pago", "valor")),
+        "valor": _moeda_no_contexto(texto, ("valor total", "valor da transfer[eê]ncia", "valor pago", "valor")),
         "tipo_operacao": _buscar((r"(ted|doc|pix|transfer[eê]ncia)",), texto),
-        "identificadores": _buscar((r"(?:autentica[cç][aã]o|nsu|protocolo|nr\.?\s*docum)\s*[:\-]?\s*([A-Za-z0-9\-./]+)",), texto),
+        "identificadores": _buscar(
+            (
+                r"(?:nr\.?\s*documento|nr\.?\s*docum)\s*[:\-]?\s*([0-9.\-]+)",
+                r"(?:autentica[cç][aã]o|nsu|protocolo)\s*[:\-]?\s*([A-Za-z0-9\-./]+)",
+            ),
+            texto,
+        ),
         "situacao": _buscar((r"(efetivad[ao]|realizad[ao]|confirmad[ao]|rejeitad[ao])",), texto),
     }
 
