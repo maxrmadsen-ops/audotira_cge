@@ -22,7 +22,12 @@ from aplicacao.documentos.escolhas import (
 )
 from aplicacao.documentos.extracao import ExtratorPDF
 from aplicacao.documentos.models import Documento, PaginaDocumento
-from aplicacao.laboratorio.classificacao import classificar_texto, detectar_numero_impresso, segmentar_regioes
+from aplicacao.laboratorio.classificacao import (
+    classificar_texto,
+    detectar_numero_impresso,
+    recortar_texto_para_tipo,
+    segmentar_regioes,
+)
 from aplicacao.laboratorio.escolhas import (
     EstadoClassificacao,
     EstadoCampo,
@@ -265,10 +270,13 @@ def processar_lote(
 
         for pagina in paginas:
             texto = pagina["texto_extraido"] or ""
-            for regiao in por_pagina.get(pagina["numero_pagina"], []):
+            regioes_pagina = por_pagina.get(pagina["numero_pagina"], [])
+            tipos_pagina = [r.tipo_documental for r in regioes_pagina]
+            for regiao in regioes_pagina:
+                texto_regiao = recortar_texto_para_tipo(texto, regiao.tipo_documental, tipos_pagina)
                 for campo in extrair_campos(
                     regiao.tipo_documental,
-                    texto,
+                    texto_regiao,
                     pagina["numero_pagina"],
                     pagina["metodo_extracao"] or "nativo",
                 ):

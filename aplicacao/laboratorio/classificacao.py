@@ -115,3 +115,40 @@ def segmentar_regioes(texto: str, candidatos: list[dict]) -> list[dict]:
             }
         )
     return regioes
+
+
+def recortar_texto_para_tipo(texto: str, tipo: str, outros_tipos: list[str] | None = None) -> str:
+    """
+    Recorta o texto da página priorizando o trecho do tipo solicitado.
+    Quando há múltiplas peças, evita misturar campos entre regiões.
+    """
+    if not texto or not tipo:
+        return texto or ""
+    outros = [t for t in (outros_tipos or []) if t and t != tipo]
+    if not outros:
+        return texto
+    from aplicacao.laboratorio.catalogo import CATALOGO_TIPOS
+
+    chaves_tipo = next((list(item.palavras_chave) for item in CATALOGO_TIPOS if item.codigo == tipo), [])
+    if not chaves_tipo:
+        return texto
+    baixo = _normalizar(texto)
+    posicoes = []
+    for chave in chaves_tipo:
+        pos = baixo.find(chave)
+        if pos >= 0:
+            posicoes.append(pos)
+    if not posicoes:
+        return texto
+    inicio = min(posicoes)
+    fim = len(texto)
+    for outro in outros:
+        chaves_outro = next((list(item.palavras_chave) for item in CATALOGO_TIPOS if item.codigo == outro), [])
+        for chave in chaves_outro:
+            pos = baixo.find(chave)
+            if pos > inicio:
+                fim = min(fim, max(pos, inicio + 80))
+    # Expande um pouco para cima para capturar cabeçalho próximo.
+    inicio = max(0, inicio - 120)
+    recorte = texto[inicio:fim].strip()
+    return recorte if len(recorte) >= 40 else texto

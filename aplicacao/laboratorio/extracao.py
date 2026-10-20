@@ -109,18 +109,29 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
 def _nome_trabalhador(texto: str) -> str:
     padroes = (
         r"(?:nome\s+do\s+empregado|nome\s+do\s+funcion[aá]rio|funcion[aá]rio|empregado|trabalhador|nome)\s*[:\-]?\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç .']{6,90})",
+        # Nome logo antes do CPF (comum em holerites escaneados).
+        r"([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç .']{6,70})\s*(?=\d{3}\.\d{3}\.\d{3}-\d{2})",
         r"\b([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}){1,5})\b",
     )
+    bloqueados = {
+        "BANCO DO BRASIL",
+        "COMPROVANTE DE",
+        "TOTAL DE",
+        "DEPARTAMENTO",
+        "SEGUNDA VIA",
+        "ASSOCIACAO",
+        "ASSOCIAÇÃO",
+        "RECIBO DE PAGAMENTO",
+        "DEMONSTRATIVO DE",
+        "APAE MRD",
+    }
     for padrao in padroes:
-        achado = re.search(padrao, texto or "")
-        if not achado:
-            continue
-        nome = re.sub(r"\s+", " ", achado.group(1)).strip(" :-")
-        bloqueados = {"BANCO DO BRASIL", "COMPROVANTE DE", "TOTAL DE", "DEPARTAMENTO", "SEGUNDA VIA", "ASSOCIACAO", "ASSOCIAÇÃO"}
-        if any(bloco in nome.upper() for bloco in bloqueados):
-            continue
-        if len(nome.split()) >= 2:
-            return nome
+        for achado in re.finditer(padrao, texto or ""):
+            nome = re.sub(r"\s+", " ", achado.group(1)).strip(" :-")
+            if any(bloco in nome.upper() for bloco in bloqueados):
+                continue
+            if len(nome.split()) >= 2 and not re.search(r"\d", nome):
+                return nome
     return ""
 
 
