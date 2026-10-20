@@ -37,7 +37,7 @@ def grupos_para(prestacao) -> tuple[tuple[str, str, bool], ...]:
         )
     return (
         ("painel", "Painel", True),
-        ("gestao", "Gestão", True),
+        ("gestao", "Gestão", False),
         ("preparacao", "Etapa de Preparação", False),
         ("execucao", "Etapa de Execução", False),
         ("analise_processo", "Análise Assistida", False),

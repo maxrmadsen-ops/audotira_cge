@@ -484,7 +484,7 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
         "hash_sha256": lote.hash_sha256,
         "nome_original": lote.documento.nome_original,
         "aviso_inventario": (
-            "O inventário registra a existência das páginas. "
+            "O inventário de páginas não equivale à classificação integral. "
             "Classificação tipada só conta páginas com candidato documental identificado."
         ),
     }
