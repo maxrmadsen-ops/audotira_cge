@@ -251,7 +251,7 @@ def _extrair_holerite(texto: str) -> dict[str, str]:
         "matricula": _matricula(texto),
         "identificadores": "",
         "cargo": cargo,
-        "cbo": _buscar((r"\bCBO\b\s*[:\-]?\s*(\d{4,6})\b",), texto),
+        "cbo": _cbo(texto),
         "competencia": _competencia(texto),
         "referencia_pagamento": "Mensal" if re.search(r"\bMensal\b", texto or "") else "",
         "data_admissao": _buscar(
@@ -301,6 +301,20 @@ def _empregador(texto: str) -> str:
         return nome
     generico = _buscar((r"(?:empregador|empresa|raz[aã]o social)\s*[:\-]\s*([^\n]{3,80})",), texto)
     return re.split(r"demonstrativ|compet[eê]ncia", generico, maxsplit=1, flags=re.IGNORECASE)[0].strip(" .-|")
+
+
+def _cbo(texto: str) -> str:
+    direto = _buscar((r"\bCBO\b\s*[:\-]?\s*(\d{4,6})\b",), texto)
+    if direto:
+        return direto
+    linhas = (texto or "").splitlines()
+    for indice, linha in enumerate(linhas[:-1]):
+        if not re.search(r"\bCBO\b", linha, flags=re.IGNORECASE):
+            continue
+        codigos = re.findall(r"\b(\d{4,6})\b", linhas[indice + 1])
+        if codigos:
+            return codigos[0]
+    return ""
 
 
 def _matricula(texto: str) -> str:

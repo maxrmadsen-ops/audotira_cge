@@ -145,6 +145,17 @@ class TesteCiclo602Extracao(TestCase):
         self.assertEqual(campos["liquido_calculado"]["valor_normalizado"], "2221.86")
         self.assertEqual(campos["funcionario"]["trecho_evidencia"], "17 LUCIANE SAURIN BIZOTO")
 
+    def test_cbo_na_linha_seguinte_nao_grava_matricula_ilegivel(self):
+        texto = """
+Zadastro Nome do Funcionário CBO Empresa Local Departamento FL
+7 LUCIANE SAURIN BIZOTO 3331 540, 1 001.001 01
+Recebi em: 4 70 19 S Assinatura
+"""
+        campos = {item["chave"]: item for item in extrair_campos("holerite", texto, 17, "ocr_regiao")}
+        self.assertEqual(campos["cbo"]["valor_original"], "3331")
+        self.assertEqual(campos["matricula"]["valor_original"], "")
+        self.assertEqual(campos["data_recebimento"]["valor_original"], "")
+
     def test_rotulo_amigavel_nao_declara_segmentacao_validada(self):
         self.assertEqual(
             rotulo_metodo("faixa_em_branco", EstadoClassificacao.PROPOSTO),
