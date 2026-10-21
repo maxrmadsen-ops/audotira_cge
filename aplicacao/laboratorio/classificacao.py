@@ -65,6 +65,15 @@ def tipo_principal(candidatos: list[dict], texto: str) -> dict | None:
     recolhimento = ("fgts" in baixo or "grf" in baixo) and (
         "comprovante de pagamento" in baixo or "valor deposito" in baixo or "valor depósito" in baixo or "guia de recolhimento" in baixo
     )
+    if "termo de quitação" in baixo or "termo de quitacao" in baixo:
+        titulo_trct = (
+            "termo de rescisão do contrato de trabalho" in baixo
+            or "termo de rescisao do contrato de trabalho" in baixo
+        )
+        if not titulo_trct:
+            quitacao = next((item for item in candidatos if item["tipo"] == "termo_quitacao"), None)
+            if quitacao is not None:
+                return quitacao
     if not recolhimento:
         return candidatos[0]
     for codigo in ("guia_fgts", "comprovante_fgts"):
@@ -72,6 +81,19 @@ def tipo_principal(candidatos: list[dict], texto: str) -> dict | None:
         if achado is not None:
             return achado
     return candidatos[0]
+
+
+def candidatos_da_peca(candidatos: list[dict], texto: str) -> list[dict]:
+    """O aviso prévio citado no TRCT não vira comunicação de dispensa."""
+    baixo = _normalizar(texto)
+    formulario = any(
+        titulo in baixo
+        for titulo in ("termo de rescisão", "termo de rescisao", "termo de quitação", "termo de quitacao")
+    )
+    dispensa_propria = "comunicação de dispensa" in baixo or "comunicacao de dispensa" in baixo
+    if not formulario or dispensa_propria:
+        return candidatos
+    return [item for item in candidatos if item["tipo"] != "comunicacao_dispensa"]
 
 
 def segmentar_regioes(texto: str, candidatos: list[dict]) -> list[dict]:

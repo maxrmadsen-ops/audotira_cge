@@ -572,11 +572,22 @@ def _nome_apos_identificacao(texto: str) -> str:
     return achado.group(1).strip()[:80]
 
 
+_MOEDA_PONTUADA = r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}"
+
+
+def _linhas_de_verba(texto: str) -> str:
+    linhas = []
+    for linha in (texto or "").splitlines():
+        if re.search(r"saldo de|f[eé]rias proporcionais|ter[cç]o constitucional|total bruto|total dedu", linha, flags=re.IGNORECASE):
+            linhas.append(re.sub(r"\s+", " ", linha).strip()[:140])
+    return " | ".join(linhas)[:500]
+
+
 def _extrair_rescisao(texto: str) -> dict[str, str]:
     return {
         "empregador": _buscar(
             (
-                r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+\S.{5,80})",
+                r"\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+(?:\d{3,4}-)?([A-ZÁÉÍÓÚÃÕÇ].{5,70})",
                 r"(?:empregador|empresa)\s*[:\-]?\s*(.+)",
             ),
             texto,
@@ -589,21 +600,36 @@ def _extrair_rescisao(texto: str) -> dict[str, str]:
         "data_admissao": _buscar((r"(?:admiss[aã]o)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
         "data_aviso": _buscar((r"(?:aviso)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
         "data_desligamento": _buscar((r"(?:desligamento|rescis[aã]o|afastamento)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
-        "motivo": _buscar((r"(?:motivo|c[oó]digo de afastamento)\s*[:\-]?\s*(.+)",), texto),
-        "verbas_rescisorias": "",
-        "deducoes": "",
-        "total_bruto": _buscar((r"total\s+bruto\s*[,:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
-        "total_liquido": _buscar((r"(?:total l[ií]quido|l[ií]quido)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
+        "motivo": _buscar(
+            (
+                r"causa do afastamento\s*\n\s*([^\n]{3,80})",
+                r"(?:motivo|c[oó]digo de afastamento)\s*[:\-]?\s*(.+)",
+            ),
+            texto,
+        ),
+        "verbas_rescisorias": _linhas_de_verba(texto),
+        "deducoes": _buscar((rf"total\s+dedu[cç][oõ]es\s*[:\-]?\s*({_MOEDA_PONTUADA})",), texto),
+        "total_bruto": _buscar((rf"total\s+bruto\s*[,:\-]?\s*({_MOEDA_PONTUADA})",), texto),
+        "total_liquido": _buscar((rf"(?:valor|total)\s+l[ií]quido\s*[:\|\-]?\s*({_MOEDA_PONTUADA})",), texto),
         "assinaturas": _buscar((r"(assinatura|quitação|quitacao).{0,40}",), texto),
     }
 
 
 def _extrair_quitacao(texto: str) -> dict[str, str]:
     return {
-        "empregador": _buscar((r"(?:empregador|empresa)\s*[:\-]?\s*(.+)", r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+\S.{5,80})"), texto),
+        "empregador": _buscar(
+            (
+                r"\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+(?:\d{3,4}-)?([A-ZÁÉÍÓÚÃÕÇ].{5,70})",
+                r"(?:empregador|empresa)\s*[:\-]?\s*(.+)",
+            ),
+            texto,
+        ),
         "trabalhador": _nome_apos_identificacao(texto) or _buscar((r"(?:trabalhador|empregado|funcion[aá]rio)\s*[:\-]?\s*(.+)",), texto),
-        "valor_quitado": _buscar((r"(?:valor|total)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
-        "data": _buscar((r"([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
+        "valor_quitado": _buscar((rf"valor\s+l[ií]quido\s+de\s*R?\$?\s*({_MOEDA_PONTUADA})",), texto),
+        "data": _buscar(
+            (r"(?:local\s+e\s+data|data\s+da\s+quita[cç][aã]o)\s*[:\-]?\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})",),
+            texto,
+        ),
         "assinaturas": _buscar((r"(assinatura|quitação|quitacao).{0,40}",), texto),
     }
 
@@ -621,7 +647,13 @@ def _extrair_dispensa(texto: str) -> dict[str, str]:
 def _extrair_fgts(texto: str) -> dict[str, str]:
     return {
         "competencia": _buscar((r"(?:compet[eê]ncia)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
-        "empregador": _buscar((r"(?:empregador|raz[aã]o social|cnpj)\s*[:\-]?\s*(.+)",), texto),
+        "empregador": _buscar(
+            (
+                r"cnpj\s*/?\s*cei\s*/?\s*cpf\s*[:\-]?\s*([0-9./-]{14,20})",
+                r"(\d{2}\.?\d{3}\.?\d{3}/?\d{4}-\d{2})",
+            ),
+            texto,
+        ),
         "tipo_guia": _buscar((r"(grf|grrf|guia de recolhimento)",), texto),
         "base_recolhimento": _buscar((r"(?:base(?:\s+de)?\s+c[aá]lculo|base)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
         "valor_recolhimento": _buscar(
@@ -632,10 +664,19 @@ def _extrair_fgts(texto: str) -> dict[str, str]:
             ),
             texto,
         ),
-        "encargos": _buscar((r"(?:encargos|juros|multa)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
+        "encargos": _buscar(
+            (
+                rf"14-encargos[^\n]*\n\s*{_MOEDA_PONTUADA}\s+({_MOEDA_PONTUADA})",
+                rf"(?:^|\n)\s*encargos\s*[:\-]\s*({_MOEDA_PONTUADA})",
+            ),
+            texto,
+        ),
         "vencimento": _buscar((r"(?:vencimento)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
         "data_pagamento": _buscar((r"(?:pagamento|pago em)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
-        "autenticacao": _buscar((r"(?:autentica[cç][aã]o|autentica[cç][aã]o banc[aá]ria)\s*[:\-]?\s*([A-Za-z0-9\-./]+)",), texto),
+        "autenticacao": _buscar(
+            (r"autentica[cç][aã]o(?:\s+sisbb)?\s*[:\-]?\s*([0-9A-Za-z](?:\.\s?[0-9A-Za-z]{2,4}){3,8})",),
+            texto,
+        ),
         "abrangencia": _buscar((r"(coletiv[oa]|individual)",), texto),
     }
 

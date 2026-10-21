@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal, InvalidOperation
 
 from aplicacao.laboratorio.escolhas import EstadoVinculo
@@ -301,6 +302,12 @@ def _cadeias_rescisao(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
                     f" Há transferência na página {transferencia.pagina.numero_fisico} "
                     f"com nome semelhante e valor {_moeda(valor)}. Não foi vinculada."
                 )
+        bruto = _valor(rescisao, "total_bruto")
+        leitura_incompleta = ""
+        if liquido is None and re.search(r"(?:valor|total)\s+l[ií]quido", rescisao.texto_regiao or "", flags=re.IGNORECASE):
+            leitura_incompleta = " A linha de valor líquido não tem centavos legíveis e não foi usada."
+        if liquido is None and bruto is not None:
+            leitura_incompleta += f" Total bruto lido {_moeda(bruto)}; sem líquido pontuado, esse bruto não vira pagamento."
         detalhe_pagamento = (
             f"Comprovante com o mesmo valor líquido {_moeda(liquido)}. A coincidência não comprova o pagamento."
             if comprovante is not None
@@ -309,6 +316,7 @@ def _cadeias_rescisao(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
                 "Semelhança de nome com outra transferência, inclusive a da página 17, não cria esse vínculo. "
                 "A ausência nesta amostra não é irregularidade."
                 + proxima_diferente
+                + leitura_incompleta
             )
         )
         verificacoes = [
@@ -365,7 +373,33 @@ def _cadeias_fgts(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
             if abs(candidato.pagina.numero_fisico - guia.pagina.numero_fisico) <= 2:
                 comprovante = candidato
                 break
+        deposito, total_guia = _valores_na_guia(guia.texto_regiao or "")
+        if deposito is None or total_guia is None:
+            situacao_peca = "nao_verificavel"
+            detalhe_peca = "Depósito e total a recolher não estão ambos legíveis na mesma peça."
+        elif deposito == total_guia:
+            situacao_peca = "confere"
+            detalhe_peca = (
+                f"Depósito {_moeda(deposito)} e total a recolher {_moeda(total_guia)} aparecem na mesma peça. "
+                "O comprovante não foi separado da guia. A coincidência interna não comprova o recolhimento "
+                "e não liga esta guia à transferência da página 17."
+            )
+        else:
+            situacao_peca = "diverge"
+            detalhe_peca = (
+                f"Depósito {_moeda(deposito)} e total a recolher {_moeda(total_guia)} divergem na mesma peça. "
+                "Isso não conclui irregularidade nem pagamento."
+            )
+        data_pagamento = _texto(guia, "data_pagamento")
+        vencimento = _texto(guia, "vencimento")
         verificacoes = [
+            {
+                "codigo": "valores_na_mesma_peca",
+                "titulo": "Depósito e total na mesma peça",
+                "situacao": situacao_peca,
+                "detalhe": detalhe_peca,
+                "evidencias": [_evidencia(guia, "valor_recolhimento", "Valor de recolhimento")],
+            },
             {
                 "codigo": "recolhimento_fgts",
                 "titulo": "Guia e comprovante de FGTS",
@@ -380,6 +414,17 @@ def _cadeias_fgts(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
                     )
                 ),
                 "evidencias": [_evidencia(guia, "valor_recolhimento", "Valor de recolhimento")],
+            },
+            {
+                "codigo": "data_e_vencimento",
+                "titulo": "Data lida e vencimento",
+                "situacao": "nao_verificavel",
+                "detalhe": (
+                    f"Data de pagamento lida: {data_pagamento or 'não extraída'}. "
+                    f"Vencimento: {vencimento or 'não extraído'}. "
+                    "Datas diferentes não são tratadas como irregularidade."
+                ),
+                "evidencias": [_evidencia(guia, "data_pagamento", "Data de pagamento")],
             },
             {
                 "codigo": "plano_trabalho",
@@ -399,11 +444,31 @@ def _cadeias_fgts(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
                 "comprovante": comprovante,
                 "apoio": None,
                 "verificacoes": verificacoes,
-                "separacao": _separacao("nao_verificavel", comprovante is not None),
+                "separacao": _separacao(situacao_peca, comprovante is not None),
                 "confianca": "sugerida",
             }
         )
     return propostas
+
+
+def _valores_na_guia(texto: str) -> tuple[Decimal | None, Decimal | None]:
+    moeda = r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}"
+    deposito = _moeda_rotulo(texto, rf"valor\s+dep[oó]sito\s*[:\-]?\s*({moeda})")
+    recibo = _moeda_rotulo(texto, rf"valor\s+total\s*[:\-]?\s*({moeda})")
+    coluna = re.search(
+        rf"total\s+a\s+recolher.{{0,160}}?{moeda}\s+{moeda}\s+({moeda})",
+        texto or "",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    guia = _dinheiro(coluna.group(1)) if coluna else None
+    return deposito, guia if guia is not None else recibo
+
+
+def _moeda_rotulo(texto: str, padrao: str) -> Decimal | None:
+    achado = re.search(padrao, texto or "", flags=re.IGNORECASE)
+    if not achado:
+        return None
+    return _dinheiro(achado.group(1))
 
 
 def depurar_vinculos_sugeridos(lote) -> None:

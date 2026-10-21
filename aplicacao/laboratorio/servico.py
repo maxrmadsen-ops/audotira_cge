@@ -25,6 +25,7 @@ from aplicacao.documentos.models import Documento, PaginaDocumento
 from aplicacao.laboratorio.classificacao import (
     classificar_texto,
     detectar_numero_impresso,
+    candidatos_da_peca,
     recortar_texto_para_tipo,
     segmentar_regioes,
     tipo_principal,
@@ -543,7 +544,10 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
             continue
         recorte = imagem.crop((x0, y0, x1, y1))
         texto, palavras = ocr.extrair_imagem_com_caixas(recorte)
-        candidatos = [item for item in classificar_texto(texto) if item["tipo"] != "outros_nao_classificados"]
+        candidatos = candidatos_da_peca(
+            [item for item in classificar_texto(texto) if item["tipo"] != "outros_nao_classificados"],
+            texto,
+        )
         if not candidatos:
             continue
         principal = tipo_principal(candidatos, texto) or candidatos[0]

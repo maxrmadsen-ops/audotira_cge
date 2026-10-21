@@ -5,10 +5,10 @@ from decimal import Decimal
 from django.test import SimpleTestCase
 from django.urls import reverse
 
-from aplicacao.laboratorio.classificacao import classificar_texto, tipo_principal
+from aplicacao.laboratorio.classificacao import candidatos_da_peca, classificar_texto, tipo_principal
 from aplicacao.laboratorio.extracao import extrair_campos
 
-from aplicacao.laboratorio.conciliacao import sincronizar_cadeias
+from aplicacao.laboratorio.conciliacao import _valores_na_guia, sincronizar_cadeias
 from aplicacao.laboratorio.escolhas import EstadoCampo, EstadoVinculo
 from aplicacao.laboratorio.models import CadeiaConciliacao, CampoExtraido, RegiaoDocumental, VinculoEvidencia
 from aplicacao.laboratorio.tests_ciclo602 import TesteCiclo602Conferencia
@@ -44,6 +44,58 @@ class TesteTipoDaAmostra(SimpleTestCase):
         self.assertIn("LUCIANE SAURIN BIZOTO", campos["trabalhador"])
         self.assertIn("4.430,34", campos["total_bruto"])
         self.assertEqual(campos["total_liquido"], "")
+
+    def test_liquido_sem_centavos_e_aviso_interno_nao_viram_pagamento(self):
+        texto = """
+        TERMO DE RESCISÃO DO CONTRATO DE TRABALHO
+        25 Data do Aviso Prévio
+        Saldo de 21/dias Salário (líquido 1.693,97
+        TOTAL BRUTO 4.480,34
+        VALOR LÍQUIDO | 416651
+        """
+        candidatos = candidatos_da_peca(classificar_texto(texto), texto)
+        self.assertTrue(any(item["tipo"] == "termo_rescisao" for item in candidatos))
+        self.assertFalse(any(item["tipo"] == "comunicacao_dispensa" for item in candidatos))
+        campos = {item["chave"]: item["valor_original"] for item in extrair_campos("termo_rescisao", texto, 91, "teste")}
+        self.assertEqual(campos["total_bruto"], "4.480,34")
+        self.assertEqual(campos["total_liquido"], "")
+
+    def test_quitacao_nao_herda_o_tipo_da_rescisao_nem_a_data_de_nascimento(self):
+        texto = """
+        TERMO DE QUITAÇÃO DE RESCISÃO DO CONTRATO DE TRABALHO
+        02.419.958/0001-47 APAE ASSOC.DE PAIS E AMIGOS DOS EXCEP.
+        11 Nome
+        131.18094.72-8 LUCIANE SAURIN BIZOTO
+        27/05/1981 ADELIA MILANI SAURIN
+        no valor líquido de R$ + o qual
+        """
+        principal = tipo_principal(classificar_texto(texto), texto)
+        self.assertEqual(principal["tipo"], "termo_quitacao")
+        campos = {item["chave"]: item["valor_original"] for item in extrair_campos("termo_quitacao", texto, 92, "teste")}
+        self.assertEqual(campos["valor_quitado"], "")
+        self.assertEqual(campos["data"], "")
+        self.assertIn("LUCIANE SAURIN BIZOTO", campos["trabalhador"])
+
+    def test_encargos_da_guia_nao_usam_o_deposito_nem_o_numero_do_campo(self):
+        texto = """
+        COMPROVANTE DE PAGAMENTO
+        Convenio FGTS ARRECADACAO GRF
+        CNPJ/CEI/CPF 02419958/0001-47 É e k
+        COMPETENCIA 04/2022
+        VALOR DEPOSITO 2.329,85
+        Data do pagamento 17/05/2022
+        AUTENTICACAO SISBB: 8.F11.CBC.91A.D82.065
+        14-ENCARGOS 15-TOTAL A RECOLHER
+        2.207,47 122,38 2.329,85
+        """
+        campos = {item["chave"]: item["valor_original"] for item in extrair_campos("guia_fgts", texto, 111, "teste")}
+        self.assertEqual(campos["encargos"], "122,38")
+        self.assertEqual(campos["autenticacao"], "8.F11.CBC.91A.D82.065")
+        self.assertEqual(campos["empregador"], "02419958/0001-47")
+        self.assertNotIn("É", campos["empregador"])
+        deposito, total = _valores_na_guia(texto)
+        self.assertEqual(deposito, Decimal("2329.85"))
+        self.assertEqual(total, Decimal("2329.85"))
 
 
 class TesteConciliacao(TesteCiclo602Conferencia):
