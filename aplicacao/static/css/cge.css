@@ -929,6 +929,7 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 .regioes-overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
 .regiao-box {
     position: absolute;
+    z-index: 1;
     border: 2px solid rgba(31, 122, 77, 0.85);
     background: rgba(47, 158, 100, 0.12);
     box-sizing: border-box;
@@ -966,12 +967,30 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 }
 .destaque-evidencia {
     position: absolute;
-    border: 2px solid #b45309;
-    background: rgba(245, 158, 11, 0.38);
-    box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.45);
+    border: 3px solid #9a3412;
+    background: rgba(251, 191, 36, 0.55);
+    box-shadow: 0 0 0 3px rgba(154, 52, 18, 0.95), 0 0 0 8px rgba(251, 191, 36, 0.45);
     pointer-events: none;
-    z-index: 4;
+    z-index: 5;
     box-sizing: border-box;
+}
+.destaque-evidencia::after {
+    content: "Evidência";
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 2px);
+    background: #9a3412;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
+    padding: 0.08rem 0.35rem;
+    white-space: nowrap;
+}
+.localizar-evidencia.ativo {
+    border-color: #9a3412;
+    color: #9a3412;
+    background: #fff7ed;
 }
 .tabela-rubricas { display: grid; gap: 0.3rem; margin-bottom: 0.8rem; }
 .rubrica-cabeca,

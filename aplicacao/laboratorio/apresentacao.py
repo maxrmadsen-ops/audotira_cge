@@ -114,7 +114,10 @@ SECOES_PECA = {
 }
 
 
-def secoes_da_peca(tipo: str, campos: list) -> list[dict]:
+CHAVES_RUBRICA_AGREGADA = {"rubricas_proventos", "rubricas_descontos"}
+
+
+def secoes_da_peca(tipo: str, campos: list, rubricas_estruturadas: bool = False) -> list[dict]:
     por_chave = {campo.chave: campo for campo in campos}
     definicao = SECOES_PECA.get(tipo) or (("campos", "Campos extraídos", tuple(por_chave)),)
     usadas = set()
@@ -135,7 +138,13 @@ def secoes_da_peca(tipo: str, campos: list) -> list[dict]:
         if not itens:
             continue
         secoes.append({"codigo": codigo, "titulo": titulo, "campos": itens, "pendentes": pendentes})
-    resto = [campo for campo in campos if campo.chave not in usadas and (campo.valor_original or campo.obrigatorio)]
+    resto = [
+        campo
+        for campo in campos
+        if campo.chave not in usadas
+        and (campo.valor_original or campo.obrigatorio)
+        and not (rubricas_estruturadas and campo.chave in CHAVES_RUBRICA_AGREGADA)
+    ]
     if resto:
         secoes.append(
             {

@@ -170,12 +170,13 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
         for regiao in regioes:
             regiao.resumo = resumo_peca(regiao)
         campos = campos_conferencia(peca_selecionada) if peca_selecionada else []
-        secoes = secoes_da_peca(peca_selecionada.tipo_documental, campos) if peca_selecionada else []
         rubricas = list(peca_selecionada.rubricas.all()) if peca_selecionada else []
+        secoes = (
+            secoes_da_peca(peca_selecionada.tipo_documental, campos, rubricas_estruturadas=bool(rubricas))
+            if peca_selecionada
+            else []
+        )
         pendentes_rubrica = sum(1 for rubrica in rubricas if rubrica.estado_revisao == "pendente")
-        for secao in secoes:
-            if secao["codigo"] == "proventos" and pendentes_rubrica:
-                secao["pendentes"] += pendentes_rubrica
         vinculos = []
         pendencias_peca = []
         if peca_selecionada:
@@ -199,6 +200,7 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
                 "campos": campos,
                 "secoes": secoes,
                 "rubricas": rubricas,
+                "pendentes_rubrica": pendentes_rubrica,
                 "comparacao": comparar_pagina(regioes),
                 "vinculos": vinculos,
                 "pendencias": pendencias_peca,

@@ -52,6 +52,7 @@
         <div class="d-flex flex-wrap gap-2 mb-2">
             <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-menos">−</button>
             <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-mais">+</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-limpar-destaque">Limpar destaque</button>
         </div>
         <div class="laboratorio-visor" id="laboratorio-visor" data-arquivo="{{ arquivo_url }}" data-pagina="{{ pagina.numero_fisico }}">
             <canvas id="pdf-canvas"></canvas>
@@ -167,11 +168,11 @@
                 </div>
             </details>
 
-            {% for secao in secoes %}
+            {% if rubricas %}
             <details class="secao-peca">
-                <summary>{{ secao.titulo }}{% if secao.pendentes %} · {{ secao.pendentes }} pendente{{ secao.pendentes|pluralize }}{% endif %}</summary>
+                <summary>Rubricas do holerite{% if pendentes_rubrica %} · {{ pendentes_rubrica }} pendente{{ pendentes_rubrica|pluralize }}{% endif %}</summary>
                 <div class="secao-corpo">
-                    {% if secao.codigo == "proventos" and rubricas %}
+                    <p class="texto-apoio">Cada rubrica é conferida individualmente. O texto integral da região permanece em Evidências e revisão.</p>
                     <div class="tabela-rubricas">
                         <div class="rubrica-cabeca"><span>Código</span><span>Rubrica</span><span>Referência</span><span>Provento</span><span>Desconto</span><span>Situação</span></div>
                         {% for rubrica in rubricas %}
@@ -222,7 +223,14 @@
                         </details>
                         {% endfor %}
                     </div>
-                    {% endif %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% for secao in secoes %}
+            <details class="secao-peca">
+                <summary>{{ secao.titulo }}{% if secao.pendentes %} · {{ secao.pendentes }} pendente{{ secao.pendentes|pluralize }}{% endif %}</summary>
+                <div class="secao-corpo">
                     {% for campo in secao.campos %}
                     <div class="campo-extraido border-bottom py-2"
                         data-precisa="{% if campo.localizacao_precisa %}1{% else %}0{% endif %}"
@@ -346,16 +354,24 @@
     var escala = 1.15;
     var pdfDoc = null;
     var overlay = document.getElementById("regioes-overlay");
+    var destaqueAtivo = null;
+    function alinharOverlay() {
+        if (!overlay) return;
+        overlay.style.left = canvas.offsetLeft + "px";
+        overlay.style.top = canvas.offsetTop + "px";
+        overlay.style.width = canvas.offsetWidth + "px";
+        overlay.style.height = canvas.offsetHeight + "px";
+    }
     function desenhar(numero) {
         return pdfDoc.getPage(numero).then(function (page) {
             var viewport = page.getViewport({ scale: escala });
             canvas.height = viewport.height;
             canvas.width = viewport.width;
-            if (overlay) {
-                overlay.style.width = viewport.width + "px";
-                overlay.style.height = viewport.height + "px";
-            }
-            return page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            alinharOverlay();
+            return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
+                alinharOverlay();
+                if (destaqueAtivo) aplicarDestaque(destaqueAtivo, false);
+            });
         });
     }
     pdfjsLib.getDocument({ url: tela.dataset.arquivo, withCredentials: true }).promise.then(function (pdf) {
@@ -457,23 +473,61 @@
         });
     }
     var destaque = document.getElementById("destaque-evidencia");
+    function aplicarDestaque(origem, deslocar) {
+        if (!destaque || !overlay || !origem || origem.dataset.precisa !== "1") return;
+        var x = parseFloat(origem.dataset.x);
+        var y = parseFloat(origem.dataset.y);
+        var w = parseFloat(origem.dataset.w);
+        var h = parseFloat(origem.dataset.h);
+        if ([x, y, w, h].some(function (valor) { return Number.isNaN(valor); })) return;
+        if (w <= 0 || h <= 0 || (w > 0.9 && h > 0.2)) return;
+        alinharOverlay();
+        var larguraPagina = overlay.offsetWidth;
+        var alturaPagina = overlay.offsetHeight;
+        if (larguraPagina < 40 || alturaPagina < 40) return;
+        var pxW = w * larguraPagina;
+        var pxH = h * alturaPagina;
+        var centroX = (x + w / 2) * larguraPagina;
+        var centroY = (y + h / 2) * alturaPagina;
+        var visW = Math.min(Math.max(pxW + 8, 96), pxW + 28);
+        var visH = Math.min(Math.max(pxH + 6, 34), pxH + 16);
+        var left = Math.max(0, Math.min(larguraPagina - visW, centroX - visW / 2));
+        var top = Math.max(0, Math.min(alturaPagina - visH, centroY - visH / 2));
+        destaque.hidden = false;
+        destaque.style.left = (left / larguraPagina * 100) + "%";
+        destaque.style.top = (top / alturaPagina * 100) + "%";
+        destaque.style.width = (visW / larguraPagina * 100) + "%";
+        destaque.style.height = (visH / alturaPagina * 100) + "%";
+        if (deslocar) {
+            tela.scrollTo({
+                left: Math.max(0, centroX - tela.clientWidth / 2),
+                top: Math.max(0, centroY - tela.clientHeight / 2),
+                behavior: "smooth"
+            });
+            tela.scrollIntoView({ block: "center", inline: "nearest" });
+        }
+    }
+    function limparDestaque() {
+        destaqueAtivo = null;
+        if (destaque) destaque.hidden = true;
+        document.querySelectorAll(".localizar-evidencia.ativo").forEach(function (item) {
+            item.classList.remove("ativo");
+            item.setAttribute("aria-pressed", "false");
+        });
+    }
     document.querySelectorAll(".localizar-evidencia").forEach(function (botao) {
         botao.addEventListener("click", function () {
             var origem = botao.closest("[data-precisa]");
-            if (!destaque || !overlay || !origem || origem.dataset.precisa !== "1") return;
-            var x = parseFloat(origem.dataset.x);
-            var y = parseFloat(origem.dataset.y);
-            var w = parseFloat(origem.dataset.w);
-            var h = parseFloat(origem.dataset.h);
-            if ([x, y, w, h].some(function (valor) { return Number.isNaN(valor); })) return;
-            destaque.hidden = false;
-            destaque.style.left = (x * 100) + "%";
-            destaque.style.top = (y * 100) + "%";
-            destaque.style.width = (w * 100) + "%";
-            destaque.style.height = (h * 100) + "%";
-            tela.scrollTop = Math.max(0, y * overlay.offsetHeight - 36);
+            if (!origem || origem.dataset.precisa !== "1") return;
+            limparDestaque();
+            destaqueAtivo = origem;
+            botao.classList.add("ativo");
+            botao.setAttribute("aria-pressed", "true");
+            aplicarDestaque(origem, true);
         });
     });
+    var limpar = document.getElementById("pdf-limpar-destaque");
+    if (limpar) limpar.addEventListener("click", limparDestaque);
 })();
 </script>
 {% endblock %}

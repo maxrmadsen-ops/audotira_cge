@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.test import TestCase
 from django.urls import reverse
 
-from aplicacao.laboratorio.apresentacao import _conferir_rubricas
+from aplicacao.laboratorio.apresentacao import _conferir_rubricas, secoes_da_peca
 from aplicacao.laboratorio.escolhas import EstadoCampo
 from aplicacao.laboratorio.extracao import estruturar_rubricas, extrair_campos
 from aplicacao.laboratorio.localizacao import caixa_do_valor, projetar_pagina
@@ -121,6 +121,29 @@ class TesteRubricasELocalizacao(TestCase):
         self.assertEqual(decidir_numero_impresso(["13/05/2022", "15"]), "")
         self.assertEqual(decidir_numero_impresso(["15", "13"]), "")
 
+    def test_rubrica_agregada_sai_da_conferencia_quando_a_estrutura_existe(self):
+        class Campo:
+            def __init__(self, chave):
+                self.chave = chave
+                self.valor_original = "texto agregado"
+                self.obrigatorio = False
+                self.estado_confianca = "evidencia_textual"
+                self.estado_revisao = "pendente"
+
+        campos = [
+            Campo("salario_base"),
+            Campo("total_proventos"),
+            Campo("rubricas_proventos"),
+            Campo("rubricas_descontos"),
+        ]
+        com_estrutura = [campo.chave for secao in secoes_da_peca("holerite", campos, rubricas_estruturadas=True) for campo in secao["campos"]]
+        sem_estrutura = [campo.chave for secao in secoes_da_peca("holerite", campos, rubricas_estruturadas=False) for campo in secao["campos"]]
+        self.assertIn("salario_base", com_estrutura)
+        self.assertNotIn("rubricas_proventos", com_estrutura)
+        self.assertNotIn("rubricas_descontos", com_estrutura)
+        self.assertIn("rubricas_proventos", sem_estrutura)
+        self.assertIn("rubricas_descontos", sem_estrutura)
+
 
 class TesteRevisaoIndividual(TesteCiclo602Conferencia):
     def test_confirmar_uma_rubrica_nao_confirma_a_outra_nem_a_despesa(self):
@@ -172,7 +195,10 @@ class TesteRevisaoIndividual(TesteCiclo602Conferencia):
         liquido = CampoExtraido.objects.get(regiao=self.holerite, chave="valor_liquido")
         self.assertEqual(liquido.estado_revisao, EstadoCampo.PENDENTE)
         resposta = self.client.get(reverse("laboratorio:curadoria", kwargs={"lote_pk": self.lote.pk}) + "?pagina=17&peca=" + str(self.holerite.pk))
+        self.assertContains(resposta, "Rubricas do holerite")
         self.assertContains(resposta, "Código")
+        self.assertNotContains(resposta, "Rubricas de proventos")
+        self.assertNotContains(resposta, "Rubricas de descontos")
         self.assertContains(resposta, "Soma das rubricas de proventos")
         self.assertContains(resposta, "Localização precisa indisponível")
         self.assertContains(resposta, "<details class=\"secao-peca\">")
