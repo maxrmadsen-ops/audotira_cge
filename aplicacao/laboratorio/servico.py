@@ -50,7 +50,6 @@ from aplicacao.laboratorio.releitura import (
     decidir_autenticacao,
     decidir_data,
     decidir_matricula,
-    decidir_numero_impresso,
     reler_faixa,
 )
 from aplicacao.laboratorio.vinculos import sugerir_vinculos
@@ -570,9 +569,6 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
     from django.conf import settings
 
     idioma = settings.OCR_IDIOMA
-    numero_rodape = decidir_numero_impresso(
-        reler_faixa(imagem, {"x": 0.82, "y": 0.94, "largura": 0.16, "altura": 0.055}, idioma)
-    )
     with transaction.atomic():
         inventario.regioes.all().delete()
         for peca in pecas:
@@ -603,7 +599,7 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
             )
             faixa = {"x": peca["x"], "y": peca["y"], "largura": peca["largura"], "altura": peca["altura"]}
             campos = extrair_campos(regiao.tipo_documental, peca["texto"], numero, "ocr_regiao")
-            _reler_campos_dificeis(campos, peca["recorte"], peca["palavras"], idioma)
+            _reler_campos_dificeis(campos, peca["recorte"], peca["palavras"], peca["texto"], idioma)
             localizar_campos(campos, peca["palavras"], faixa)
             CampoExtraido.objects.bulk_create(
                 [
@@ -636,9 +632,9 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
         inventario.estado_revisao = EstadoRevisao.PENDENTE
         inventario.tecnica_utilizada = MetodoExtracao.OCR
         campos_pagina = ["tipos_candidatos", "quantidade_regioes", "estado_classificacao", "estado_revisao", "tecnica_utilizada"]
-        if numero_rodape:
-            inventario.numero_impresso = numero_rodape
-            inventario.proveniencia = "ocr_recorte_rodape"
+        if inventario.proveniencia == "ocr_recorte_rodape":
+            inventario.numero_impresso = ""
+            inventario.proveniencia = ""
             campos_pagina.extend(["numero_impresso", "proveniencia"])
         inventario.save(update_fields=campos_pagina)
         sugerir_vinculos(lote)
@@ -669,7 +665,9 @@ def _retorno_pagina(numero, faixas, pecas, mantida, lote, hash_antes, paginas_an
     }
 
 
-def _reler_campos_dificeis(campos: list[dict], recorte, palavras: list[dict], idioma: str) -> None:
+def _reler_campos_dificeis(campos: list[dict], recorte, palavras: list[dict], texto: str, idioma: str) -> None:
+    import re
+
     faixa_auth = faixa_do_rotulo(palavras, r"autentic")
     if faixa_auth:
         original = next((campo["valor_original"] for campo in campos if campo["chave"] == "autenticacao"), "")
@@ -678,6 +676,8 @@ def _reler_campos_dificeis(campos: list[dict], recorte, palavras: list[dict], id
     if faixa_cadastro:
         aplicar_em_campos(campos, "matricula", decidir_matricula(reler_faixa(recorte, faixa_cadastro, idioma)))
     faixa_recebi = faixa_do_rotulo(palavras, r"recebi", altura=0.06)
+    if faixa_recebi is None and re.search(r"recebi", texto or "", flags=re.IGNORECASE):
+        faixa_recebi = {"x": 0.0, "y": 0.86, "largura": 0.72, "altura": 0.12}
     if faixa_recebi:
         aplicar_em_campos(campos, "data_recebimento", decidir_data(reler_faixa(recorte, faixa_recebi, idioma)))
 

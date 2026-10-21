@@ -28,12 +28,12 @@ def decidir_autenticacao(original: str, leituras: list[str]) -> dict | None:
             "metodo": "ocr_recorte",
             "nota": "",
         }
-    if len(unicas) > 1:
+    if original or extraidas:
         return {
             "valor": original,
             "confianca": "ambiguo",
             "metodo": "ocr_regiao",
-            "nota": "Leituras divergentes do código: " + " | ".join(extraidas),
+            "nota": "Recorte não confirmou o código: " + (" | ".join(extraidas) or "sem padrão estável"),
         }
     return None
 
