@@ -9,6 +9,12 @@ def _norm(texto: str) -> str:
     return re.sub(r"[^0-9A-Za-zÀ-ÿ]", "", texto or "").upper()
 
 
+def _casa(atual: str, alvo: str) -> bool:
+    if not atual:
+        return False
+    return atual == alvo or alvo in atual or (atual in alvo and len(atual) >= 3)
+
+
 def caixa_do_valor(palavras: list[dict], consulta: str) -> dict | None:
     """Devolve uma caixa só quando a consulta aparece uma única vez."""
     tokens = [_norm(parte) for parte in re.split(r"\s+", (consulta or "").strip())]
@@ -17,17 +23,24 @@ def caixa_do_valor(palavras: list[dict], consulta: str) -> dict | None:
         return None
     normas = [_norm(palavra.get("texto", "")) for palavra in palavras]
     encontrados = []
-    for inicio in range(len(palavras)):
-        cursor = 0
+    for inicio, inicial in enumerate(normas):
+        if not _casa(inicial, alvos[0]):
+            continue
+        cursor = 1
         fim = inicio
-        while fim < len(palavras) and cursor < len(alvos) and fim < inicio + 14:
-            atual = normas[fim]
-            if atual and (atual == alvos[cursor] or alvos[cursor] in atual or (atual in alvos[cursor] and len(atual) >= 3)):
-                cursor += 1
-                if cursor == len(alvos):
-                    encontrados.append((inicio, fim))
-                    break
-            fim += 1
+        posicao = inicio + 1
+        while posicao < len(palavras) and cursor < len(alvos) and posicao < inicio + 14:
+            atual = normas[posicao]
+            if not atual:
+                posicao += 1
+                continue
+            if not _casa(atual, alvos[cursor]):
+                break
+            fim = posicao
+            cursor += 1
+            posicao += 1
+        if cursor == len(alvos):
+            encontrados.append((inicio, fim))
     if len(encontrados) != 1:
         return None
     inicio, fim = encontrados[0]
