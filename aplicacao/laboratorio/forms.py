@@ -28,6 +28,22 @@ class FormularioCampo(forms.Form):
     )
 
 
+class FormularioRubrica(forms.Form):
+    descricao = forms.CharField(required=False)
+    referencia = forms.CharField(required=False)
+    valor_original = forms.CharField(required=False)
+    justificativa = forms.CharField(required=False)
+    acao = forms.ChoiceField(
+        choices=(
+            ("confirmar", "Confirmar"),
+            ("corrigir", "Corrigir"),
+            ("nao_localizado", "Não localizado"),
+            ("ilegivel", "Ilegível"),
+            ("pendente", "Manter pendente"),
+        )
+    )
+
+
 class FormularioVinculo(forms.Form):
     estado = forms.ChoiceField(choices=EstadoVinculo.choices)
     justificativa = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))

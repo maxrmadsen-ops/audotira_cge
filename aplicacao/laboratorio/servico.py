@@ -35,13 +35,23 @@ from aplicacao.laboratorio.escolhas import (
     PrioridadePendencia,
     StatusPendencia,
 )
-from aplicacao.laboratorio.extracao import extrair_campos
+from aplicacao.laboratorio.extracao import estruturar_rubricas, extrair_campos
+from aplicacao.laboratorio.localizacao import caixa_do_valor, faixa_abaixo, faixa_do_rotulo, localizar_campos, projetar_pagina
 from aplicacao.laboratorio.models import (
     CampoExtraido,
     InventarioPagina,
     LoteLaboratorio,
     PendenciaDocumental,
     RegiaoDocumental,
+    RubricaExtraida,
+)
+from aplicacao.laboratorio.releitura import (
+    aplicar_em_campos,
+    decidir_autenticacao,
+    decidir_data,
+    decidir_matricula,
+    decidir_numero_impresso,
+    reler_faixa,
 )
 from aplicacao.laboratorio.vinculos import sugerir_vinculos
 
@@ -493,7 +503,7 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
     }
 
 
-VERSAO_EXTRACAO_REGIAO = "6.0.2"
+VERSAO_EXTRACAO_REGIAO = "6.0.3"
 
 
 def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> dict:
@@ -531,7 +541,8 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
         y1 = min(altura, int((faixa["y"] + faixa["altura"]) * altura))
         if x1 <= x0 or y1 <= y0:
             continue
-        texto = ocr.extrair_imagem(imagem.crop((x0, y0, x1, y1)))
+        recorte = imagem.crop((x0, y0, x1, y1))
+        texto, palavras = ocr.extrair_imagem_com_caixas(recorte)
         candidatos = [item for item in classificar_texto(texto) if item["tipo"] != "outros_nao_classificados"]
         if not candidatos:
             continue
@@ -550,10 +561,18 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                 "largura": faixa["largura"],
                 "altura": faixa["altura"],
                 "ordem_visual": ordem,
+                "palavras": palavras,
+                "recorte": recorte,
             }
         )
     if not pecas:
         return _retorno_pagina(numero, len(faixas), [], True, lote, hash_antes, paginas_antes, outras_antes)
+    from django.conf import settings
+
+    idioma = settings.OCR_IDIOMA
+    numero_rodape = decidir_numero_impresso(
+        reler_faixa(imagem, {"x": 0.82, "y": 0.94, "largura": 0.16, "altura": 0.055}, idioma)
+    )
     with transaction.atomic():
         inventario.regioes.all().delete()
         for peca in pecas:
@@ -582,6 +601,10 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                     )
                 ),
             )
+            faixa = {"x": peca["x"], "y": peca["y"], "largura": peca["largura"], "altura": peca["altura"]}
+            campos = extrair_campos(regiao.tipo_documental, peca["texto"], numero, "ocr_regiao")
+            _reler_campos_dificeis(campos, peca["recorte"], peca["palavras"], idioma)
+            localizar_campos(campos, peca["palavras"], faixa)
             CampoExtraido.objects.bulk_create(
                 [
                     CampoExtraido(
@@ -593,28 +616,31 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                         valor_normalizado=campo["valor_normalizado"],
                         numero_pagina=numero,
                         trecho_evidencia=campo["trecho_evidencia"],
+                        evidencia_x=campo.get("evidencia_x"),
+                        evidencia_y=campo.get("evidencia_y"),
+                        evidencia_largura=campo.get("evidencia_largura"),
+                        evidencia_altura=campo.get("evidencia_altura"),
+                        localizacao_precisa=bool(campo.get("localizacao_precisa")),
                         metodo=campo["metodo"],
                         estado_confianca=campo["estado_confianca"],
-                        estado_revisao=EstadoCampo.AUSENTE if not campo["valor_original"] else EstadoCampo.PENDENTE,
+                        estado_revisao=EstadoCampo.AUSENTE if not campo["valor_original"] and campo.get("estado_confianca") != "ambiguo" else EstadoCampo.PENDENTE,
                         obrigatorio=campo["obrigatorio"],
                     )
-                    for campo in extrair_campos(regiao.tipo_documental, peca["texto"], numero, "ocr_regiao")
+                    for campo in campos
                 ]
             )
+            _gravar_rubricas(regiao, peca["texto"], peca["palavras"], faixa)
         inventario.tipos_candidatos = [peca["tipo"] for peca in pecas]
         inventario.quantidade_regioes = len(pecas)
         inventario.estado_classificacao = EstadoClassificacao.PROPOSTO
         inventario.estado_revisao = EstadoRevisao.PENDENTE
         inventario.tecnica_utilizada = MetodoExtracao.OCR
-        inventario.save(
-            update_fields=[
-                "tipos_candidatos",
-                "quantidade_regioes",
-                "estado_classificacao",
-                "estado_revisao",
-                "tecnica_utilizada",
-            ]
-        )
+        campos_pagina = ["tipos_candidatos", "quantidade_regioes", "estado_classificacao", "estado_revisao", "tecnica_utilizada"]
+        if numero_rodape:
+            inventario.numero_impresso = numero_rodape
+            inventario.proveniencia = "ocr_recorte_rodape"
+            campos_pagina.extend(["numero_impresso", "proveniencia"])
+        inventario.save(update_fields=campos_pagina)
         sugerir_vinculos(lote)
     lote.refresh_from_db()
     return _retorno_pagina(numero, len(faixas), pecas, False, lote, hash_antes, paginas_antes, outras_antes)
@@ -641,3 +667,37 @@ def _retorno_pagina(numero, faixas, pecas, mantida, lote, hash_antes, paginas_an
         "regioes_outras_antes": outras_antes,
         "regioes_outras_depois": lote.regioes.exclude(pagina__numero_fisico=numero).count(),
     }
+
+
+def _reler_campos_dificeis(campos: list[dict], recorte, palavras: list[dict], idioma: str) -> None:
+    faixa_auth = faixa_do_rotulo(palavras, r"autentic")
+    if faixa_auth:
+        original = next((campo["valor_original"] for campo in campos if campo["chave"] == "autenticacao"), "")
+        aplicar_em_campos(campos, "autenticacao", decidir_autenticacao(original, reler_faixa(recorte, faixa_auth, idioma)))
+    faixa_cadastro = faixa_abaixo(palavras, r"adastro")
+    if faixa_cadastro:
+        aplicar_em_campos(campos, "matricula", decidir_matricula(reler_faixa(recorte, faixa_cadastro, idioma)))
+    faixa_recebi = faixa_do_rotulo(palavras, r"recebi", altura=0.06)
+    if faixa_recebi:
+        aplicar_em_campos(campos, "data_recebimento", decidir_data(reler_faixa(recorte, faixa_recebi, idioma)))
+
+
+def _gravar_rubricas(regiao, texto: str, palavras: list[dict], faixa: dict) -> None:
+    linhas = []
+    for ordem, item in enumerate(estruturar_rubricas(texto), start=1):
+        caixa = caixa_do_valor(palavras, item["trecho_evidencia"]) or caixa_do_valor(palavras, item["valor_original"])
+        coords = projetar_pagina(caixa, faixa) if caixa else {}
+        linhas.append(
+            RubricaExtraida(
+                regiao=regiao,
+                ordem=ordem,
+                localizacao_precisa=bool(caixa),
+                evidencia_x=coords.get("evidencia_x"),
+                evidencia_y=coords.get("evidencia_y"),
+                evidencia_largura=coords.get("evidencia_largura"),
+                evidencia_altura=coords.get("evidencia_altura"),
+                **item,
+            )
+        )
+    if linhas:
+        RubricaExtraida.objects.bulk_create(linhas)

@@ -70,6 +70,7 @@
                     <span class="alca alca-se" data-alca="se"></span>
                 </div>
                 {% endfor %}
+                <div id="destaque-evidencia" class="destaque-evidencia" hidden></div>
             </div>
         </div>
         <p class="texto-apoio mt-2 mb-0">
@@ -119,6 +120,8 @@
                 <p class="mb-1">{{ comparacao.origem_liquido }}: {{ comparacao.liquido }}</p>
                 <p class="mb-1">{{ comparacao.origem_transferencia }}: {{ comparacao.transferencia }}</p>
                 <p class="mb-1">{{ comparacao.proventos }} − {{ comparacao.descontos }} = {{ comparacao.calculado }}</p>
+                <p class="mb-1">Soma das rubricas de proventos: {{ comparacao.soma_proventos }} — {{ comparacao.soma_proventos_estado }}.</p>
+                <p class="mb-1">Soma das rubricas de descontos: {{ comparacao.soma_descontos }} — {{ comparacao.soma_descontos_estado }}.</p>
                 <p class="mb-1">{% if comparacao.aritmetica_ok %}A subtração confere com o líquido extraído.{% else %}A subtração não fecha com o líquido extraído, ou algum valor está ausente.{% endif %}</p>
                 <p class="mb-1">{% if comparacao.valores_iguais %}Os dois valores extraídos coincidem.{% else %}Os valores extraídos não coincidem, ou um deles está ausente.{% endif %}</p>
                 <p class="mb-1">{{ comparacao.nomes }}</p>
@@ -168,16 +171,82 @@
             <details class="secao-peca">
                 <summary>{{ secao.titulo }}{% if secao.pendentes %} · {{ secao.pendentes }} pendente{{ secao.pendentes|pluralize }}{% endif %}</summary>
                 <div class="secao-corpo">
+                    {% if secao.codigo == "proventos" and rubricas %}
+                    <div class="tabela-rubricas">
+                        <div class="rubrica-cabeca"><span>Código</span><span>Rubrica</span><span>Referência</span><span>Provento</span><span>Desconto</span><span>Situação</span></div>
+                        {% for rubrica in rubricas %}
+                        <details class="rubrica-linha"
+                            data-precisa="{% if rubrica.localizacao_precisa %}1{% else %}0{% endif %}"
+                            data-x="{{ rubrica.evidencia_x|default:'' }}"
+                            data-y="{{ rubrica.evidencia_y|default:'' }}"
+                            data-w="{{ rubrica.evidencia_largura|default:'' }}"
+                            data-h="{{ rubrica.evidencia_altura|default:'' }}">
+                            <summary>
+                                <span>{{ rubrica.codigo }}</span>
+                                <span>{{ rubrica.descricao }}</span>
+                                <span>{{ rubrica.referencia }}{% if rubrica.unidade %} {{ rubrica.unidade }}{% endif %}</span>
+                                <span>{% if rubrica.natureza == "provento" %}{{ rubrica.valor_original }}{% endif %}</span>
+                                <span>{% if rubrica.natureza == "desconto" %}{{ rubrica.valor_original }}{% endif %}</span>
+                                <span>{{ rubrica.get_estado_revisao_display }}</span>
+                            </summary>
+                            <div class="rubrica-corpo">
+                                <p class="rotulo-evidencia">Evidência — página {{ pagina.numero_fisico }}:</p>
+                                <p class="evidencia-campo">{{ rubrica.trecho_evidencia }}</p>
+                                <p class="texto-apoio mb-1">Técnica: {{ rubrica.metodo }} · {{ rubrica.estado_confianca }}</p>
+                                {% if rubrica.localizacao_precisa %}
+                                <button class="btn btn-outline-secondary btn-sm localizar-evidencia" type="button">Mostrar no PDF</button>
+                                {% else %}
+                                <p class="texto-apoio mb-1">Localização precisa indisponível</p>
+                                {% endif %}
+                                {% if rubrica.estado_confianca == "ambiguo" or rubrica.estado_confianca == "parcial" %}
+                                <p class="texto-apoio">Leitura incompleta. A conferência manual desta rubrica não altera as outras.</p>
+                                {% endif %}
+                                <form method="post" action="{% url 'laboratorio:revisar_rubrica' lote.pk rubrica.pk %}" class="row g-1 mt-1">
+                                    {% csrf_token %}
+                                    <div class="col-md-4"><input class="form-control form-control-sm" name="descricao" value="{{ rubrica.descricao }}"></div>
+                                    <div class="col-md-3"><input class="form-control form-control-sm" name="referencia" value="{{ rubrica.referencia }}"></div>
+                                    <div class="col-md-3"><input class="form-control form-control-sm" name="valor_original" value="{{ rubrica.valor_original }}"></div>
+                                    <div class="col-md-2">
+                                        <select class="form-select form-select-sm" name="acao">
+                                            <option value="confirmar">Confirmar</option>
+                                            <option value="corrigir">Corrigir</option>
+                                            <option value="nao_localizado">Não localizado</option>
+                                            <option value="ilegivel">Ilegível</option>
+                                            <option value="pendente">Manter pendente</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-8"><input class="form-control form-control-sm" name="justificativa" placeholder="Obrigatória ao corrigir ou rejeitar"></div>
+                                    <div class="col-md-4"><button class="btn btn-sm btn-outline-secondary" type="submit">Registrar rubrica</button></div>
+                                </form>
+                            </div>
+                        </details>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     {% for campo in secao.campos %}
-                    <div class="campo-extraido border-bottom py-2">
+                    <div class="campo-extraido border-bottom py-2"
+                        data-precisa="{% if campo.localizacao_precisa %}1{% else %}0{% endif %}"
+                        data-x="{{ campo.evidencia_x|default:'' }}"
+                        data-y="{{ campo.evidencia_y|default:'' }}"
+                        data-w="{{ campo.evidencia_largura|default:'' }}"
+                        data-h="{{ campo.evidencia_altura|default:'' }}">
                         <div class="d-flex justify-content-between gap-2 flex-wrap">
                             <strong>{{ campo.rotulo }}</strong>
                             <span class="texto-apoio">{{ campo.get_estado_revisao_display }}</span>
                         </div>
                         <p class="mb-0"><span class="texto-apoio">Original:</span> {{ campo.valor_original|default:"(ausente na evidência)" }}</p>
                         <p class="mb-0"><span class="texto-apoio">Normalizado:</span> {{ campo.valor_normalizado|default:"—" }}</p>
+                        <p class="mb-0 texto-apoio">Técnica: {{ campo.metodo|default:"—" }} · {{ campo.estado_confianca|default:"—" }}</p>
                         <p class="rotulo-evidencia">Evidência — página {{ campo.numero_pagina }}:</p>
                         <p class="evidencia-campo">{{ campo.trecho_evidencia|default:"Sem trecho localizado nesta região." }}</p>
+                        {% if campo.localizacao_precisa %}
+                        <button class="btn btn-outline-secondary btn-sm localizar-evidencia" type="button">Mostrar no PDF</button>
+                        {% else %}
+                        <p class="texto-apoio">Localização precisa indisponível</p>
+                        {% endif %}
+                        {% if campo.estado_confianca == "ambiguo" %}
+                        <p class="texto-apoio">Leitura ambígua. Confira o recorte no PDF e registre a revisão manual.</p>
+                        {% endif %}
                         <form method="post" action="{% url 'laboratorio:revisar_campo' lote.pk campo.pk %}" class="row g-1 mt-1">
                             {% csrf_token %}
                             <div class="col-md-5"><textarea class="form-control form-control-sm" name="valor_original" rows="2">{{ campo.valor_original }}</textarea></div>
@@ -387,6 +456,24 @@
             document.querySelectorAll("details.secao-peca").forEach(function (item) { item.open = false; });
         });
     }
+    var destaque = document.getElementById("destaque-evidencia");
+    document.querySelectorAll(".localizar-evidencia").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            var origem = botao.closest("[data-precisa]");
+            if (!destaque || !overlay || !origem || origem.dataset.precisa !== "1") return;
+            var x = parseFloat(origem.dataset.x);
+            var y = parseFloat(origem.dataset.y);
+            var w = parseFloat(origem.dataset.w);
+            var h = parseFloat(origem.dataset.h);
+            if ([x, y, w, h].some(function (valor) { return Number.isNaN(valor); })) return;
+            destaque.hidden = false;
+            destaque.style.left = (x * 100) + "%";
+            destaque.style.top = (y * 100) + "%";
+            destaque.style.width = (w * 100) + "%";
+            destaque.style.height = (h * 100) + "%";
+            tela.scrollTop = Math.max(0, y * overlay.offsetHeight - 36);
+        });
+    });
 })();
 </script>
 {% endblock %}

@@ -25,6 +25,11 @@ urlpatterns = [
         name="revisar_campo",
     ),
     path(
+        "laboratorio/lotes/<int:lote_pk>/rubricas/<int:rubrica_pk>/revisar/",
+        views.RevisarRubricaView.as_view(),
+        name="revisar_rubrica",
+    ),
+    path(
         "laboratorio/lotes/<int:lote_pk>/vinculos/<int:vinculo_pk>/revisar/",
         views.RevisarVinculoView.as_view(),
         name="revisar_vinculo",

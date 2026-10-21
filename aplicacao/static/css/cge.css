@@ -964,6 +964,28 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     border-color: #0d3b2e;
     background: rgba(27, 107, 74, 0.22);
 }
+.destaque-evidencia {
+    position: absolute;
+    border: 2px solid #b45309;
+    background: rgba(245, 158, 11, 0.38);
+    box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.45);
+    pointer-events: none;
+    z-index: 4;
+    box-sizing: border-box;
+}
+.tabela-rubricas { display: grid; gap: 0.3rem; margin-bottom: 0.8rem; }
+.rubrica-cabeca,
+.rubrica-linha > summary {
+    display: grid;
+    grid-template-columns: 3.2rem minmax(0, 1.5fr) minmax(0, 0.9fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.95fr);
+    gap: 0.35rem;
+    align-items: start;
+    font-size: 0.78rem;
+}
+.rubrica-cabeca { color: var(--cge-texto-suave, #52615b); font-weight: 600; }
+.rubrica-linha { border: 1px solid var(--cge-borda); border-radius: 0.35rem; padding: 0.35rem 0.45rem; }
+.rubrica-linha > summary { cursor: pointer; }
+.rubrica-corpo { margin-top: 0.45rem; }
 .selo-pecas {
     display: inline-block;
     padding: 0.2rem 0.55rem;

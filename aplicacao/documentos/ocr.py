@@ -62,3 +62,39 @@ class ServicoOCR:
             raise RuntimeError("OCR indisponível: Tesseract não encontrado.") from exc
         except Exception as exc:
             raise RuntimeError("Falha ao executar o OCR desta região.") from exc
+
+    def extrair_imagem_com_caixas(self, imagem) -> tuple[str, list[dict]]:
+        try:
+            import pytesseract
+            from PIL import ImageOps
+        except ImportError as exc:
+            raise RuntimeError("OCR indisponível: dependências não instaladas.") from exc
+        idioma = settings.OCR_IDIOMA
+        preparada = ImageOps.autocontrast(imagem.convert("L"))
+        try:
+            texto = pytesseract.image_to_string(preparada, lang=idioma, config="--psm 6") or ""
+            dados = pytesseract.image_to_data(
+                preparada,
+                lang=idioma,
+                config="--psm 6",
+                output_type=pytesseract.Output.DICT,
+            )
+        except pytesseract.TesseractNotFoundError as exc:
+            raise RuntimeError("OCR indisponível: Tesseract não encontrado.") from exc
+        except Exception as exc:
+            raise RuntimeError("Falha ao executar o OCR desta região.") from exc
+        largura, altura = preparada.size
+        caixas = []
+        for indice, palavra in enumerate(dados.get("text", [])):
+            if not str(palavra).strip() or largura <= 0 or altura <= 0:
+                continue
+            caixas.append(
+                {
+                    "texto": str(palavra),
+                    "x": int(dados["left"][indice]) / largura,
+                    "y": int(dados["top"][indice]) / altura,
+                    "largura": max(int(dados["width"][indice]) / largura, 0.001),
+                    "altura": max(int(dados["height"][indice]) / altura, 0.001),
+                }
+            )
+        return texto, caixas

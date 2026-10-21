@@ -420,28 +420,70 @@ _RUBRICA = re.compile(
 )
 
 
-def _listar_rubricas(texto: str, tipo: str) -> str:
-    """Uma rubrica por linha de origem, sem puxar carimbo nem totais."""
-    linhas = []
+def _limpar_descricao(texto: str) -> str:
+    recorte = re.split(r"certifico|errr+|que o\b|presidente|\bcpf\b", texto or "", maxsplit=1, flags=re.IGNORECASE)[0]
+    recorte = re.sub(r"[|\[\]]+", " ", recorte)
+    return re.sub(r"\s+", " ", recorte).strip(" .:-")
+
+
+def _unidade_referencia(referencia: str) -> str:
+    if re.search(r"\d{2,3}:\d{2}", referencia or ""):
+        return "hs"
+    if "%" in (referencia or ""):
+        return "%"
+    return ""
+
+
+def estruturar_rubricas(texto: str) -> list[dict]:
+    """Separa código, referência e valor. O percentual não vira valor monetário."""
+    itens = []
     for bruta in (texto or "").splitlines():
         limpa = bruta.strip()
-        if not limpa or re.search(r"certifico|presidente|cpf|total\b", limpa, flags=re.IGNORECASE):
+        if not limpa or re.search(r"certifico|presidente|\bcpf\b|\btotal\b", limpa, flags=re.IGNORECASE):
             continue
         achado = _RUBRICA.match(limpa)
         if not achado:
             continue
-        codigo, descricao, referencia, valor = achado.group(1), achado.group(2).strip(), achado.group(3) or "", achado.group(4)
-        desconto = bool(re.search(r"\b(inss|irrf|faltas|vale)\b", descricao, flags=re.IGNORECASE) or codigo in {"920", "950"})
-        if tipo == "desconto" and not desconto:
-            continue
-        if tipo == "provento" and desconto:
-            continue
-        if referencia:
-            linhas.append(f"{codigo} · {descricao} · {referencia.strip()} · {valor}")
+        codigo = achado.group(1)
+        descricao = _limpar_descricao(achado.group(2))
+        referencia = (achado.group(3) or "").strip()
+        valor = achado.group(4)
+        if re.search(r"\b(inss|irrf|faltas|vale)\b", descricao, flags=re.IGNORECASE) or codigo in {"920", "950"}:
+            natureza = "desconto"
         else:
-            linhas.append(f"{codigo} · {descricao} · {valor}")
-        if len(linhas) >= 12:
+            natureza = "provento"
+        decimal = _moeda_para_decimal(valor)
+        descricao_limpa = bool(descricao) and len(descricao) <= 40 and not re.search(r"\d|\b[A-Za-z]\b", descricao)
+        confianca = "evidencia_textual" if descricao_limpa else "parcial"
+        itens.append(
+            {
+                "codigo": codigo,
+                "descricao": descricao[:180],
+                "referencia": referencia[:40],
+                "unidade": _unidade_referencia(referencia),
+                "natureza": natureza,
+                "valor_original": valor,
+                "valor_normalizado": str(decimal) if decimal is not None else "",
+                "trecho_evidencia": limpa,
+                "metodo": "ocr_regiao",
+                "estado_confianca": confianca,
+            }
+        )
+        if len(itens) >= 12:
             break
+    return itens
+
+
+def _listar_rubricas(texto: str, tipo: str) -> str:
+    """Texto compatível com a leitura anterior. O OCR bruto permanece na região."""
+    linhas = []
+    for item in estruturar_rubricas(texto):
+        if item["natureza"] != tipo:
+            continue
+        if item["referencia"]:
+            linhas.append(f"{item['codigo']} · {item['descricao']} · {item['referencia']} · {item['valor_original']}")
+        else:
+            linhas.append(f"{item['codigo']} · {item['descricao']} · {item['valor_original']}")
     return "\n".join(linhas)
 
 
@@ -483,6 +525,10 @@ def _extrair_comprovante(texto: str) -> dict[str, str]:
         "data_hora_impressao": impressao,
         "valor": _moeda_no_contexto(texto or "", ("valor total", "valor da transfer[eê]ncia", "valor pago", "valor")),
         "numero_documento": _buscar((r"(?:nr\.?\s*documento|nr\.?\s*docum)\s*[:\-]?\s*([0-9][0-9.\-]{8,})",), origem),
+        "numero_documento_adicional": _buscar(
+            (r"(?:nr\.?\s*documento|nr\.?\s*docum)\s*[:\-]?\s*([0-9][0-9.\-]{8,})",),
+            destino,
+        ),
         "autenticacao": _buscar(
             (r"autentica[cç][aã]o\s*[:\-]?\s*([0-9A-Za-z](?:\.\s?[0-9A-Za-z]{2,4}){3,8})",),
             texto or "",

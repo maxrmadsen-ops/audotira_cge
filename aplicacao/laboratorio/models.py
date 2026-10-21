@@ -180,6 +180,11 @@ class CampoExtraido(models.Model):
     valor_normalizado = models.TextField("valor normalizado", blank=True)
     numero_pagina = models.PositiveIntegerField("página física")
     trecho_evidencia = models.TextField("trecho de evidência", blank=True)
+    evidencia_x = models.FloatField("x da evidência", null=True, blank=True)
+    evidencia_y = models.FloatField("y da evidência", null=True, blank=True)
+    evidencia_largura = models.FloatField("largura da evidência", null=True, blank=True)
+    evidencia_altura = models.FloatField("altura da evidência", null=True, blank=True)
+    localizacao_precisa = models.BooleanField("localização precisa", default=False)
     metodo = models.CharField("método", max_length=60, blank=True)
     estado_confianca = models.CharField("estado de confiança", max_length=40, blank=True)
     estado_revisao = models.CharField(
@@ -209,6 +214,56 @@ class CampoExtraido(models.Model):
 
     def __str__(self) -> str:
         return f"{self.chave}: {self.valor_original[:40]}"
+
+
+class RubricaExtraida(models.Model):
+    """Linha de provento ou desconto, com revisão própria."""
+
+    class Natureza(models.TextChoices):
+        PROVENTO = "provento", "Provento"
+        DESCONTO = "desconto", "Desconto"
+
+    regiao = models.ForeignKey(RegiaoDocumental, verbose_name="região", on_delete=models.CASCADE, related_name="rubricas")
+    ordem = models.PositiveIntegerField("ordem", default=1)
+    codigo = models.CharField("código", max_length=10, blank=True)
+    descricao = models.CharField("descrição", max_length=180, blank=True)
+    referencia = models.CharField("referência", max_length=40, blank=True)
+    unidade = models.CharField("unidade da referência", max_length=20, blank=True)
+    natureza = models.CharField("natureza", max_length=20, choices=Natureza.choices)
+    valor_original = models.CharField("valor original", max_length=40, blank=True)
+    valor_normalizado = models.CharField("valor normalizado", max_length=40, blank=True)
+    trecho_evidencia = models.TextField("trecho de evidência", blank=True)
+    evidencia_x = models.FloatField("x da evidência", null=True, blank=True)
+    evidencia_y = models.FloatField("y da evidência", null=True, blank=True)
+    evidencia_largura = models.FloatField("largura da evidência", null=True, blank=True)
+    evidencia_altura = models.FloatField("altura da evidência", null=True, blank=True)
+    localizacao_precisa = models.BooleanField("localização precisa", default=False)
+    metodo = models.CharField("método", max_length=60, blank=True)
+    estado_confianca = models.CharField("estado de confiança", max_length=40, blank=True)
+    estado_revisao = models.CharField(
+        "estado da revisão",
+        max_length=20,
+        choices=EstadoCampo.choices,
+        default=EstadoCampo.PENDENTE,
+    )
+    historico_correcoes = models.JSONField("histórico de correções", default=list, blank=True)
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="revisado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="rubricas_laboratorio_revisadas",
+    )
+    revisado_em = models.DateTimeField("revisado em", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "rubrica extraída"
+        verbose_name_plural = "rubricas extraídas"
+        ordering = ["ordem", "id"]
+
+    def __str__(self) -> str:
+        return f"{self.codigo} · {self.descricao}"
 
 
 class VinculoEvidencia(models.Model):

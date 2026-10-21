@@ -92,7 +92,8 @@ SECOES_PECA = {
             "beneficiario", "agencia_destino", "conta_destino", "dados_destino",
         )),
         ("operacao", "Dados da operação", (
-            "tipo_operacao", "data_hora", "hora_operacao", "data_hora_impressao", "valor", "numero_documento",
+            "tipo_operacao", "data_hora", "hora_operacao", "data_hora_impressao", "valor",
+            "numero_documento", "numero_documento_adicional",
         )),
         ("autenticacao", "Autenticação", ("autenticacao", "situacao", "identificadores")),
     ),
@@ -101,8 +102,8 @@ SECOES_PECA = {
         ("funcional", "Dados funcionais", (
             "matricula", "cargo", "cbo", "data_admissao", "competencia", "referencia_pagamento",
         )),
-        ("proventos", "Proventos", ("salario_base", "rubricas_proventos", "total_proventos")),
-        ("descontos", "Descontos", ("rubricas_descontos", "inss", "irrf", "total_descontos")),
+        ("proventos", "Proventos", ("salario_base", "total_proventos")),
+        ("descontos", "Descontos", ("inss", "irrf", "total_descontos")),
         ("bases", "Bases e encargos", (
             "base_inss", "base_fgts", "fgts_mes", "base_irrf", "bases_calculo", "valor_liquido", "liquido_calculado",
         )),
@@ -124,8 +125,8 @@ def secoes_da_peca(tipo: str, campos: list) -> list[dict]:
             campo = por_chave.get(chave)
             if campo is None:
                 continue
-            if not campo.valor_original and not campo.obrigatorio and campo.chave not in {
-                "cpf_atesto", "autenticacao", "salario_base", "hora_operacao", "data_hora_impressao",
+            if not campo.valor_original and not campo.obrigatorio and campo.estado_confianca != "ambiguo" and campo.chave not in {
+                "cpf_atesto", "autenticacao", "salario_base", "hora_operacao", "data_hora_impressao", "matricula", "data_recebimento",
             }:
                 continue
             itens.append(campo)
@@ -216,6 +217,45 @@ def comparar_pagina(regioes) -> dict | None:
         else (estado_liquido or estado_valor or "pendente"),
         "origem_liquido": f"Holerite · página {holerite.pagina.numero_fisico}",
         "origem_transferencia": f"Comprovante · página {transferencia.pagina.numero_fisico}",
+        **_conferir_rubricas(holerite, proventos, descontos),
+    }
+
+
+def _conferir_rubricas(holerite, total_proventos, total_descontos) -> dict:
+    from decimal import Decimal, InvalidOperation
+
+    from aplicacao.laboratorio.extracao import texto_moeda
+
+    def somar(natureza: str):
+        valores = []
+        for rubrica in holerite.rubricas.all():
+            if rubrica.natureza != natureza:
+                continue
+            texto = (rubrica.valor_normalizado or "").strip()
+            if not texto:
+                return None
+            try:
+                valores.append(Decimal(texto))
+            except (InvalidOperation, ValueError):
+                return None
+        if not valores:
+            return None
+        return sum(valores, Decimal("0"))
+
+    def estado(soma, total):
+        if soma is None or total is None:
+            return "inconclusivo"
+        if soma == total:
+            return "confere"
+        return "divergente"
+
+    soma_proventos = somar("provento")
+    soma_descontos = somar("desconto")
+    return {
+        "soma_proventos": texto_moeda(soma_proventos) if soma_proventos is not None else "não extraída",
+        "soma_proventos_estado": estado(soma_proventos, total_proventos),
+        "soma_descontos": texto_moeda(soma_descontos) if soma_descontos is not None else "não extraída",
+        "soma_descontos_estado": estado(soma_descontos, total_descontos),
     }
 
 

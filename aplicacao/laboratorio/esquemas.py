@@ -59,6 +59,7 @@ ESQUEMAS: dict[str, tuple[CampoEsquema, ...]] = {
         CampoEsquema("data_hora_impressao", "Data/hora de impressão ou consulta"),
         CampoEsquema("valor", "Valor", True),
         CampoEsquema("numero_documento", "Número do documento"),
+        CampoEsquema("numero_documento_adicional", "Número adicional do documento"),
         CampoEsquema("autenticacao", "Código de autenticação"),
         CampoEsquema("identificadores", "Identificadores e autenticação"),
         CampoEsquema("situacao", "Situação da transação", condicional=True),

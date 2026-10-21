@@ -28,6 +28,7 @@ from aplicacao.laboratorio.escolhas import (
 from aplicacao.laboratorio.forms import (
     FormularioCampo,
     FormularioClassificacaoRegiao,
+    FormularioRubrica,
     FormularioIlegibilidade,
     FormularioPendencia,
     FormularioReprocessamento,
@@ -40,6 +41,7 @@ from aplicacao.laboratorio.models import (
     PendenciaDocumental,
     RegiaoDocumental,
     RevisaoLaboratorio,
+    RubricaExtraida,
     VinculoEvidencia,
 )
 from aplicacao.laboratorio.servico import montar_relatorio, processar_lote
@@ -156,7 +158,7 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
         if pagina:
             regioes = [
                 r
-                for r in pagina.regioes.prefetch_related("campos").order_by("ordem", "id")
+                for r in pagina.regioes.prefetch_related("campos", "rubricas").order_by("ordem", "id")
                 if r.tipo_documental != "outros_nao_classificados"
             ]
         peca_id = request.GET.get("peca")
@@ -168,6 +170,12 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
         for regiao in regioes:
             regiao.resumo = resumo_peca(regiao)
         campos = campos_conferencia(peca_selecionada) if peca_selecionada else []
+        secoes = secoes_da_peca(peca_selecionada.tipo_documental, campos) if peca_selecionada else []
+        rubricas = list(peca_selecionada.rubricas.all()) if peca_selecionada else []
+        pendentes_rubrica = sum(1 for rubrica in rubricas if rubrica.estado_revisao == "pendente")
+        for secao in secoes:
+            if secao["codigo"] == "proventos" and pendentes_rubrica:
+                secao["pendentes"] += pendentes_rubrica
         vinculos = []
         pendencias_peca = []
         if peca_selecionada:
@@ -189,7 +197,8 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
                 "regioes": regioes,
                 "peca": peca_selecionada,
                 "campos": campos,
-                "secoes": secoes_da_peca(peca_selecionada.tipo_documental, campos) if peca_selecionada else [],
+                "secoes": secoes,
+                "rubricas": rubricas,
                 "comparacao": comparar_pagina(regioes),
                 "vinculos": vinculos,
                 "pendencias": pendencias_peca,
@@ -358,6 +367,69 @@ class RevisarCampoView(PerfilExigidoMixin, View):
         )
         messages.success(request, "Extração revisada. Isso não analisa nem aprova despesa.")
         return redirect(_curadoria_url(lote, campo.numero_pagina, campo.regiao_id))
+
+
+class RevisarRubricaView(PerfilExigidoMixin, View):
+    perfis_permitidos = PERFIS_OPERACIONAIS
+
+    def post(self, request, lote_pk, rubrica_pk):
+        lote = _lote_visivel(request, lote_pk)
+        exigir_atuar_na_prestacao(request.user, lote.prestacao_parceria)
+        rubrica = get_object_or_404(
+            RubricaExtraida.objects.select_related("regiao__pagina"),
+            pk=rubrica_pk,
+            regiao__lote=lote,
+        )
+        form = FormularioRubrica(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Não foi possível registrar a revisão da rubrica.")
+            return redirect(_curadoria_url(lote, rubrica.regiao.pagina.numero_fisico, rubrica.regiao_id))
+        acao = form.cleaned_data["acao"]
+        justificativa = (form.cleaned_data.get("justificativa") or "").strip()
+        if acao == "confirmar" and (
+            form.cleaned_data["valor_original"].strip() != rubrica.valor_original
+            or form.cleaned_data["descricao"].strip() != rubrica.descricao
+            or form.cleaned_data["referencia"].strip() != rubrica.referencia
+        ):
+            messages.error(request, "Para alterar a rubrica, use Corrigir e registre a justificativa.")
+            return redirect(_curadoria_url(lote, rubrica.regiao.pagina.numero_fisico, rubrica.regiao_id))
+        if acao in {"corrigir", "nao_localizado", "ilegivel"} and not justificativa:
+            messages.error(request, "Correção ou rejeição da rubrica exige justificativa.")
+            return redirect(_curadoria_url(lote, rubrica.regiao.pagina.numero_fisico, rubrica.regiao_id))
+        historico = list(rubrica.historico_correcoes or [])
+        historico.append(
+            {
+                "em": timezone.now().isoformat(),
+                "usuario": request.user.username,
+                "acao": acao,
+                "antes": rubrica.valor_original,
+                "justificativa": justificativa,
+            }
+        )
+        if acao == "corrigir":
+            from aplicacao.laboratorio.extracao import _moeda_para_decimal
+
+            rubrica.descricao = form.cleaned_data["descricao"].strip()
+            rubrica.referencia = form.cleaned_data["referencia"].strip()
+            rubrica.valor_original = form.cleaned_data["valor_original"].strip()
+            decimal = _moeda_para_decimal(rubrica.valor_original)
+            rubrica.valor_normalizado = str(decimal) if decimal is not None else rubrica.valor_original
+            rubrica.estado_revisao = EstadoCampo.CORRIGIDO
+        elif acao == "confirmar":
+            rubrica.estado_revisao = EstadoCampo.CONFIRMADO
+        elif acao == "ilegivel":
+            rubrica.estado_revisao = EstadoCampo.ILEGIVEL
+        elif acao == "pendente":
+            rubrica.estado_revisao = EstadoCampo.PENDENTE
+        else:
+            rubrica.estado_revisao = EstadoCampo.AUSENTE
+        rubrica.historico_correcoes = historico
+        rubrica.revisado_por = request.user
+        rubrica.revisado_em = timezone.now()
+        rubrica.save()
+        _registrar_revisao(lote, request.user, "rubrica", rubrica.pk, f"rubrica_{acao}", justificativa)
+        messages.success(request, "Rubrica revisada individualmente. Isso não confirma as demais nem aprova despesa.")
+        return redirect(_curadoria_url(lote, rubrica.regiao.pagina.numero_fisico, rubrica.regiao_id))
 
 
 class RevisarVinculoView(PerfilExigidoMixin, View):
