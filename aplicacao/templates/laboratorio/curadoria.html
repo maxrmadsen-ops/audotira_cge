@@ -62,7 +62,7 @@
                    data-id="{{ regiao.pk }}"
                    data-url="{% url 'laboratorio:ajustar_regiao' lote.pk regiao.pk %}"
                    data-abrir="?pagina={{ pagina.numero_fisico }}&peca={{ regiao.pk }}"
-                   data-x="{{ regiao.x }}" data-y="{{ regiao.y }}" data-w="{{ regiao.largura }}" data-h="{{ regiao.altura }}"
+                   data-x="{{ regiao.x|coordenada }}" data-y="{{ regiao.y|coordenada }}" data-w="{{ regiao.largura|coordenada }}" data-h="{{ regiao.altura|coordenada }}"
                    style="left:{{ regiao.x|pct }}%;top:{{ regiao.y|pct }}%;width:{{ regiao.largura|pct }}%;height:{{ regiao.altura|pct }}%;">
                     <span class="regiao-rotulo">Peça {{ regiao.ordem }} · {{ regiao.tipo_documental|tipo_documental }}</span>
                     <span class="alca alca-nw" data-alca="nw"></span>
@@ -178,10 +178,10 @@
                         {% for rubrica in rubricas %}
                         <details class="rubrica-linha"
                             data-precisa="{% if rubrica.localizacao_precisa %}1{% else %}0{% endif %}"
-                            data-x="{{ rubrica.evidencia_x|default:'' }}"
-                            data-y="{{ rubrica.evidencia_y|default:'' }}"
-                            data-w="{{ rubrica.evidencia_largura|default:'' }}"
-                            data-h="{{ rubrica.evidencia_altura|default:'' }}">
+                            data-x="{{ rubrica.evidencia_x|coordenada }}"
+                            data-y="{{ rubrica.evidencia_y|coordenada }}"
+                            data-w="{{ rubrica.evidencia_largura|coordenada }}"
+                            data-h="{{ rubrica.evidencia_altura|coordenada }}">
                             <summary>
                                 <span>{{ rubrica.codigo }}</span>
                                 <span>{{ rubrica.descricao }}</span>
@@ -234,10 +234,10 @@
                     {% for campo in secao.campos %}
                     <div class="campo-extraido border-bottom py-2"
                         data-precisa="{% if campo.localizacao_precisa %}1{% else %}0{% endif %}"
-                        data-x="{{ campo.evidencia_x|default:'' }}"
-                        data-y="{{ campo.evidencia_y|default:'' }}"
-                        data-w="{{ campo.evidencia_largura|default:'' }}"
-                        data-h="{{ campo.evidencia_altura|default:'' }}">
+                        data-x="{{ campo.evidencia_x|coordenada }}"
+                        data-y="{{ campo.evidencia_y|coordenada }}"
+                        data-w="{{ campo.evidencia_largura|coordenada }}"
+                        data-h="{{ campo.evidencia_altura|coordenada }}">
                         <div class="d-flex justify-content-between gap-2 flex-wrap">
                             <strong>{{ campo.rotulo }}</strong>
                             <span class="texto-apoio">{{ campo.get_estado_revisao_display }}</span>
@@ -475,10 +475,13 @@
     var destaque = document.getElementById("destaque-evidencia");
     function aplicarDestaque(origem, deslocar) {
         if (!destaque || !overlay || !origem || origem.dataset.precisa !== "1") return;
-        var x = parseFloat(origem.dataset.x);
-        var y = parseFloat(origem.dataset.y);
-        var w = parseFloat(origem.dataset.w);
-        var h = parseFloat(origem.dataset.h);
+        function ler(valor) {
+            return parseFloat(String(valor || "").replace(",", "."));
+        }
+        var x = ler(origem.dataset.x);
+        var y = ler(origem.dataset.y);
+        var w = ler(origem.dataset.w);
+        var h = ler(origem.dataset.h);
         if ([x, y, w, h].some(function (valor) { return Number.isNaN(valor); })) return;
         if (w <= 0 || h <= 0 || (w > 0.9 && h > 0.2)) return;
         alinharOverlay();

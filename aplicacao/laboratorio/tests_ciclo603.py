@@ -206,3 +206,38 @@ class TesteRevisaoIndividual(TesteCiclo602Conferencia):
         self.lote.refresh_from_db()
         self.assertEqual(self.lote.hash_sha256, self.hash_original)
         self.assertGreater(InventarioPagina.objects.exclude(numero_fisico=17).count(), 0)
+
+    def test_coordenada_do_destaque_permanece_com_ponto_em_portugues(self):
+        from django.utils import translation
+
+        from aplicacao.laboratorio.templatetags.laboratorio_tags import coordenada
+
+        self.assertEqual(coordenada(0.2123), "0.212300")
+        self.assertEqual(coordenada(None), "")
+        rubrica = RubricaExtraida.objects.create(
+            regiao=self.holerite,
+            ordem=1,
+            codigo="1",
+            descricao="Horas Normais Diurnas",
+            natureza="provento",
+            valor_original="2.016,58",
+            valor_normalizado="2016.58",
+            trecho_evidencia="1 Horas Normais Diurnas",
+            metodo="ocr_regiao",
+            estado_revisao=EstadoCampo.PENDENTE,
+            localizacao_precisa=True,
+            evidencia_x=0.2123,
+            evidencia_y=0.5912,
+            evidencia_largura=0.1246,
+            evidencia_altura=0.012,
+        )
+        with translation.override("pt-br"):
+            resposta = self.client.get(
+                reverse("laboratorio:curadoria", kwargs={"lote_pk": self.lote.pk})
+                + "?pagina=17&peca="
+                + str(rubrica.regiao_id)
+            )
+        self.assertContains(resposta, 'data-x="0.212300"')
+        self.assertContains(resposta, 'data-w="0.124600"')
+        self.assertNotContains(resposta, 'data-x="0,2123')
+        self.assertNotContains(resposta, 'data-w="0,1246')

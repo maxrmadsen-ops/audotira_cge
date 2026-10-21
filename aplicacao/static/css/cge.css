@@ -930,8 +930,8 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 .regiao-box {
     position: absolute;
     z-index: 1;
-    border: 2px solid rgba(31, 122, 77, 0.85);
-    background: rgba(47, 158, 100, 0.12);
+    border: 2px solid rgba(31, 122, 77, 0.95);
+    background: transparent;
     box-sizing: border-box;
     pointer-events: auto;
     text-decoration: none;
@@ -963,7 +963,8 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 .alca-se { right: -6px; bottom: -6px; cursor: nwse-resize; }
 .regiao-box.regiao-ativa {
     border-color: #0d3b2e;
-    background: rgba(27, 107, 74, 0.22);
+    border-width: 3px;
+    background: transparent;
 }
 .destaque-evidencia {
     position: absolute;
@@ -971,7 +972,7 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     background: rgba(251, 191, 36, 0.55);
     box-shadow: 0 0 0 3px rgba(154, 52, 18, 0.95), 0 0 0 8px rgba(251, 191, 36, 0.45);
     pointer-events: none;
-    z-index: 5;
+    z-index: 30;
     box-sizing: border-box;
 }
 .destaque-evidencia::after {

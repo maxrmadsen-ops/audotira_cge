@@ -23,3 +23,12 @@ def pct(valor) -> str:
         return f"{float(valor) * 100:.4f}"
     except (TypeError, ValueError):
         return "0"
+
+
+@register.filter
+def coordenada(valor) -> str:
+    """Ponto decimal fixo. O navegador em pt-BR não pode receber vírgula aqui."""
+    try:
+        return f"{float(valor):.6f}"
+    except (TypeError, ValueError):
+        return ""
