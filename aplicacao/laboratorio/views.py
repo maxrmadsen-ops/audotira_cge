@@ -558,3 +558,89 @@ class RelatorioLaboratorioView(PerfilExigidoMixin, View):
                 "relatorio": montar_relatorio(lote),
             },
         )
+
+
+class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
+    perfis_permitidos = PERFIS_OPERACIONAIS
+
+    def get(self, request, lote_pk):
+        from aplicacao.laboratorio.catalogo import rotulo_tipo
+        from aplicacao.laboratorio.conciliacao import sincronizar_cadeias
+
+        lote = _lote_visivel(request, lote_pk)
+        sincronizar_cadeias(lote)
+        cadeias = list(
+            lote.cadeias.select_related(
+                "item_plano",
+                "execucao__pagina",
+                "comprovante__pagina",
+                "apoio__pagina",
+                "revisado_por",
+            )
+        )
+        return render(
+            request,
+            "laboratorio/conciliacao.html",
+            {
+                "prestacao": lote.prestacao_parceria,
+                "lote": lote,
+                "cadeias": cadeias,
+                "rotulo_tipo": rotulo_tipo,
+                "rotulos_separacao": {
+                    "vinculo": "Vínculo",
+                    "consistencia_matematica": "Consistência matemática",
+                    "comprovacao_documental": "Comprovação documental",
+                    "analise_conformidade": "Análise de conformidade",
+                    "decisao_administrativa": "Decisão administrativa",
+                },
+                "rotulos_situacao": {
+                    "confere": "Confere",
+                    "diverge": "Diverge",
+                    "nao_verificavel": "Não verificável",
+                    "pendente": "Pendente de revisão humana",
+                    "sugerido": "Sugerido",
+                    "nao_aplicavel": "Não aplicável",
+                },
+            },
+        )
+
+
+class RevisarCadeiaView(PerfilExigidoMixin, View):
+    perfis_permitidos = PERFIS_OPERACIONAIS
+
+    def post(self, request, lote_pk, cadeia_pk):
+        from aplicacao.laboratorio.escolhas import EstadoVinculo
+        from aplicacao.laboratorio.models import CadeiaConciliacao
+
+        lote = _lote_visivel(request, lote_pk)
+        exigir_atuar_na_prestacao(request.user, lote.prestacao_parceria)
+        cadeia = get_object_or_404(CadeiaConciliacao, pk=cadeia_pk, lote=lote)
+        acao = (request.POST.get("acao") or "").strip()
+        justificativa = (request.POST.get("justificativa") or "").strip()
+        if acao == "rejeitar" and not justificativa:
+            messages.error(request, "Rejeitar o vínculo exige justificativa.")
+            return redirect(reverse("laboratorio:conciliacao", kwargs={"lote_pk": lote.pk}))
+        if acao == "confirmar":
+            cadeia.estado = EstadoVinculo.CONFIRMADO
+        elif acao == "rejeitar":
+            cadeia.estado = EstadoVinculo.REJEITADO
+        elif acao == "pendente":
+            cadeia.estado = EstadoVinculo.SUGERIDO
+        else:
+            messages.error(request, "Ação de revisão não reconhecida.")
+            return redirect(reverse("laboratorio:conciliacao", kwargs={"lote_pk": lote.pk}))
+        cadeia.justificativa = justificativa
+        cadeia.revisado_por = request.user
+        cadeia.revisado_em = timezone.now()
+        cadeia.save(update_fields=["estado", "justificativa", "revisado_por", "revisado_em"])
+        _registrar_revisao(
+            lote,
+            request.user,
+            "cadeia",
+            cadeia.pk,
+            acao,
+            justificativa,
+            {"codigo": cadeia.codigo},
+        )
+        messages.success(request, "Revisão do vínculo registrada. Nenhuma despesa foi aprovada.")
+        return redirect(reverse("laboratorio:conciliacao", kwargs={"lote_pk": lote.pk}))

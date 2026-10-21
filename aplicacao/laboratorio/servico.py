@@ -27,6 +27,7 @@ from aplicacao.laboratorio.classificacao import (
     detectar_numero_impresso,
     recortar_texto_para_tipo,
     segmentar_regioes,
+    tipo_principal,
 )
 from aplicacao.laboratorio.escolhas import (
     EstadoClassificacao,
@@ -502,7 +503,7 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
     }
 
 
-VERSAO_EXTRACAO_REGIAO = "6.0.3"
+VERSAO_EXTRACAO_REGIAO = "6.1"
 
 
 def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> dict:
@@ -545,7 +546,7 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
         candidatos = [item for item in classificar_texto(texto) if item["tipo"] != "outros_nao_classificados"]
         if not candidatos:
             continue
-        principal = candidatos[0]
+        principal = tipo_principal(candidatos, texto) or candidatos[0]
         tipos = [item["tipo"] for item in candidatos]
         texto_util = recortar_texto_para_tipo(texto, principal["tipo"], tipos) if len(tipos) > 1 else texto
         pecas.append(

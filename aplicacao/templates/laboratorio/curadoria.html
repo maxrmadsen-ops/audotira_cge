@@ -234,6 +234,7 @@
                 <div class="secao-corpo">
                     {% for campo in secao.campos %}
                     <div class="campo-extraido border-bottom py-2"
+                        data-chave="{{ campo.chave }}"
                         data-precisa="{% if campo.localizacao_precisa %}1{% else %}0{% endif %}"
                         data-x="{{ campo.evidencia_x|coordenada }}"
                         data-y="{{ campo.evidencia_y|coordenada }}"
@@ -379,6 +380,12 @@
                 if (overlay) overlay.hidden = false;
                 if (estado) estado.hidden = true;
                 if (destaqueAtivo) aplicarDestaque(destaqueAtivo, false);
+                var pedido = new URLSearchParams(window.location.search).get("destaque") || "";
+                if (/^[a-z0-9_]+$/.test(pedido)) {
+                    var origemPedido = document.querySelector('[data-chave="' + pedido + '"]');
+                    var botaoPedido = origemPedido && origemPedido.querySelector(".localizar-evidencia");
+                    if (botaoPedido) botaoPedido.click();
+                }
             });
         }).catch(function () {
             if (estado) estado.textContent = "Não foi possível desenhar esta página do PDF.";

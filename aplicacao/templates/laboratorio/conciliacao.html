@@ -1,0 +1,132 @@
+{% extends "base_autenticado.html" %}
+{% load laboratorio_tags %}
+{% block titulo %}Conciliação financeira{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / <a href="{% url 'laboratorio:processo' prestacao.pk %}">Classificação e Extração</a>
+    / Conciliação financeira
+</p>
+<div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h1 class="h3">Conciliação financeira</h1>
+        <p class="texto-apoio mb-0">
+            {{ prestacao.numero_processo }} · {{ lote.numero_processo_parcial }}
+            · Instrumento {{ lote.numero_instrumento|default:"não informado" }}
+        </p>
+    </div>
+</div>
+<p class="texto-apoio">
+    A cadeia é uma sugestão: previsto, executado, comprovado e conferido.
+    Coincidência de valor não comprova pagamento. Semelhança de nome não confirma identidade.
+    Ausência de documento nesta amostra não é irregularidade. A decisão administrativa continua com o auditor.
+</p>
+{% if not cadeias %}
+<p class="cartao">Nenhuma cadeia foi sugerida com os documentos já extraídos.</p>
+{% endif %}
+{% for cadeia in cadeias %}
+<details class="secao-peca cadeia-card">
+    <summary>
+        <strong>{{ cadeia.titulo }}</strong>
+        <span class="texto-apoio"> · {{ cadeia.get_estado_display }} · sugestão {{ cadeia.confianca }}</span>
+    </summary>
+    <div class="secao-corpo">
+        <ol class="cadeia-passos">
+            <li>
+                <span>Previsto</span>
+                {% if cadeia.item_plano %}
+                <strong>{{ cadeia.item_plano.descricao|truncatechars:140 }}</strong>
+                <p class="texto-apoio mb-0">Valor previsto do item: {{ cadeia.item_plano.valor_previsto }}</p>
+                {% else %}
+                <strong>Item do plano não sugerido</strong>
+                {% endif %}
+                <p class="texto-apoio">{{ cadeia.criterio_item }}</p>
+            </li>
+            <li>
+                <span>Executado</span>
+                {% if cadeia.execucao %}
+                <strong>{{ cadeia.execucao.tipo_documental|tipo_documental }} · página {{ cadeia.execucao.pagina.numero_fisico }}</strong>
+                <p class="mb-0"><a href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ cadeia.execucao.pagina.numero_fisico }}&peca={{ cadeia.execucao.pk }}">Abrir no PDF</a></p>
+                {% else %}
+                <strong>Documento de execução não associado</strong>
+                {% endif %}
+            </li>
+            <li>
+                <span>Comprovado</span>
+                {% if cadeia.comprovante %}
+                <strong>{{ cadeia.comprovante.tipo_documental|tipo_documental }} · página {{ cadeia.comprovante.pagina.numero_fisico }}</strong>
+                <p class="texto-apoio mb-0">Sugestão de comprovante. Ainda não é comprovação confirmada.</p>
+                <p class="mb-0"><a href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ cadeia.comprovante.pagina.numero_fisico }}&peca={{ cadeia.comprovante.pk }}&destaque=valor">Mostrar no PDF</a></p>
+                {% else %}
+                <strong>Sem comprovante associado</strong>
+                <p class="texto-apoio mb-0">Não verificável nesta amostra. Isso não indica irregularidade.</p>
+                {% endif %}
+            </li>
+            <li>
+                <span>Conferido</span>
+                <strong>Revisão humana {{ cadeia.get_estado_display|lower }}</strong>
+                <p class="texto-apoio mb-0">Confirmar o vínculo não confirma os campos nem aprova a despesa.</p>
+            </li>
+        </ol>
+        {% if cadeia.apoio %}
+        <p class="texto-apoio">Documento de apoio, sem ser o comprovante do pagamento: {{ cadeia.apoio.tipo_documental|tipo_documental }} · página {{ cadeia.apoio.pagina.numero_fisico }}.
+            <a href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ cadeia.apoio.pagina.numero_fisico }}&peca={{ cadeia.apoio.pk }}">Abrir no PDF</a>
+        </p>
+        {% endif %}
+        <ul class="cadeia-camadas">
+            {% for chave, valor in cadeia.separacao.items %}
+            <li>
+                {% if chave == "vinculo" %}Vínculo{% elif chave == "consistencia_matematica" %}Consistência matemática{% elif chave == "comprovacao_documental" %}Comprovação documental{% elif chave == "analise_conformidade" %}Análise de conformidade{% else %}Decisão administrativa{% endif %}
+                ·
+                {% if valor == "confere" %}Confere{% elif valor == "diverge" %}Diverge{% elif valor == "pendente" %}Pendente de revisão humana{% elif valor == "sugerido" %}Sugerido{% elif valor == "nao_aplicavel" %}Não aplicável{% else %}Não verificável{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        <table class="table table-sm">
+            <thead><tr><th>Verificação</th><th>Situação</th><th>Detalhe</th><th>Evidência</th></tr></thead>
+            <tbody>
+            {% for item in cadeia.verificacoes %}
+            <tr>
+                <td>{{ item.titulo }}</td>
+                <td>
+                    {% if item.situacao == "confere" %}Confere
+                    {% elif item.situacao == "diverge" %}Diverge
+                    {% elif item.situacao == "pendente" %}Pendente de revisão humana
+                    {% else %}Não verificável{% endif %}
+                </td>
+                <td>{{ item.detalhe }}</td>
+                <td>
+                    {% for evidencia in item.evidencias %}
+                    <div>
+                        {{ evidencia.rotulo }}: {{ evidencia.valor }}
+                        {% if evidencia.peca %}
+                        · <a href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ evidencia.pagina }}&peca={{ evidencia.peca }}&destaque={{ evidencia.chave }}">Mostrar no PDF</a>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    Sem evidência extraída.
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <form method="post" action="{% url 'laboratorio:revisar_cadeia' lote.pk cadeia.pk %}" class="row g-2 align-items-end">
+            {% csrf_token %}
+            <div class="col-md-6">
+                <label class="form-label">Justificativa</label>
+                <input class="form-control form-control-sm" name="justificativa" value="{{ cadeia.justificativa }}" placeholder="Obrigatória para rejeitar">
+            </div>
+            <div class="col-md-6 d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary" name="acao" value="confirmar" type="submit">Confirmar vínculo</button>
+                <button class="btn btn-sm btn-outline-secondary" name="acao" value="rejeitar" type="submit">Rejeitar vínculo</button>
+                <button class="btn btn-sm btn-outline-secondary" name="acao" value="pendente" type="submit">Manter pendente</button>
+            </div>
+        </form>
+        {% if cadeia.revisado_por %}
+        <p class="texto-apoio mt-2 mb-0">Última revisão: {{ cadeia.revisado_por }} · {{ cadeia.revisado_em|date:"d/m/Y H:i" }}</p>
+        {% endif %}
+    </div>
+</details>
+{% endfor %}
+{% endblock %}

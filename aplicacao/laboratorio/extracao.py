@@ -561,10 +561,30 @@ def _tempos_comprovante(texto: str) -> tuple[str, str, str]:
     return data, hora, impressao
 
 
+def _nome_apos_identificacao(texto: str) -> str:
+    achado = re.search(
+        r"(?:pis\s*/?\s*pasep|11\s*nome).{0,80}?([A-ZÁÉÍÓÚÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÃÕÇ]{2,}){1,4})",
+        texto or "",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not achado:
+        return ""
+    return achado.group(1).strip()[:80]
+
+
 def _extrair_rescisao(texto: str) -> dict[str, str]:
     return {
-        "empregador": _buscar((r"(?:empregador|empresa)\s*[:\-]?\s*(.+)",), texto),
-        "trabalhador": _buscar((r"(?:trabalhador|empregado|funcion[aá]rio)\s*[:\-]?\s*(.+)",), texto),
+        "empregador": _buscar(
+            (
+                r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+\S.{5,80})",
+                r"(?:empregador|empresa)\s*[:\-]?\s*(.+)",
+            ),
+            texto,
+        ),
+        "trabalhador": _nome_apos_identificacao(texto) or _buscar(
+            (r"(?:trabalhador|empregado|funcion[aá]rio)\s*[:\-]?\s*(.+)",),
+            texto,
+        ),
         "dados_vinculo": "",
         "data_admissao": _buscar((r"(?:admiss[aã]o)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
         "data_aviso": _buscar((r"(?:aviso)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
@@ -572,7 +592,7 @@ def _extrair_rescisao(texto: str) -> dict[str, str]:
         "motivo": _buscar((r"(?:motivo|c[oó]digo de afastamento)\s*[:\-]?\s*(.+)",), texto),
         "verbas_rescisorias": "",
         "deducoes": "",
-        "total_bruto": _buscar((r"(?:total bruto|bruto)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
+        "total_bruto": _buscar((r"total\s+bruto\s*[,:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
         "total_liquido": _buscar((r"(?:total l[ií]quido|l[ií]quido)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
         "assinaturas": _buscar((r"(assinatura|quitação|quitacao).{0,40}",), texto),
     }
@@ -580,8 +600,8 @@ def _extrair_rescisao(texto: str) -> dict[str, str]:
 
 def _extrair_quitacao(texto: str) -> dict[str, str]:
     return {
-        "empregador": _buscar((r"(?:empregador|empresa)\s*[:\-]?\s*(.+)",), texto),
-        "trabalhador": _buscar((r"(?:trabalhador|empregado|funcion[aá]rio)\s*[:\-]?\s*(.+)",), texto),
+        "empregador": _buscar((r"(?:empregador|empresa)\s*[:\-]?\s*(.+)", r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s+\S.{5,80})"), texto),
+        "trabalhador": _nome_apos_identificacao(texto) or _buscar((r"(?:trabalhador|empregado|funcion[aá]rio)\s*[:\-]?\s*(.+)",), texto),
         "valor_quitado": _buscar((r"(?:valor|total)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
         "data": _buscar((r"([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
         "assinaturas": _buscar((r"(assinatura|quitação|quitacao).{0,40}",), texto),
@@ -604,7 +624,14 @@ def _extrair_fgts(texto: str) -> dict[str, str]:
         "empregador": _buscar((r"(?:empregador|raz[aã]o social|cnpj)\s*[:\-]?\s*(.+)",), texto),
         "tipo_guia": _buscar((r"(grf|grrf|guia de recolhimento)",), texto),
         "base_recolhimento": _buscar((r"(?:base(?:\s+de)?\s+c[aá]lculo|base)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
-        "valor_recolhimento": _buscar((r"(?:valor(?:\s+do)?\s+recolhimento|valor\s+total|valor)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
+        "valor_recolhimento": _buscar(
+            (
+                r"valor\s+dep[oó]sito\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",
+                r"total\s+a\s+recolher\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",
+                r"(?:valor(?:\s+do)?\s+recolhimento|valor\s+total)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",
+            ),
+            texto,
+        ),
         "encargos": _buscar((r"(?:encargos|juros|multa)\s*[:\-]?\s*(R\$\s*[0-9.,]+|[0-9.,]+)",), texto),
         "vencimento": _buscar((r"(?:vencimento)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
         "data_pagamento": _buscar((r"(?:pagamento|pago em)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),

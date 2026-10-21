@@ -107,6 +107,23 @@ def _itens_sem_processo() -> list[ItemMenu]:
     ]
 
 
+def _item_conciliacao(prestacao) -> list[ItemMenu]:
+    lote = prestacao.lotes_laboratorio.order_by("-importado_em").first()
+    if lote is None:
+        return []
+    return [
+        ItemMenu(
+            "Conciliação Financeira",
+            reverse("laboratorio:conciliacao", kwargs={"lote_pk": lote.pk}),
+            True,
+            "finops",
+            "execucao",
+            chave="conciliacao",
+            descricao="Cadeia previsto, executado e comprovado. Não aprova despesa nem conclui a prestação.",
+        )
+    ]
+
+
 def _itens_do_processo(prestacao) -> list[ItemMenu]:
     pk = prestacao.pk
     detalhe = reverse("prestacoes_contas:detalhe", kwargs={"pk": pk})
@@ -122,6 +139,7 @@ def _itens_do_processo(prestacao) -> list[ItemMenu]:
         ItemMenu("Linha do tempo", aba("linha-do-tempo"), True, "painel", "preparacao", chave="linha", descricao="Histórico registrado deste processo."),
         ItemMenu("Documentos do Processo", aba("documentos"), True, "documentos", "execucao", chave="documentos", descricao="PDFs do processo, com acesso direto à classificação das páginas."),
         ItemMenu("Classificação e Extração", reverse("laboratorio:processo", kwargs={"pk": pk}), True, "documentos", "execucao", chave="laboratorio", descricao="Inventário, classificação por região, extração tipada e conferência humana."),
+        *_item_conciliacao(prestacao),
         ItemMenu("Prestações de Contas Parciais", reverse("prestacoes_contas:etapa_futura", kwargs={"pk": pk, "slug": "prestacoes-parciais"}), True, "pendencias", "execucao", chave="parciais", futuro=True, descricao="Etapa futura. A classificação das páginas já ocorre em Classificação e Extração."),
         ItemMenu("Financeiro", aba("financeiro"), True, "finops", "execucao", chave="financeiro", parcial=True, descricao="Registros já informados. A execução financeira ainda não foi apurada."),
         ItemMenu("Folha de pagamento", aba("folha"), True, "administracao", "execucao", chave="folha", descricao="Folha vinculada a este processo."),

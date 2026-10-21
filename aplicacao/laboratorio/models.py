@@ -310,6 +310,77 @@ class VinculoEvidencia(models.Model):
         return f"{self.tipo_vinculo} · {self.estado}"
 
 
+class CadeiaConciliacao(models.Model):
+    """Sugestão de cadeia previsto → executado → comprovado. Não decide a prestação."""
+
+    lote = models.ForeignKey(LoteLaboratorio, verbose_name="lote", on_delete=models.CASCADE, related_name="cadeias")
+    codigo = models.CharField("código estável", max_length=80)
+    titulo = models.CharField("título", max_length=255)
+    item_plano = models.ForeignKey(
+        "prestacoes_contas.ItemPlanoTrabalho",
+        verbose_name="item previsto sugerido",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="cadeias_sugeridas",
+    )
+    criterio_item = models.TextField("critério do item previsto", blank=True)
+    execucao = models.ForeignKey(
+        RegiaoDocumental,
+        verbose_name="documento de execução",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="cadeias_execucao",
+    )
+    comprovante = models.ForeignKey(
+        RegiaoDocumental,
+        verbose_name="comprovante sugerido",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="cadeias_comprovante",
+    )
+    apoio = models.ForeignKey(
+        RegiaoDocumental,
+        verbose_name="documento de apoio",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="cadeias_apoio",
+    )
+    verificacoes = models.JSONField("verificações", default=list, blank=True)
+    separacao = models.JSONField("separação das conclusões", default=dict, blank=True)
+    confianca = models.CharField("qualidade da sugestão", max_length=20, default="sugerida")
+    estado = models.CharField(
+        "revisão do vínculo",
+        max_length=20,
+        choices=EstadoVinculo.choices,
+        default=EstadoVinculo.SUGERIDO,
+    )
+    justificativa = models.TextField("justificativa", blank=True)
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="revisado por",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="cadeias_revisadas",
+    )
+    revisado_em = models.DateTimeField("revisado em", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "cadeia de conciliação"
+        verbose_name_plural = "cadeias de conciliação"
+        ordering = ["codigo"]
+        constraints = [
+            models.UniqueConstraint(fields=["lote", "codigo"], name="cadeia_unica_no_lote"),
+        ]
+
+    def __str__(self) -> str:
+        return self.titulo
+
+
 class PendenciaDocumental(models.Model):
     lote = models.ForeignKey(LoteLaboratorio, verbose_name="lote", on_delete=models.CASCADE, related_name="pendencias")
     pagina = models.ForeignKey(

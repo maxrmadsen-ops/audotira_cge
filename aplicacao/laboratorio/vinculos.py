@@ -72,15 +72,17 @@ def _pares_holerite_transferencia(lote, por_tipo) -> list[VinculoEvidencia]:
             beneficiario = (_campo(transferencia, "beneficiario") or "").lower()
             criterios = []
             divergencias = []
-            if liquido is not None and valor is not None and liquido == valor:
+            mesmo_valor = liquido is not None and valor is not None and liquido == valor
+            nome = bool(funcionario and beneficiario and (funcionario in beneficiario or beneficiario in funcionario))
+            mesma_pagina = holerite.pagina_id == transferencia.pagina_id
+            if mesmo_valor:
                 criterios.append("mesmo_valor_liquido")
-            elif liquido is not None and valor is not None:
-                divergencias.append(f"valores_distintos:{liquido}!={valor}")
-            if funcionario and beneficiario and (funcionario in beneficiario or beneficiario in funcionario):
+            if nome:
                 criterios.append("nome_beneficiario_aproximado")
-            if holerite.pagina_id == transferencia.pagina_id:
+            if mesma_pagina:
                 criterios.append("mesma_pagina_fisica")
-            if criterios:
+            # Coincidência só de nome não vira vínculo de pagamento.
+            if mesmo_valor and (nome or mesma_pagina):
                 resultado.append(
                     _criar(
                         lote,
@@ -109,12 +111,17 @@ def _pares_rescisao_quitacao(lote, por_tipo) -> list[VinculoEvidencia]:
                 resultado.append(
                     _criar(lote, rescisao, quitacao, "rescisao_quitacao", criterios, [])
                 )
+        liquido = _decimal(_campo(rescisao, "total_liquido"))
         for transferencia in por_tipo.get("comprovante_transferencia", []):
             beneficiario = (_campo(transferencia, "beneficiario") or "").lower()
+            valor = _decimal(_campo(transferencia, "valor"))
             criterios = []
             if trabalhador and beneficiario and (trabalhador in beneficiario or beneficiario in trabalhador):
                 criterios.append("mesmo_trabalhador_beneficiario")
-            if criterios:
+            if liquido is not None and valor is not None and liquido == valor:
+                criterios.append("mesmo_valor")
+            # Nome parecido, sem o mesmo valor, não comprova o pagamento da rescisão.
+            if "mesmo_valor" in criterios and "mesmo_trabalhador_beneficiario" in criterios:
                 resultado.append(
                     _criar(lote, rescisao, transferencia, "rescisao_pagamento", criterios, [])
                 )

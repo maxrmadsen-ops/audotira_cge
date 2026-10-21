@@ -55,6 +55,25 @@ def classificar_texto(texto: str) -> list[dict]:
     return encontrados
 
 
+def tipo_principal(candidatos: list[dict], texto: str) -> dict | None:
+    """Prefere a guia quando o texto é recolhimento de FGTS, não transferência salarial."""
+    if not candidatos:
+        return None
+    baixo = _normalizar(texto)
+    if "total de proventos" in baixo or "holerite" in baixo:
+        return candidatos[0]
+    recolhimento = ("fgts" in baixo or "grf" in baixo) and (
+        "comprovante de pagamento" in baixo or "valor deposito" in baixo or "valor depósito" in baixo or "guia de recolhimento" in baixo
+    )
+    if not recolhimento:
+        return candidatos[0]
+    for codigo in ("guia_fgts", "comprovante_fgts"):
+        achado = next((item for item in candidatos if item["tipo"] == codigo), None)
+        if achado is not None:
+            return achado
+    return candidatos[0]
+
+
 def segmentar_regioes(texto: str, candidatos: list[dict]) -> list[dict]:
     """
     Heurística de segmentação vertical quando há múltiplos tipos na mesma página.

@@ -9,6 +9,12 @@ urlpatterns = [
     path("laboratorio/lotes/<int:lote_pk>/", views.LaboratorioLoteView.as_view(), name="lote"),
     path("laboratorio/lotes/<int:lote_pk>/curadoria/", views.LaboratorioCuradoriaView.as_view(), name="curadoria"),
     path("laboratorio/lotes/<int:lote_pk>/relatorio/", views.RelatorioLaboratorioView.as_view(), name="relatorio"),
+    path("laboratorio/lotes/<int:lote_pk>/conciliacao/", views.ConciliacaoFinanceiraView.as_view(), name="conciliacao"),
+    path(
+        "laboratorio/lotes/<int:lote_pk>/conciliacao/<int:cadeia_pk>/revisar/",
+        views.RevisarCadeiaView.as_view(),
+        name="revisar_cadeia",
+    ),
     path(
         "laboratorio/lotes/<int:lote_pk>/regioes/<int:regiao_pk>/revisar/",
         views.RevisarRegiaoView.as_view(),
