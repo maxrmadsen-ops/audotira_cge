@@ -91,9 +91,16 @@ def candidatos_da_peca(candidatos: list[dict], texto: str) -> list[dict]:
         for titulo in ("termo de rescisão", "termo de rescisao", "termo de quitação", "termo de quitacao")
     )
     dispensa_propria = "comunicação de dispensa" in baixo or "comunicacao de dispensa" in baixo
+    titulo_trct = (
+        "termo de rescisão do contrato de trabalho" in baixo
+        or "termo de rescisao do contrato de trabalho" in baixo
+    )
     if not formulario or dispensa_propria:
         return candidatos
-    return [item for item in candidatos if item["tipo"] != "comunicacao_dispensa"]
+    mantidos = [item for item in candidatos if item["tipo"] != "comunicacao_dispensa"]
+    if ("termo de quitação" in baixo or "termo de quitacao" in baixo) and not titulo_trct:
+        mantidos = [item for item in mantidos if item["tipo"] != "termo_rescisao"]
+    return mantidos
 
 
 def segmentar_regioes(texto: str, candidatos: list[dict]) -> list[dict]:

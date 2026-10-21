@@ -22,6 +22,13 @@ def decidir_autenticacao(original: str, leituras: list[str]) -> dict | None:
             extraidas.append(_norm_auth(achado.group(0)))
     unicas = set(extraidas)
     if len(extraidas) >= 2 and len(unicas) == 1:
+        if original and _AUTH.search(original) and _norm_auth(original) != extraidas[0]:
+            return {
+                "valor": original,
+                "confianca": "ambiguo",
+                "metodo": "ocr_regiao",
+                "nota": "O recorte leu " + extraidas[0] + " e o texto da peça leu outro código.",
+            }
         return {
             "valor": extraidas[0],
             "confianca": "evidencia_textual",

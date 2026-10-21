@@ -9,6 +9,7 @@ from aplicacao.laboratorio.classificacao import candidatos_da_peca, classificar_
 from aplicacao.laboratorio.extracao import extrair_campos
 
 from aplicacao.laboratorio.conciliacao import _valores_na_guia, sincronizar_cadeias
+from aplicacao.laboratorio.releitura import decidir_autenticacao
 from aplicacao.laboratorio.escolhas import EstadoCampo, EstadoVinculo
 from aplicacao.laboratorio.models import CadeiaConciliacao, CampoExtraido, RegiaoDocumental, VinculoEvidencia
 from aplicacao.laboratorio.tests_ciclo602 import TesteCiclo602Conferencia
@@ -71,6 +72,16 @@ class TesteTipoDaAmostra(SimpleTestCase):
         """
         principal = tipo_principal(classificar_texto(texto), texto)
         self.assertEqual(principal["tipo"], "termo_quitacao")
+        filtrados = candidatos_da_peca(classificar_texto(texto), texto)
+        self.assertFalse(any(item["tipo"] == "termo_rescisao" for item in filtrados))
+        self.assertEqual(
+            decidir_autenticacao("8.F11.CBC.91A.D82.065", ["9.F11.CBC.91A.D82.065", "9.F11.CBC.91A.D82.065"])["confianca"],
+            "ambiguo",
+        )
+        self.assertEqual(
+            decidir_autenticacao("8.F11.CBC.91A.D82.065", ["9.F11.CBC.91A.D82.065", "9.F11.CBC.91A.D82.065"])["valor"],
+            "8.F11.CBC.91A.D82.065",
+        )
         campos = {item["chave"]: item["valor_original"] for item in extrair_campos("termo_quitacao", texto, 92, "teste")}
         self.assertEqual(campos["valor_quitado"], "")
         self.assertEqual(campos["data"], "")
