@@ -184,7 +184,7 @@
                             <summary>
                                 <span>{{ rubrica.codigo }}</span>
                                 <span>{{ rubrica.descricao }}</span>
-                                <span>{{ rubrica.referencia }}{% if rubrica.unidade %} {{ rubrica.unidade }}{% endif %}</span>
+                                <span>{{ rubrica.referencia }}{% if rubrica.unidade and rubrica.unidade not in rubrica.referencia %} {{ rubrica.unidade }}{% endif %}</span>
                                 <span>{% if rubrica.natureza == "provento" %}{{ rubrica.valor_original }}{% endif %}</span>
                                 <span>{% if rubrica.natureza == "desconto" %}{{ rubrica.valor_original }}{% endif %}</span>
                                 <span>{{ rubrica.get_estado_revisao_display }}</span>
