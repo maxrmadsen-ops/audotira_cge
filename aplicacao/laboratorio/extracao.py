@@ -85,6 +85,17 @@ def _trecho(texto: str, valor: str, janela: int = 80) -> str:
     return alvo
 
 
+def _linha_preferida(texto: str, valor: str, acompanhamento: str = "") -> str:
+    if not valor:
+        return ""
+    linhas = [linha.strip() for linha in (texto or "").splitlines() if valor.lower() in linha.lower()]
+    if acompanhamento:
+        for linha in linhas:
+            if acompanhamento.lower() in linha.lower():
+                return linha
+    return linhas[-1] if linhas else ""
+
+
 def _linha_mistura_outro_campo(linha: str, valor: str) -> bool:
     baixo = linha.lower()
     valor_baixo = valor.lower()
@@ -121,7 +132,7 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
                 "valor_original": original,
                 "valor_normalizado": normalizado,
                 "numero_pagina": numero_pagina,
-                "trecho_evidencia": _trecho(texto, original) if original else "",
+                "trecho_evidencia": mapeados.get(f"{item.chave}__evidencia") or (_trecho(texto, original) if original else ""),
                 "metodo": metodo if original else "nao_localizado",
                 "estado_confianca": "evidencia_textual" if original else "ausente",
                 "obrigatorio": item.obrigatorio,
@@ -253,7 +264,8 @@ def _extrair_holerite(texto: str) -> dict[str, str]:
         "total_descontos": _buscar((r"Total\s+[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}\s+([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",), texto)
         or _moeda_no_contexto(texto, ("total\\s+de\\s+descontos", "descontos")),
         "valor_liquido": _moeda_no_contexto(texto, ("total\\s+l[ií]quido", "l[ií]quido\\s+a\\s+receber", "valor\\s+l[ií]quido", "l[ií]quido")),
-        "irrf": _valor_rotulo(texto, r"\birrf\b", evitar=(r"base", r"faixa", r"c[aá]lc"), ultimo=True),
+        "irrf": _valor_rotulo(texto, r"\birrf\b", evitar=(r"base", r"faixa", r"c[aá]lc"), ultimo=True)
+        or _valor_rotulo(texto, r"^\s*920\b", ultimo=True),
         "inss": _valor_rotulo(texto, r"\binss\b", evitar=(r"base", r"sal\s*cont", r"c[aá]lc"), ultimo=True),
         "rubricas_proventos": _listar_rubricas(texto, "provento"),
         "rubricas_descontos": _listar_rubricas(texto, "desconto"),
@@ -267,6 +279,11 @@ def _extrair_holerite(texto: str) -> dict[str, str]:
         "responsavel_atesto": responsavel,
         "cpf_atesto": cpf_atesto,
         "liquido_calculado": "",
+        "salario_base__evidencia": _linha_preferida(texto, salario_base, fgts_mes),
+        "base_inss__evidencia": _linha_preferida(texto, base_inss, fgts_mes or salario_base),
+        "base_fgts__evidencia": _linha_preferida(texto, base_fgts, fgts_mes or salario_base),
+        "fgts_mes__evidencia": _linha_preferida(texto, fgts_mes, salario_base),
+        "base_irrf__evidencia": _linha_preferida(texto, base_irrf, salario_base),
     }
 
 
@@ -453,11 +470,15 @@ def _extrair_comprovante(texto: str) -> dict[str, str]:
         "valor": _moeda_no_contexto(texto or "", ("valor total", "valor da transfer[eê]ncia", "valor pago", "valor")),
         "numero_documento": _buscar((r"(?:nr\.?\s*documento|nr\.?\s*docum)\s*[:\-]?\s*([0-9][0-9.\-]{8,})",), origem),
         "autenticacao": _buscar(
-            (r"autentica[cç][aã]o\s*[:\-]?\s*([0-9A-Za-z](?:\.[0-9A-Za-z]{2,4}){3,8})",),
+            (r"autentica[cç][aã]o\s*[:\-]?\s*([0-9A-Za-z](?:\.\s?[0-9A-Za-z]{2,4}){3,8})",),
             texto or "",
         ),
         "identificadores": "",
         "situacao": _buscar((r"\b(efetivad[ao]|realizad[ao]|confirmad[ao]|rejeitad[ao])\b",), texto or ""),
+        "agencia_origem__evidencia": _linha_preferida(texto or "", agencia_origem, conta_origem),
+        "agencia_destino__evidencia": _linha_preferida(texto or "", agencia_destino, conta_destino),
+        "conta_origem__evidencia": _linha_preferida(texto or "", conta_origem, ""),
+        "conta_destino__evidencia": _linha_preferida(texto or "", conta_destino, ""),
     }
 
 
