@@ -925,7 +925,8 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     background: #f8faf9;
     min-height: 28rem;
 }
-.laboratorio-visor canvas { display: block; max-width: none; height: auto; }
+.laboratorio-visor canvas { display: block; max-width: none; }
+.pdf-estado { margin: 0.75rem; color: var(--cge-texto-suave, #52615b); }
 .regioes-overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
 .regiao-box {
     position: absolute;

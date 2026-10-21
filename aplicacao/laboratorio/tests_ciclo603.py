@@ -237,6 +237,8 @@ class TesteRevisaoIndividual(TesteCiclo602Conferencia):
                 + "?pagina=17&peca="
                 + str(rubrica.regiao_id)
             )
+        self.assertContains(resposta, "Carregando a página do PDF")
+        self.assertContains(resposta, "disableAutoFetch: true")
         self.assertContains(resposta, 'data-x="0.212300"')
         self.assertContains(resposta, 'data-w="0.124600"')
         self.assertNotContains(resposta, 'data-x="0,2123')

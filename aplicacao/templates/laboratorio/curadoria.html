@@ -55,7 +55,8 @@
             <button class="btn btn-outline-secondary btn-sm" type="button" id="pdf-limpar-destaque">Limpar destaque</button>
         </div>
         <div class="laboratorio-visor" id="laboratorio-visor" data-arquivo="{{ arquivo_url }}" data-pagina="{{ pagina.numero_fisico }}">
-            <canvas id="pdf-canvas"></canvas>
+            <p id="pdf-estado" class="pdf-estado">Carregando a página do PDF…</p>
+            <canvas id="pdf-canvas" hidden></canvas>
             <div id="regioes-overlay" class="regioes-overlay">
                 {% for regiao in regioes %}
                 <div class="regiao-box {% if peca and peca.pk == regiao.pk %}regiao-ativa{% endif %}"
@@ -354,7 +355,9 @@
     var escala = 1.15;
     var pdfDoc = null;
     var overlay = document.getElementById("regioes-overlay");
+    var estado = document.getElementById("pdf-estado");
     var destaqueAtivo = null;
+    if (overlay) overlay.hidden = true;
     function alinharOverlay() {
         if (!overlay) return;
         overlay.style.left = canvas.offsetLeft + "px";
@@ -365,18 +368,36 @@
     function desenhar(numero) {
         return pdfDoc.getPage(numero).then(function (page) {
             var viewport = page.getViewport({ scale: escala });
-            canvas.height = viewport.height;
             canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            canvas.style.width = viewport.width + "px";
+            canvas.style.height = viewport.height + "px";
+            canvas.hidden = false;
             alinharOverlay();
             return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
                 alinharOverlay();
+                if (overlay) overlay.hidden = false;
+                if (estado) estado.hidden = true;
                 if (destaqueAtivo) aplicarDestaque(destaqueAtivo, false);
             });
+        }).catch(function () {
+            if (estado) estado.textContent = "Não foi possível desenhar esta página do PDF.";
         });
     }
-    pdfjsLib.getDocument({ url: tela.dataset.arquivo, withCredentials: true }).promise.then(function (pdf) {
+    pdfjsLib.getDocument({
+        url: tela.dataset.arquivo,
+        withCredentials: true,
+        disableAutoFetch: true,
+        disableStream: true
+    }).promise.then(function (pdf) {
         pdfDoc = pdf;
+        if (paginaAtual < 1 || paginaAtual > pdf.numPages) {
+            if (estado) estado.textContent = "Esta página não existe no PDF.";
+            return null;
+        }
         return desenhar(paginaAtual);
+    }).catch(function () {
+        if (estado) estado.textContent = "Não foi possível abrir esta página do PDF.";
     });
     document.getElementById("pdf-menos").addEventListener("click", function () {
         escala = Math.max(0.6, escala - 0.15);
@@ -396,15 +417,20 @@
         overlay.querySelectorAll(".regiao-box").forEach(function (caixa) {
             caixa.addEventListener("pointerdown", function (evento) {
                 if (evento.button !== 0) return;
+                if (overlay.offsetWidth < 80 || overlay.offsetHeight < 80) return;
                 var modo = evento.target.getAttribute("data-alca") || "move";
                 var inicioX = evento.clientX;
                 var inicioY = evento.clientY;
+                function numero(valor) {
+                    return parseFloat(String(valor || "").replace(",", "."));
+                }
                 var orig = {
-                    x: parseFloat(caixa.dataset.x),
-                    y: parseFloat(caixa.dataset.y),
-                    w: parseFloat(caixa.dataset.w),
-                    h: parseFloat(caixa.dataset.h)
+                    x: numero(caixa.dataset.x),
+                    y: numero(caixa.dataset.y),
+                    w: numero(caixa.dataset.w),
+                    h: numero(caixa.dataset.h)
                 };
+                if ([orig.x, orig.y, orig.w, orig.h].some(function (valor) { return Number.isNaN(valor); })) return;
                 function mover(ev) {
                     var retangulo = overlay.getBoundingClientRect();
                     var dx = (ev.clientX - inicioX) / retangulo.width;
