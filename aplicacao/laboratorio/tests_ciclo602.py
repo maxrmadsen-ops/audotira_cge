@@ -143,8 +143,7 @@ class TesteCiclo602Extracao(TestCase):
             Decimal("2221.86"),
         )
         self.assertEqual(campos["liquido_calculado"]["valor_normalizado"], "2221.86")
-        self.assertIn("LUCIANE SAURIN BIZOTO", campos["funcionario"]["trecho_evidencia"])
-        self.assertNotIn("NE SAURIN", campos["funcionario"]["trecho_evidencia"])
+        self.assertEqual(campos["funcionario"]["trecho_evidencia"], "17 LUCIANE SAURIN BIZOTO")
 
     def test_rotulo_amigavel_nao_declara_segmentacao_validada(self):
         self.assertEqual(
