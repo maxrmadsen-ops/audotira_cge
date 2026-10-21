@@ -934,7 +934,32 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     box-sizing: border-box;
     pointer-events: auto;
     text-decoration: none;
+    cursor: move;
+    min-width: 0;
 }
+.regiao-rotulo {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: 100%;
+    padding: 0.05rem 0.35rem;
+    background: rgba(13, 59, 46, 0.9);
+    color: #fff;
+    font-size: 0.72rem;
+    pointer-events: none;
+}
+.alca {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #0d3b2e;
+    border: 1px solid #fff;
+    pointer-events: auto;
+}
+.alca-nw { left: -6px; top: -6px; cursor: nwse-resize; }
+.alca-ne { right: -6px; top: -6px; cursor: nesw-resize; }
+.alca-sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
+.alca-se { right: -6px; bottom: -6px; cursor: nwse-resize; }
 .regiao-box.regiao-ativa {
     border-color: #0d3b2e;
     background: rgba(27, 107, 74, 0.22);
@@ -974,7 +999,52 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 .form-distribuicao .form-label { display: block; }
 .form-distribuicao .form-select,
 .form-distribuicao .form-control { width: 100%; }
-.distribuicao-processo { overflow: hidden; }
+.distribuicao-processo {
+    overflow: visible;
+    height: auto;
+    position: relative;
+    z-index: 2;
+    background: #fff;
+    margin-bottom: 2rem;
+}
+.rodape-app {
+    position: relative;
+    z-index: 0;
+    clear: both;
+    background: var(--cge-fundo);
+    padding-top: 0.75rem;
+}
+.laboratorio-painel { min-width: 0; overflow-x: hidden; }
+.laboratorio-painel .cartao,
+.laboratorio-curadoria > .cartao { height: auto; }
+.resumo-peca {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 0.35rem 0.75rem;
+    margin: 0.4rem 0 0.6rem;
+}
+.resumo-peca span { display: block; color: var(--cge-muted); font-size: 0.75rem; }
+.secao-peca {
+    border: 1px solid var(--cge-borda);
+    border-radius: 0.45rem;
+    margin-bottom: 0.45rem;
+    background: #fff;
+}
+.secao-peca summary {
+    cursor: pointer;
+    padding: 0.5rem 0.7rem;
+    font-weight: 650;
+}
+.secao-peca .secao-corpo { padding: 0 0.7rem 0.7rem; min-width: 0; }
+.rotulo-evidencia { margin: 0.35rem 0 0; color: var(--cge-muted); font-size: 0.82rem; }
+.evidencia-campo {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    margin: 0 0 0.45rem;
+    max-width: 100%;
+}
+.campo-extraido, .campo-extraido textarea, .campo-extraido input { max-width: 100%; }
 .campo-extraido:last-child { border-bottom: 0 !important; }
 @media (max-width: 991px) {
     .laboratorio-curadoria { grid-template-columns: 1fr; }

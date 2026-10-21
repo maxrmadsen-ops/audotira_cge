@@ -15,6 +15,11 @@ urlpatterns = [
         name="revisar_regiao",
     ),
     path(
+        "laboratorio/lotes/<int:lote_pk>/regioes/<int:regiao_pk>/ajustar/",
+        views.AjustarRegiaoView.as_view(),
+        name="ajustar_regiao",
+    ),
+    path(
         "laboratorio/lotes/<int:lote_pk>/campos/<int:campo_pk>/revisar/",
         views.RevisarCampoView.as_view(),
         name="revisar_campo",

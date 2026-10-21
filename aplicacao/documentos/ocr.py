@@ -47,3 +47,18 @@ class ServicoOCR:
             if len(caixas) >= 200:
                 break
         return texto, caixas
+
+    def extrair_imagem(self, imagem) -> str:
+        try:
+            import pytesseract
+            from PIL import ImageOps
+        except ImportError as exc:
+            raise RuntimeError("OCR indisponível: dependências não instaladas.") from exc
+        idioma = settings.OCR_IDIOMA
+        preparada = ImageOps.autocontrast(imagem.convert("L"))
+        try:
+            return pytesseract.image_to_string(preparada, lang=idioma, config="--psm 6") or ""
+        except pytesseract.TesseractNotFoundError as exc:
+            raise RuntimeError("OCR indisponível: Tesseract não encontrado.") from exc
+        except Exception as exc:
+            raise RuntimeError("Falha ao executar o OCR desta região.") from exc

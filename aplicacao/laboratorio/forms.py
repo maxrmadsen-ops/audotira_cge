@@ -20,7 +20,10 @@ class FormularioCampo(forms.Form):
         choices=(
             ("confirmar", "Confirmar extração"),
             ("corrigir", "Corrigir extração"),
-            ("ausente", "Marcar ausente na evidência"),
+            ("nao_localizado", "Marcar como não localizado"),
+            ("ilegivel", "Marcar como ilegível"),
+            ("pendente", "Manter pendente"),
+            ("ausente", "Marcar como não localizado"),
         )
     )
 

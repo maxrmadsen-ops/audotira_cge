@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -7,7 +8,14 @@ from django.views import View
 from aplicacao.auditoria.models import RegistroAuditoria
 from aplicacao.auditoria.servicos import registrar_evento
 from aplicacao.documentos.escolhas import MetodoExtracao, QualidadeExtracao
-from aplicacao.laboratorio.apresentacao import campos_uteis, filtrar_paginas, resumo_pagina
+from aplicacao.laboratorio.apresentacao import (
+    campos_conferencia,
+    comparar_pagina,
+    filtrar_paginas,
+    resumo_pagina,
+    resumo_peca,
+    secoes_da_peca,
+)
 from django.db.models import Q
 
 from aplicacao.laboratorio.catalogo import CATALOGO_TIPOS, escolhas_tipo
@@ -157,7 +165,9 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
             peca_selecionada = next((r for r in regioes if r.pk == int(peca_id)), None)
         if peca_selecionada is None and regioes:
             peca_selecionada = regioes[0]
-        campos = campos_uteis(peca_selecionada) if peca_selecionada else []
+        for regiao in regioes:
+            regiao.resumo = resumo_peca(regiao)
+        campos = campos_conferencia(peca_selecionada) if peca_selecionada else []
         vinculos = []
         pendencias_peca = []
         if peca_selecionada:
@@ -179,6 +189,8 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
                 "regioes": regioes,
                 "peca": peca_selecionada,
                 "campos": campos,
+                "secoes": secoes_da_peca(peca_selecionada.tipo_documental, campos) if peca_selecionada else [],
+                "comparacao": comparar_pagina(regioes),
                 "vinculos": vinculos,
                 "pendencias": pendencias_peca,
                 "revisoes": lote.revisoes.select_related("responsavel").order_by("-criado_em")[:20],
@@ -208,6 +220,9 @@ class RevisarRegiaoView(PerfilExigidoMixin, View):
             return redirect(_curadoria_url(lote, regiao.pagina.numero_fisico, regiao.pk))
         anterior = regiao.tipo_documental
         novo = form.cleaned_data["tipo_documental"]
+        if anterior != novo and not (form.cleaned_data.get("justificativa") or "").strip():
+            messages.error(request, "Corrigir a classificação exige justificativa.")
+            return redirect(_curadoria_url(lote, regiao.pagina.numero_fisico, regiao.pk))
         regiao.tipo_documental = novo
         if form.cleaned_data.get("x") is not None:
             regiao.x = form.cleaned_data["x"]
@@ -243,6 +258,44 @@ class RevisarRegiaoView(PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, pagina.numero_fisico, regiao.pk))
 
 
+class AjustarRegiaoView(PerfilExigidoMixin, View):
+    """Grava o retângulo arrastado sem confirmar a classificação nem a extração."""
+
+    perfis_permitidos = PERFIS_OPERACIONAIS
+
+    def post(self, request, lote_pk, regiao_pk):
+        lote = _lote_visivel(request, lote_pk)
+        exigir_atuar_na_prestacao(request.user, lote.prestacao_parceria)
+        regiao = get_object_or_404(RegiaoDocumental, pk=regiao_pk, lote=lote)
+        try:
+            x = float(request.POST.get("x", ""))
+            y = float(request.POST.get("y", ""))
+            largura = float(request.POST.get("largura", ""))
+            altura = float(request.POST.get("altura", ""))
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "erro": "Coordenadas inválidas."}, status=400)
+        if min(x, y, largura, altura) < 0 or largura < 0.02 or altura < 0.02 or x + largura > 1.02 or y + altura > 1.02:
+            return JsonResponse({"ok": False, "erro": "A região ficou fora da página."}, status=400)
+        regiao.x = round(min(x, 1), 4)
+        regiao.y = round(min(y, 1), 4)
+        regiao.largura = round(min(largura, 1), 4)
+        regiao.altura = round(min(altura, 1), 4)
+        regiao.metodo_deteccao = "ajuste_humano"
+        regiao.versao_classificacao += 1
+        regiao.justificativa = "Ajuste visual da região pelo auditor."
+        regiao.save(update_fields=["x", "y", "largura", "altura", "metodo_deteccao", "versao_classificacao", "justificativa", "atualizado_em"])
+        _registrar_revisao(
+            lote,
+            request.user,
+            "regiao",
+            regiao.pk,
+            "ajuste_visual",
+            regiao.justificativa,
+            {"x": regiao.x, "y": regiao.y, "largura": regiao.largura, "altura": regiao.altura},
+        )
+        return JsonResponse({"ok": True, "revisao": "pendente"})
+
+
 class RevisarCampoView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
@@ -254,28 +307,43 @@ class RevisarCampoView(PerfilExigidoMixin, View):
         if not form.is_valid():
             messages.error(request, "Não foi possível registrar a revisão do campo.")
             return redirect(_curadoria_url(lote, campo.numero_pagina, campo.regiao_id))
+        acao = form.cleaned_data["acao"]
+        justificativa = (form.cleaned_data.get("justificativa") or "").strip()
+        novo_valor = form.cleaned_data.get("valor_original") or ""
+        if acao == "confirmar" and novo_valor.strip() != (campo.valor_original or "").strip():
+            messages.error(request, "Para alterar o valor, use Corrigir e registre a justificativa.")
+            return redirect(_curadoria_url(lote, campo.numero_pagina, campo.regiao_id))
+        if acao in {"corrigir", "ausente", "nao_localizado", "ilegivel"} and not justificativa:
+            messages.error(request, "Correção, rejeição ou mudança de estado exige justificativa.")
+            return redirect(_curadoria_url(lote, campo.numero_pagina, campo.regiao_id))
         historico = list(campo.historico_correcoes or [])
         historico.append(
             {
                 "em": timezone.now().isoformat(),
                 "usuario": request.user.username,
-                "acao": form.cleaned_data["acao"],
+                "acao": acao,
                 "antes": campo.valor_original,
-                "depois": form.cleaned_data.get("valor_original") or "",
-                "justificativa": form.cleaned_data.get("justificativa") or "",
+                "depois": novo_valor if acao == "corrigir" else campo.valor_original,
+                "justificativa": justificativa,
             }
         )
-        acao = form.cleaned_data["acao"]
         if acao == "confirmar":
             campo.estado_revisao = EstadoCampo.CONFIRMADO
         elif acao == "corrigir":
-            campo.valor_original = form.cleaned_data.get("valor_original") or ""
-            campo.valor_normalizado = campo.valor_original
+            from aplicacao.laboratorio.extracao import CHAVES_MOEDA, _moeda_para_decimal
+
+            campo.valor_original = novo_valor
+            decimal = _moeda_para_decimal(novo_valor) if campo.chave in CHAVES_MOEDA else None
+            campo.valor_normalizado = str(decimal) if decimal is not None else novo_valor
             campo.estado_revisao = EstadoCampo.CORRIGIDO
+        elif acao == "ilegivel":
+            campo.estado_revisao = EstadoCampo.ILEGIVEL
+            campo.estado_confianca = "ilegivel"
+        elif acao == "pendente":
+            campo.estado_revisao = EstadoCampo.PENDENTE
         else:
-            campo.valor_original = ""
-            campo.valor_normalizado = ""
             campo.estado_revisao = EstadoCampo.AUSENTE
+            campo.estado_confianca = "nao_localizado"
         campo.historico_correcoes = historico
         campo.revisado_por = request.user
         campo.revisado_em = timezone.now()
@@ -302,6 +370,9 @@ class RevisarVinculoView(PerfilExigidoMixin, View):
         form = FormularioVinculo(request.POST)
         if not form.is_valid():
             messages.error(request, "Não foi possível atualizar o vínculo.")
+            return redirect(_curadoria_url(lote, vinculo.origem.pagina.numero_fisico, vinculo.origem_id))
+        if form.cleaned_data["estado"] != vinculo.estado and not (form.cleaned_data.get("justificativa") or "").strip():
+            messages.error(request, "Alterar o vínculo exige justificativa.")
             return redirect(_curadoria_url(lote, vinculo.origem.pagina.numero_fisico, vinculo.origem_id))
         vinculo.estado = form.cleaned_data["estado"]
         vinculo.justificativa = form.cleaned_data.get("justificativa") or ""

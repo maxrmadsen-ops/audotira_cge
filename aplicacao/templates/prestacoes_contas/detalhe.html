@@ -48,8 +48,11 @@
                     </dd>
                     <dt>Instrumento</dt>
                     <dd>
-                        {% if prestacao.numero_instrumento %}
-                            {{ prestacao.numero_instrumento }}{% if prestacao.tipo_instrumento %} · {{ prestacao.tipo_instrumento }}{% endif %}
+                        {% if identificacao.instrumento_documental %}
+                            {{ identificacao.instrumento_documental.numero }}{% if identificacao.instrumento_documental.tipo %} · {{ identificacao.instrumento_documental.tipo }}{% endif %}
+                            {% if identificacao.instrumento_documental.pendente %}
+                                <span class="selo-fonte">Vínculo cadastral pendente</span>
+                            {% endif %}
                         {% else %}
                             Não localizado
                         {% endif %}

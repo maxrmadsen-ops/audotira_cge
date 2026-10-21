@@ -20,6 +20,7 @@ class EstadoCampo(models.TextChoices):
     CONFIRMADO = "confirmado", "Extração confirmada"
     CORRIGIDO = "corrigido", "Extração corrigida"
     AUSENTE = "ausente", "Não localizado na evidência"
+    ILEGIVEL = "ilegivel", "Marcado como ilegível"
 
 
 class EstadoVinculo(models.TextChoices):

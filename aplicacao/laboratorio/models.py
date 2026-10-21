@@ -157,6 +157,8 @@ class RegiaoDocumental(models.Model):
     )
     revisado_em = models.DateTimeField("revisado em", null=True, blank=True)
     grupo_peca = models.CharField("identificador da peça multipágina", max_length=80, blank=True)
+    texto_regiao = models.TextField("texto da região", blank=True)
+    versao_extracao = models.CharField("versão da extração", max_length=20, blank=True)
     criado_em = models.DateTimeField("criado em", auto_now_add=True)
     atualizado_em = models.DateTimeField("atualizado em", auto_now=True)
 

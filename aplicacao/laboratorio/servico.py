@@ -274,6 +274,9 @@ def processar_lote(
             tipos_pagina = [r.tipo_documental for r in regioes_pagina]
             for regiao in regioes_pagina:
                 texto_regiao = recortar_texto_para_tipo(texto, regiao.tipo_documental, tipos_pagina)
+                if texto_regiao and texto_regiao != (regiao.texto_regiao or ""):
+                    regiao.texto_regiao = texto_regiao[:20000]
+                    regiao.save(update_fields=["texto_regiao"])
                 for campo in extrair_campos(
                     regiao.tipo_documental,
                     texto_regiao,
@@ -487,4 +490,154 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
             "O inventário de páginas não equivale à classificação integral. "
             "Classificação tipada só conta páginas com candidato documental identificado."
         ),
+    }
+
+
+VERSAO_EXTRACAO_REGIAO = "6.0.2"
+
+
+def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> dict:
+    """
+    Recorta uma página pelas faixas em branco e extrai cada peça do seu OCR.
+    Não reprocessa o lote nem altera o PDF original.
+    """
+    del usuario
+    from pdf2image import convert_from_path
+
+    from aplicacao.documentos.armazenamento import ler_arquivo
+    from aplicacao.documentos.ocr import ServicoOCR
+    from aplicacao.laboratorio.segmentacao import faixas_da_imagem
+
+    lote = LoteLaboratorio.objects.select_related("documento").get(pk=lote_id)
+    inventario = lote.paginas.get(numero_fisico=numero)
+    hash_antes = lote.hash_sha256
+    paginas_antes = lote.paginas.count()
+    outras_antes = lote.regioes.exclude(pagina=inventario).count()
+    caminho = ler_arquivo(lote.documento.nome_armazenado)
+    imagens = convert_from_path(str(caminho), dpi=200, first_page=numero, last_page=numero)
+    if not imagens:
+        raise ErroLaboratorio("A página não gerou imagem para segmentação.")
+    imagem = imagens[0]
+    faixas = faixas_da_imagem(imagem)
+    if not faixas:
+        return _retorno_pagina(numero, 0, [], True, lote, hash_antes, paginas_antes, outras_antes)
+    ocr = ServicoOCR()
+    largura, altura = imagem.size
+    pecas = []
+    for ordem, faixa in enumerate(faixas, start=1):
+        x0 = max(0, int(faixa["x"] * largura))
+        y0 = max(0, int(faixa["y"] * altura))
+        x1 = min(largura, int((faixa["x"] + faixa["largura"]) * largura))
+        y1 = min(altura, int((faixa["y"] + faixa["altura"]) * altura))
+        if x1 <= x0 or y1 <= y0:
+            continue
+        texto = ocr.extrair_imagem(imagem.crop((x0, y0, x1, y1)))
+        candidatos = [item for item in classificar_texto(texto) if item["tipo"] != "outros_nao_classificados"]
+        if not candidatos:
+            continue
+        principal = candidatos[0]
+        tipos = [item["tipo"] for item in candidatos]
+        texto_util = recortar_texto_para_tipo(texto, principal["tipo"], tipos) if len(tipos) > 1 else texto
+        pecas.append(
+            {
+                "ordem": len(pecas) + 1,
+                "tipo": principal["tipo"],
+                "confianca": principal["confianca"],
+                "texto": (texto_util or "")[:20000],
+                "mistura": len(tipos) > 1,
+                "x": faixa["x"],
+                "y": faixa["y"],
+                "largura": faixa["largura"],
+                "altura": faixa["altura"],
+                "ordem_visual": ordem,
+            }
+        )
+    if not pecas:
+        return _retorno_pagina(numero, len(faixas), [], True, lote, hash_antes, paginas_antes, outras_antes)
+    with transaction.atomic():
+        inventario.regioes.all().delete()
+        for peca in pecas:
+            regiao = RegiaoDocumental.objects.create(
+                lote=lote,
+                pagina=inventario,
+                tipo_documental=peca["tipo"],
+                ordem=peca["ordem"],
+                x=peca["x"],
+                y=peca["y"],
+                largura=peca["largura"],
+                altura=peca["altura"],
+                metodo_deteccao="faixa_em_branco",
+                confianca=peca["confianca"],
+                versao_classificacao=1,
+                versao_extracao=VERSAO_EXTRACAO_REGIAO,
+                estado_classificacao=EstadoClassificacao.PROPOSTO,
+                estado_revisao=EstadoRevisao.PENDENTE,
+                texto_regiao=peca["texto"],
+                justificativa=(
+                    "Separação pela faixa em branco. Revisão humana pendente."
+                    + (
+                        " A região ainda contém mais de um tipo; a extração usou só o tipo predominante."
+                        if peca["mistura"]
+                        else ""
+                    )
+                ),
+            )
+            CampoExtraido.objects.bulk_create(
+                [
+                    CampoExtraido(
+                        regiao=regiao,
+                        esquema=campo["esquema"],
+                        chave=campo["chave"],
+                        rotulo=campo["rotulo"],
+                        valor_original=campo["valor_original"],
+                        valor_normalizado=campo["valor_normalizado"],
+                        numero_pagina=numero,
+                        trecho_evidencia=campo["trecho_evidencia"],
+                        metodo=campo["metodo"],
+                        estado_confianca=campo["estado_confianca"],
+                        estado_revisao=EstadoCampo.AUSENTE if not campo["valor_original"] else EstadoCampo.PENDENTE,
+                        obrigatorio=campo["obrigatorio"],
+                    )
+                    for campo in extrair_campos(regiao.tipo_documental, peca["texto"], numero, "ocr_regiao")
+                ]
+            )
+        inventario.tipos_candidatos = [peca["tipo"] for peca in pecas]
+        inventario.quantidade_regioes = len(pecas)
+        inventario.estado_classificacao = EstadoClassificacao.PROPOSTO
+        inventario.estado_revisao = EstadoRevisao.PENDENTE
+        inventario.tecnica_utilizada = MetodoExtracao.OCR
+        inventario.save(
+            update_fields=[
+                "tipos_candidatos",
+                "quantidade_regioes",
+                "estado_classificacao",
+                "estado_revisao",
+                "tecnica_utilizada",
+            ]
+        )
+        sugerir_vinculos(lote)
+    lote.refresh_from_db()
+    return _retorno_pagina(numero, len(faixas), pecas, False, lote, hash_antes, paginas_antes, outras_antes)
+
+
+def _retorno_pagina(numero, faixas, pecas, mantida, lote, hash_antes, paginas_antes, outras_antes) -> dict:
+    return {
+        "pagina": numero,
+        "faixas": faixas,
+        "pecas": [
+            {
+                "tipo": peca["tipo"],
+                "y": peca["y"],
+                "altura": peca["altura"],
+                "mistura": peca["mistura"],
+                "caracteres": len(peca["texto"]),
+            }
+            for peca in pecas
+        ],
+        "mantida_segmentacao_anterior": mantida,
+        "hash_preservado": lote.hash_sha256 == hash_antes,
+        "paginas_antes": paginas_antes,
+        "paginas_inventario": lote.paginas.count(),
+        "regioes_outras_antes": outras_antes,
+        "regioes_outras_depois": lote.regioes.exclude(pagina__numero_fisico=numero).count(),
     }

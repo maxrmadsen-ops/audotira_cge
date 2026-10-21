@@ -12,6 +12,14 @@
     <div>
         <h1 class="h3">Conferência documental</h1>
         <p class="texto-apoio mb-0">
+            Processo principal {{ prestacao.numero_processo }}
+            · Etapa de Execução
+            · Classificação e Extração
+            · Instrumento {{ lote.numero_instrumento|default:"não informado no lote" }}
+            {% if not prestacao.numero_instrumento %}· vínculo cadastral pendente{% endif %}
+            · Prestação parcial {{ lote.numero_processo_parcial }}
+        </p>
+        <p class="texto-apoio mb-0">
             <strong>{{ lote.documento.nome_original }}</strong>
             · página física {{ pagina.numero_fisico }}{% if pagina.numero_impresso %} · impressa {{ pagina.numero_impresso }}{% endif %}
             · {{ resumo_pagina }}
@@ -49,10 +57,18 @@
             <canvas id="pdf-canvas"></canvas>
             <div id="regioes-overlay" class="regioes-overlay">
                 {% for regiao in regioes %}
-                <a class="regiao-box {% if peca and peca.pk == regiao.pk %}regiao-ativa{% endif %}"
-                   href="?pagina={{ pagina.numero_fisico }}&peca={{ regiao.pk }}"
-                   style="left:{{ regiao.x|pct }}%;top:{{ regiao.y|pct }}%;width:{{ regiao.largura|pct }}%;height:{{ regiao.altura|pct }}%;"
-                   title="{{ regiao.tipo_documental|tipo_documental }}"></a>
+                <div class="regiao-box {% if peca and peca.pk == regiao.pk %}regiao-ativa{% endif %}"
+                   data-id="{{ regiao.pk }}"
+                   data-url="{% url 'laboratorio:ajustar_regiao' lote.pk regiao.pk %}"
+                   data-abrir="?pagina={{ pagina.numero_fisico }}&peca={{ regiao.pk }}"
+                   data-x="{{ regiao.x }}" data-y="{{ regiao.y }}" data-w="{{ regiao.largura }}" data-h="{{ regiao.altura }}"
+                   style="left:{{ regiao.x|pct }}%;top:{{ regiao.y|pct }}%;width:{{ regiao.largura|pct }}%;height:{{ regiao.altura|pct }}%;">
+                    <span class="regiao-rotulo">Peça {{ regiao.ordem }} · {{ regiao.tipo_documental|tipo_documental }}</span>
+                    <span class="alca alca-nw" data-alca="nw"></span>
+                    <span class="alca alca-ne" data-alca="ne"></span>
+                    <span class="alca alca-sw" data-alca="sw"></span>
+                    <span class="alca alca-se" data-alca="se"></span>
+                </div>
                 {% endfor %}
             </div>
         </div>
@@ -60,7 +76,8 @@
             Técnica: {{ pagina.get_tecnica_utilizada_display|default:pagina.tecnica_recomendada }}
             · {{ pagina.get_qualidade_extracao_display }} · {{ pagina.quantidade_caracteres }} caracteres
         </p>
-        <p class="texto-apoio">O auditor seleciona a região superior ou inferior da página na lista à direita.</p>
+        <p class="texto-apoio">Arraste o retângulo sobre o PDF para ajustar a região da peça. A coordenada fica interna; a separação só deixa de ser preliminar depois da conferência humana.</p>
+        <form id="form-ajuste-regiao" class="d-none">{% csrf_token %}</form>
         <form class="mt-2" method="post" action="{% url 'laboratorio:marcar_ilegivel' lote.pk pagina.pk %}">
             {% csrf_token %}
             <textarea class="form-control form-control-sm" name="justificativa" rows="2" placeholder="Justificativa de ilegibilidade" required></textarea>
@@ -68,7 +85,7 @@
         </form>
     </section>
 
-    <section>
+    <section class="laboratorio-painel">
         <article class="cartao mb-3">
             <h2 class="h5">Peças identificadas</h2>
             {% if regioes %}
@@ -77,13 +94,14 @@
                 <li class="{% if peca and peca.pk == regiao.pk %}peca-ativa{% endif %}">
                     <a href="?pagina={{ pagina.numero_fisico }}&peca={{ regiao.pk }}">
                         <strong>Peça {{ regiao.ordem }} — {{ regiao.tipo_documental|tipo_documental }}</strong>
+                        <span class="texto-apoio d-block">{{ regiao.resumo.pessoa }} · {{ regiao.resumo.referencia }} · {{ regiao.resumo.valor }}</span>
                         <span class="texto-apoio d-block">
                             {% if regiao.estado_classificacao == "confirmado" or regiao.estado_classificacao == "corrigido" %}
                                 Classificação confirmada
                             {% else %}
                                 Tipo sugerido · revisão pendente
                             {% endif %}
-                            · {{ regiao.metodo_deteccao }}
+                            · {% rotulo_segmentacao regiao %}
                         </span>
                     </a>
                 </li>
@@ -94,64 +112,104 @@
             {% endif %}
         </article>
 
+        {% if comparacao %}
+        <details class="secao-peca">
+            <summary>Comparação demonstrativa — líquido {{ comparacao.liquido }} · transferência {{ comparacao.transferencia }}</summary>
+            <div class="secao-corpo">
+                <p class="mb-1">{{ comparacao.origem_liquido }}: {{ comparacao.liquido }}</p>
+                <p class="mb-1">{{ comparacao.origem_transferencia }}: {{ comparacao.transferencia }}</p>
+                <p class="mb-1">{{ comparacao.proventos }} − {{ comparacao.descontos }} = {{ comparacao.calculado }}</p>
+                <p class="mb-1">{% if comparacao.aritmetica_ok %}A subtração confere com o líquido extraído.{% else %}A subtração não fecha com o líquido extraído, ou algum valor está ausente.{% endif %}</p>
+                <p class="mb-1">{% if comparacao.valores_iguais %}Os dois valores extraídos coincidem.{% else %}Os valores extraídos não coincidem, ou um deles está ausente.{% endif %}</p>
+                <p class="mb-1">{{ comparacao.nomes }}</p>
+                <p class="mb-0 texto-apoio">Validação humana: {{ comparacao.estado_humano }}. Esta comparação não comprova o pagamento e não conclui a prestação de contas.</p>
+            </div>
+        </details>
+        {% endif %}
+
         {% if peca %}
         <article class="cartao mb-3">
-            <h2 class="h5">Conferência da peça {{ peca.ordem }}</h2>
-            <p class="mb-1"><strong>{{ peca.tipo_documental|tipo_documental }}</strong></p>
-            <p class="texto-apoio">
-                Estado: {{ peca.get_estado_classificacao_display }} · {{ peca.get_estado_revisao_display }}
-                · versão {{ peca.versao_classificacao }}
-                {% if peca.confianca %}· confiança {{ peca.confianca }}{% endif %}
-            </p>
-            <form method="post" action="{% url 'laboratorio:revisar_regiao' lote.pk peca.pk %}" class="row g-2 mb-3">
-                {% csrf_token %}
-                <div class="col-md-8">
-                    <label class="form-label">Tipo documental</label>
-                    <select class="form-select form-select-sm" name="tipo_documental">
-                        {% for codigo, rotulo in form_classificacao.fields.tipo_documental.choices %}
-                        <option value="{{ codigo }}" {% if codigo == peca.tipo_documental %}selected{% endif %}>{{ rotulo }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-4"><label class="form-label">Y relativo</label><input class="form-control form-control-sm" name="y" value="{{ peca.y }}"></div>
-                <div class="col-md-4"><label class="form-label">Altura</label><input class="form-control form-control-sm" name="altura" value="{{ peca.altura }}"></div>
-                <div class="col-md-8"><label class="form-label">Justificativa</label><textarea class="form-control form-control-sm" name="justificativa" rows="2" placeholder="Obrigatória ao corrigir"></textarea></div>
-                <div class="col-12">
-                    <button class="btn btn-sm btn-outline-primary" type="submit">Confirmar ou corrigir classificação</button>
-                </div>
-            </form>
-
-            <h3 class="h6">Campos extraídos</h3>
-            {% for campo in campos %}
-            <div class="campo-extraido border-bottom py-2">
-                <div class="d-flex justify-content-between gap-2 flex-wrap">
-                    <strong>{{ campo.rotulo }}</strong>
-                    <span class="texto-apoio">{{ campo.get_estado_revisao_display }}</span>
-                </div>
-                <p class="mb-0"><span class="texto-apoio">Original:</span> {{ campo.valor_original|default:"(ausente na evidência)" }}</p>
-                {% if campo.valor_normalizado %}<p class="mb-0"><span class="texto-apoio">Normalizado:</span> {{ campo.valor_normalizado }}</p>{% endif %}
-                {% if campo.trecho_evidencia %}<p class="texto-apoio small mb-1">Evidência (pág. {{ campo.numero_pagina }}): {{ campo.trecho_evidencia }}</p>{% endif %}
-                <form method="post" action="{% url 'laboratorio:revisar_campo' lote.pk campo.pk %}" class="row g-1 mt-1">
-                    {% csrf_token %}
-                    <div class="col-md-5"><textarea class="form-control form-control-sm" name="valor_original" rows="2">{{ campo.valor_original }}</textarea></div>
-                    <div class="col-md-3">
-                        <select class="form-select form-select-sm" name="acao">
-                            <option value="confirmar">Confirmar</option>
-                            <option value="corrigir">Corrigir</option>
-                            <option value="ausente">Ausente / pendente</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4"><input class="form-control form-control-sm" name="justificativa" placeholder="Justificativa"></div>
-                    <div class="col-12"><button class="btn btn-sm btn-outline-secondary" type="submit">Registrar revisão</button></div>
-                </form>
+            <div class="d-flex justify-content-between flex-wrap gap-2">
+                <h2 class="h5 mb-0">Peça {{ peca.ordem }} — {{ peca.resumo.tipo }}</h2>
+                <span>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" id="expandir-secoes">Expandir tudo</button>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" id="recolher-secoes">Recolher tudo</button>
+                </span>
             </div>
-            {% empty %}
-            <p class="texto-apoio">Nenhum campo estruturado útil nesta peça. A ausência permanece registrada sem preenchimento inventado.</p>
-            {% endfor %}
-        </article>
+            <div class="resumo-peca">
+                <p class="mb-0"><span>Pessoa</span><strong>{{ peca.resumo.pessoa }}</strong></p>
+                <p class="mb-0"><span>Referência</span><strong>{{ peca.resumo.referencia }}</strong></p>
+                <p class="mb-0"><span>Valor</span><strong>{{ peca.resumo.valor }}</strong></p>
+                <p class="mb-0"><span>Revisão</span><strong>{{ peca.get_estado_revisao_display }}</strong></p>
+            </div>
+            <p class="texto-apoio">{% rotulo_segmentacao peca %}{% if peca.versao_extracao %} · extração {{ peca.versao_extracao }}{% endif %}</p>
 
-        <article class="cartao mb-3">
-            <h2 class="h5">Vínculos e pendências desta peça</h2>
+            <details class="secao-peca">
+                <summary>Classificação documental</summary>
+                <div class="secao-corpo">
+                    <p class="texto-apoio">{{ peca.get_estado_classificacao_display }} · versão {{ peca.versao_classificacao }}. Confirmar a classificação não confirma a extração nem aprova despesa.</p>
+                    <form method="post" action="{% url 'laboratorio:revisar_regiao' lote.pk peca.pk %}" class="row g-2">
+                        {% csrf_token %}
+                        <div class="col-md-8">
+                            <label class="form-label">Tipo documental</label>
+                            <select class="form-select form-select-sm" name="tipo_documental">
+                                {% for codigo, rotulo in form_classificacao.fields.tipo_documental.choices %}
+                                <option value="{{ codigo }}" {% if codigo == peca.tipo_documental %}selected{% endif %}>{{ rotulo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12"><label class="form-label">Justificativa</label><textarea class="form-control form-control-sm" name="justificativa" rows="2" placeholder="Obrigatória ao corrigir a classificação"></textarea></div>
+                        <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Confirmar ou corrigir classificação</button></div>
+                    </form>
+                </div>
+            </details>
+
+            {% for secao in secoes %}
+            <details class="secao-peca">
+                <summary>{{ secao.titulo }}{% if secao.pendentes %} · {{ secao.pendentes }} pendente{{ secao.pendentes|pluralize }}{% endif %}</summary>
+                <div class="secao-corpo">
+                    {% for campo in secao.campos %}
+                    <div class="campo-extraido border-bottom py-2">
+                        <div class="d-flex justify-content-between gap-2 flex-wrap">
+                            <strong>{{ campo.rotulo }}</strong>
+                            <span class="texto-apoio">{{ campo.get_estado_revisao_display }}</span>
+                        </div>
+                        <p class="mb-0"><span class="texto-apoio">Original:</span> {{ campo.valor_original|default:"(ausente na evidência)" }}</p>
+                        <p class="mb-0"><span class="texto-apoio">Normalizado:</span> {{ campo.valor_normalizado|default:"—" }}</p>
+                        <p class="rotulo-evidencia">Evidência — página {{ campo.numero_pagina }}:</p>
+                        <p class="evidencia-campo">{{ campo.trecho_evidencia|default:"Sem trecho localizado nesta região." }}</p>
+                        <form method="post" action="{% url 'laboratorio:revisar_campo' lote.pk campo.pk %}" class="row g-1 mt-1">
+                            {% csrf_token %}
+                            <div class="col-md-5"><textarea class="form-control form-control-sm" name="valor_original" rows="2">{{ campo.valor_original }}</textarea></div>
+                            <div class="col-md-3">
+                                <select class="form-select form-select-sm" name="acao">
+                                    <option value="confirmar">Confirmar</option>
+                                    <option value="corrigir">Corrigir</option>
+                                    <option value="nao_localizado">Não localizado</option>
+                                    <option value="ilegivel">Ilegível</option>
+                                    <option value="pendente">Manter pendente</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4"><input class="form-control form-control-sm" name="justificativa" placeholder="Obrigatória ao corrigir ou rejeitar"></div>
+                            <div class="col-12"><button class="btn btn-sm btn-outline-secondary" type="submit">Registrar revisão</button></div>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endfor %}
+
+            <details class="secao-peca">
+                <summary>Evidências e revisão</summary>
+                <div class="secao-corpo">
+                    <p class="rotulo-evidencia">Texto da região — página {{ pagina.numero_fisico }}:</p>
+                    <p class="evidencia-campo">{{ peca.texto_regiao|default:"A região ainda não tem texto isolado." }}</p>
+                </div>
+            </details>
+
+            <details class="secao-peca">
+                <summary>Pendências e vínculos</summary>
+                <div class="secao-corpo">
             {% for vinculo in vinculos %}
             <div class="border-bottom py-2">
                 <p class="mb-1"><strong>{{ vinculo.tipo_vinculo }}</strong> · {{ vinculo.get_estado_display }}</p>
@@ -199,6 +257,8 @@
             {% for pendencia in pendencias %}
             <p class="mb-1 mt-2 small"><strong>{{ pendencia.get_prioridade_display }}</strong> · {{ pendencia.get_status_display }} — {{ pendencia.motivo }}</p>
             {% endfor %}
+                </div>
+            </details>
         </article>
         {% endif %}
     </section>
@@ -241,6 +301,92 @@
         escala = Math.min(2.4, escala + 0.15);
         if (pdfDoc) desenhar(paginaAtual);
     });
+    var token = "";
+    var campoToken = document.querySelector("#form-ajuste-regiao input[name=csrfmiddlewaretoken]");
+    if (campoToken) token = campoToken.value;
+    function limitar(valor, minimo, maximo) {
+        return Math.min(maximo, Math.max(minimo, valor));
+    }
+    if (overlay) {
+        overlay.querySelectorAll(".regiao-box").forEach(function (caixa) {
+            caixa.addEventListener("pointerdown", function (evento) {
+                if (evento.button !== 0) return;
+                var modo = evento.target.getAttribute("data-alca") || "move";
+                var inicioX = evento.clientX;
+                var inicioY = evento.clientY;
+                var orig = {
+                    x: parseFloat(caixa.dataset.x),
+                    y: parseFloat(caixa.dataset.y),
+                    w: parseFloat(caixa.dataset.w),
+                    h: parseFloat(caixa.dataset.h)
+                };
+                function mover(ev) {
+                    var retangulo = overlay.getBoundingClientRect();
+                    var dx = (ev.clientX - inicioX) / retangulo.width;
+                    var dy = (ev.clientY - inicioY) / retangulo.height;
+                    var x = orig.x;
+                    var y = orig.y;
+                    var w = orig.w;
+                    var h = orig.h;
+                    if (modo === "move") { x += dx; y += dy; }
+                    if (modo === "se") { w += dx; h += dy; }
+                    if (modo === "nw") { x += dx; y += dy; w -= dx; h -= dy; }
+                    if (modo === "ne") { y += dy; w += dx; h -= dy; }
+                    if (modo === "sw") { x += dx; w -= dx; h += dy; }
+                    w = limitar(w, 0.04, 1);
+                    h = limitar(h, 0.04, 1);
+                    x = limitar(x, 0, 1 - w);
+                    y = limitar(y, 0, 1 - h);
+                    caixa.dataset.x = String(x);
+                    caixa.dataset.y = String(y);
+                    caixa.dataset.w = String(w);
+                    caixa.dataset.h = String(h);
+                    caixa.style.left = (x * 100) + "%";
+                    caixa.style.top = (y * 100) + "%";
+                    caixa.style.width = (w * 100) + "%";
+                    caixa.style.height = (h * 100) + "%";
+                }
+                function soltar(ev) {
+                    document.removeEventListener("pointermove", mover);
+                    document.removeEventListener("pointerup", soltar);
+                    var dx = Math.abs(ev.clientX - inicioX);
+                    var dy = Math.abs(ev.clientY - inicioY);
+                    if (dx < 4 && dy < 4 && modo === "move") {
+                        window.location.href = caixa.dataset.abrir;
+                        return;
+                    }
+                    if (dx < 4 && dy < 4) return;
+                    var corpo = new FormData();
+                    corpo.append("csrfmiddlewaretoken", token);
+                    corpo.append("x", caixa.dataset.x);
+                    corpo.append("y", caixa.dataset.y);
+                    corpo.append("largura", caixa.dataset.w);
+                    corpo.append("altura", caixa.dataset.h);
+                    fetch(caixa.dataset.url, {
+                        method: "POST",
+                        body: corpo,
+                        credentials: "same-origin",
+                        headers: { "X-Requested-With": "fetch" }
+                    }).then(function () { window.location.reload(); });
+                }
+                evento.preventDefault();
+                document.addEventListener("pointermove", mover);
+                document.addEventListener("pointerup", soltar);
+            });
+        });
+    }
+    var expandir = document.getElementById("expandir-secoes");
+    var recolher = document.getElementById("recolher-secoes");
+    if (expandir) {
+        expandir.addEventListener("click", function () {
+            document.querySelectorAll("details.secao-peca").forEach(function (item) { item.open = true; });
+        });
+    }
+    if (recolher) {
+        recolher.addEventListener("click", function () {
+            document.querySelectorAll("details.secao-peca").forEach(function (item) { item.open = false; });
+        });
+    }
 })();
 </script>
 {% endblock %}

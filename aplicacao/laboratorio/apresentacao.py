@@ -62,3 +62,174 @@ def campos_uteis(regiao) -> list:
             continue
         uteis.append(campo)
     return uteis
+
+
+def campos_conferencia(regiao) -> list:
+    """Mantém o campo vazio obrigatório visível e omite título genérico sem texto."""
+    itens = []
+    for campo in regiao.campos.all():
+        if campo.chave in {"titulo", "observacao"} and not (campo.valor_original or "").strip():
+            continue
+        itens.append(campo)
+    return itens
+
+
+def rotulo_metodo(metodo: str, estado_classificacao: str = "") -> str:
+    confirmada = estado_classificacao in {EstadoClassificacao.CONFIRMADO, EstadoClassificacao.CORRIGIDO}
+    if metodo == "ajuste_humano":
+        if confirmada:
+            return "Região ajustada pelo auditor"
+        return "Região ajustada pelo auditor — revisão pendente"
+    if confirmada:
+        return "Separação conferida"
+    return "Separação automática preliminar — revisão pendente"
+
+
+SECOES_PECA = {
+    "comprovante_transferencia": (
+        ("contas", "Identificação e contas", (
+            "instituicao", "titular_origem", "agencia_origem", "conta_origem",
+            "beneficiario", "agencia_destino", "conta_destino", "dados_destino",
+        )),
+        ("operacao", "Dados da operação", (
+            "tipo_operacao", "data_hora", "hora_operacao", "data_hora_impressao", "valor", "numero_documento",
+        )),
+        ("autenticacao", "Autenticação", ("autenticacao", "situacao", "identificadores")),
+    ),
+    "holerite": (
+        ("partes", "Empregador e trabalhadora", ("empregador", "cnpj_empregador", "funcionario")),
+        ("funcional", "Dados funcionais", (
+            "matricula", "cargo", "cbo", "data_admissao", "competencia", "referencia_pagamento",
+        )),
+        ("proventos", "Proventos", ("salario_base", "rubricas_proventos", "total_proventos")),
+        ("descontos", "Descontos", ("rubricas_descontos", "inss", "irrf", "total_descontos")),
+        ("bases", "Bases e encargos", (
+            "base_inss", "base_fgts", "fgts_mes", "base_irrf", "bases_calculo", "valor_liquido", "liquido_calculado",
+        )),
+        ("assinaturas", "Assinaturas e atestos", (
+            "data_recebimento", "assinaturas", "responsavel_atesto", "cpf_atesto",
+        )),
+    ),
+}
+
+
+def secoes_da_peca(tipo: str, campos: list) -> list[dict]:
+    por_chave = {campo.chave: campo for campo in campos}
+    definicao = SECOES_PECA.get(tipo) or (("campos", "Campos extraídos", tuple(por_chave)),)
+    usadas = set()
+    secoes = []
+    for codigo, titulo, chaves in definicao:
+        itens = []
+        for chave in chaves:
+            campo = por_chave.get(chave)
+            if campo is None:
+                continue
+            if not campo.valor_original and not campo.obrigatorio and campo.chave not in {
+                "cpf_atesto", "autenticacao", "salario_base", "hora_operacao", "data_hora_impressao",
+            }:
+                continue
+            itens.append(campo)
+            usadas.add(chave)
+        pendentes = sum(1 for item in itens if item.estado_revisao == "pendente" or (item.obrigatorio and not item.valor_original))
+        if not itens:
+            continue
+        secoes.append({"codigo": codigo, "titulo": titulo, "campos": itens, "pendentes": pendentes})
+    resto = [campo for campo in campos if campo.chave not in usadas and (campo.valor_original or campo.obrigatorio)]
+    if resto:
+        secoes.append(
+            {
+                "codigo": "outros",
+                "titulo": "Outros campos",
+                "campos": resto,
+                "pendentes": sum(1 for item in resto if item.estado_revisao == "pendente"),
+            }
+        )
+    return secoes
+
+
+def resumo_peca(regiao) -> dict:
+    valores = {campo.chave: campo.valor_original for campo in regiao.campos.all()}
+    if regiao.tipo_documental == "comprovante_transferencia":
+        return {
+            "tipo": "Comprovante de transferência",
+            "pessoa": valores.get("beneficiario") or "Beneficiário não localizado",
+            "referencia": valores.get("data_hora") or "Data não localizada",
+            "valor": valores.get("valor") or "Valor não localizado",
+        }
+    if regiao.tipo_documental == "holerite":
+        return {
+            "tipo": "Holerite",
+            "pessoa": valores.get("funcionario") or "Trabalhadora não localizada",
+            "referencia": valores.get("competencia") or "Competência não localizada",
+            "valor": valores.get("valor_liquido") or "Líquido não localizado",
+        }
+    from aplicacao.laboratorio.catalogo import rotulo_tipo
+
+    return {
+        "tipo": rotulo_tipo(regiao.tipo_documental),
+        "pessoa": "",
+        "referencia": "",
+        "valor": "",
+    }
+
+
+def comparar_pagina(regioes) -> dict | None:
+    from decimal import Decimal, InvalidOperation
+
+    from aplicacao.laboratorio.extracao import texto_moeda
+
+    holerite = next((regiao for regiao in regioes if regiao.tipo_documental == "holerite"), None)
+    transferencia = next((regiao for regiao in regioes if regiao.tipo_documental == "comprovante_transferencia"), None)
+    if holerite is None or transferencia is None:
+        return None
+
+    def ler(regiao, chave):
+        campo = next((item for item in regiao.campos.all() if item.chave == chave), None)
+        if campo is None:
+            return None, ""
+        texto = (campo.valor_normalizado or campo.valor_original or "").strip()
+        try:
+            return Decimal(texto), campo.estado_revisao
+        except (InvalidOperation, ValueError):
+            return None, campo.estado_revisao
+
+    liquido, estado_liquido = ler(holerite, "valor_liquido")
+    valor, estado_valor = ler(transferencia, "valor")
+    proventos, _estado_proventos = ler(holerite, "total_proventos")
+    descontos, _estado_descontos = ler(holerite, "total_descontos")
+    calculado = proventos - descontos if proventos is not None and descontos is not None else None
+    nomes = _correspondencia_nomes(
+        next((item.valor_original for item in transferencia.campos.all() if item.chave == "beneficiario"), ""),
+        next((item.valor_original for item in holerite.campos.all() if item.chave == "funcionario"), ""),
+    )
+    return {
+        "liquido": texto_moeda(liquido) if liquido is not None else "não extraído",
+        "transferencia": texto_moeda(valor) if valor is not None else "não extraído",
+        "proventos": texto_moeda(proventos) if proventos is not None else "não extraído",
+        "descontos": texto_moeda(descontos) if descontos is not None else "não extraído",
+        "calculado": texto_moeda(calculado) if calculado is not None else "não calculado",
+        "valores_iguais": liquido is not None and valor is not None and liquido == valor,
+        "aritmetica_ok": calculado is not None and liquido is not None and calculado == liquido,
+        "nomes": nomes,
+        "estado_humano": "pendente"
+        if "pendente" in {estado_liquido, estado_valor}
+        else (estado_liquido or estado_valor or "pendente"),
+        "origem_liquido": f"Holerite · página {holerite.pagina.numero_fisico}",
+        "origem_transferencia": f"Comprovante · página {transferencia.pagina.numero_fisico}",
+    }
+
+
+def _correspondencia_nomes(beneficiario: str, trabalhadora: str) -> str:
+    tokens_a = {parte for parte in (beneficiario or "").upper().split() if len(parte) > 2}
+    tokens_b = {parte for parte in (trabalhadora or "").upper().split() if len(parte) > 2}
+    if not tokens_a or not tokens_b:
+        return "Nome ausente em uma das peças. Correspondência não sugerida."
+    if tokens_a <= tokens_b or tokens_b <= tokens_a or len(tokens_a & tokens_b) >= 2:
+        return (
+            f"{beneficiario} no comprovante e {trabalhadora} no holerite. "
+            "Correspondência sugerida — revisão pendente."
+        )
+    return (
+        f"{beneficiario} no comprovante e {trabalhadora} no holerite. "
+        "Os nomes diferem. Correspondência sugerida — revisão pendente."
+    )

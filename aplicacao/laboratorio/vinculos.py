@@ -43,6 +43,14 @@ def sugerir_vinculos(lote) -> list[VinculoEvidencia]:
 
 
 def _criar(lote, origem, destino, tipo, criterios, divergencias) -> VinculoEvidencia:
+    existente = VinculoEvidencia.objects.filter(
+        lote=lote,
+        origem=origem,
+        destino=destino,
+        tipo_vinculo=tipo,
+    ).first()
+    if existente:
+        return existente
     return VinculoEvidencia.objects.create(
         lote=lote,
         origem=origem,

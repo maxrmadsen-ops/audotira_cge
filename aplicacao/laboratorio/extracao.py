@@ -45,15 +45,56 @@ def _buscar(padroes: tuple[str, ...], texto: str, flags=re.IGNORECASE | re.MULTI
     return ""
 
 
+CHAVES_MOEDA = {
+    "valor",
+    "valor_liquido",
+    "total_proventos",
+    "total_descontos",
+    "irrf",
+    "inss",
+    "salario_base",
+    "total_bruto",
+    "total_liquido",
+    "valor_quitado",
+    "valor_recolhimento",
+    "liquido_calculado",
+    "base_recolhimento",
+    "encargos",
+    "saldo_inicial",
+    "saldo_final",
+    "fgts_mes",
+    "base_inss",
+    "base_fgts",
+    "base_irrf",
+}
+
+
 def _trecho(texto: str, valor: str, janela: int = 80) -> str:
-    if not valor:
+    """Devolve a linha integral da evidência, sem cortar palavra no meio."""
+    del janela
+    alvo = (valor or "").strip()
+    if not alvo:
         return ""
-    pos = (texto or "").lower().find(valor.lower())
-    if pos < 0:
-        return valor[:janela]
-    inicio = max(0, pos - 20)
-    fim = min(len(texto), pos + len(valor) + 40)
-    return texto[inicio:fim].strip()
+    for linha in (texto or "").splitlines():
+        if alvo.lower() not in linha.lower():
+            continue
+        limpa = linha.strip()
+        if _linha_mistura_outro_campo(limpa, alvo):
+            return alvo
+        return limpa
+    return alvo
+
+
+def _linha_mistura_outro_campo(linha: str, valor: str) -> bool:
+    baixo = linha.lower()
+    valor_baixo = valor.lower()
+    vizinhos = (
+        "demonstrativo de pagamento",
+        "certifico que",
+        "transferido para",
+        "banco do brasil",
+    )
+    return any(vizinho in baixo and vizinho not in valor_baixo for vizinho in vizinhos)
 
 
 def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> list[dict]:
@@ -63,24 +104,7 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
     for item in esquema:
         original = mapeados.get(item.chave, "")
         normalizado = original
-        if item.chave in {
-            "valor",
-            "valor_liquido",
-            "total_proventos",
-            "total_descontos",
-            "irrf",
-            "inss",
-            "salario_base",
-            "total_bruto",
-            "total_liquido",
-            "valor_quitado",
-            "valor_recolhimento",
-            "liquido_calculado",
-            "base_recolhimento",
-            "encargos",
-            "saldo_inicial",
-            "saldo_final",
-        }:
+        if item.chave in CHAVES_MOEDA:
             decimal = _moeda_para_decimal(original) if original else None
             if item.chave == "liquido_calculado" and not original:
                 decimal = liquido_deterministico(
@@ -109,7 +133,7 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
 def _nome_trabalhador(texto: str) -> str:
     # Holerite escaneado: cabeçalho "Nome do Funcionário" e linha seguinte com o nome.
     apos_rotulo = re.search(
-        r"nome\s+do\s+funcion[aá]rio[^\n]{0,100}\n\s*(?:\d+\s+)?([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç .']{6,70})",
+        r"(?:nome\s+do\s+funcion[aá]rio|cadastro)[^\n]{0,120}\n\s*(?:\d{1,6}\s+)?([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç .']{6,70})",
         texto or "",
         flags=re.IGNORECASE,
     )
@@ -134,6 +158,11 @@ def _nome_trabalhador(texto: str) -> str:
         "APAE MRD",
         "APAE ASSOC",
         "MARIA ROSALINA",
+        "AMIGOS",
+        "EXCEP",
+        "DEMONSTRATIVO",
+        "NORMAIS",
+        "PRESIDENTE",
     }
     for padrao in padroes:
         for achado in re.finditer(padrao, texto or "", flags=re.IGNORECASE):
@@ -177,102 +206,278 @@ def _extrair_holerite(texto: str) -> dict[str, str]:
     )
     if cargo.lower().startswith("presidente"):
         cargo = _buscar((r"\b(Professor|Professora|Assistente|Auxiliar|Coordenador[a]?|Cuidador[a]?)\b",), texto)
+    bases = _mapa_bases(texto)
+    salario_base = _moeda_no_contexto(texto, ("sal[aá]rio[\\s\\-]?base",)) or bases.get("salario_base", "")
+    base_inss = _valor_rotulo(texto, r"sal\s*cont\s*inss|base.{0,16}inss") or bases.get("base_inss", "")
+    base_fgts = _valor_rotulo(texto, r"bas\w*\s*c[aá]lc\w*\s*fgts|base.{0,16}fgts", evitar=(r"m[eê]s",)) or bases.get(
+        "base_fgts", ""
+    )
+    fgts_mes = _valor_rotulo(texto, r"fgts\s*m[eê]s") or bases.get("fgts_mes", "")
+    base_irrf = _valor_rotulo(texto, r"bas\w*\s*c[aá]lc\w*\s*irrf|base.{0,20}irrf", evitar=(r"faixa",)) or bases.get(
+        "base_irrf", ""
+    )
+    data_recebimento = _buscar((r"recebi\s+em\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto)
+    responsavel = _responsavel_atesto(texto)
+    cpf_atesto = _cpf_atesto(texto)
+    partes_base = []
+    if base_inss:
+        partes_base.append(f"INSS: {base_inss}")
+    if base_fgts:
+        partes_base.append(f"FGTS: {base_fgts}")
+    if fgts_mes:
+        partes_base.append(f"FGTS do mês: {fgts_mes}")
+    if base_irrf:
+        partes_base.append(f"IRRF: {base_irrf}")
+    assinatura = []
+    if data_recebimento:
+        assinatura.append(f"Recebi em {data_recebimento}")
+    if re.search(r"\bassinatura\b", texto or "", flags=re.IGNORECASE):
+        assinatura.append("Assinatura presente no documento")
     return {
-        "empregador": _buscar(
-            (
-                r"(APAE\s+ASSOC\.?[^\n]{0,40})",
-                r"(?:empregador|empresa|raz[aã]o social)\s*[:\-]?\s*([^\n]{3,80})",
-            ),
-            texto,
-        ),
+        "empregador": _empregador(texto),
+        "cnpj_empregador": _buscar((r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",), texto),
         "funcionario": funcionario,
-        "identificadores": _buscar(
-            (
-                r"(?:matr[ií]cula|pis)\s*[:\-]?\s*([0-9.\-/]+)",
-                r"\b(\d{3}\.\d{3}\.\d{3}-\d{2})\b",
-            ),
-            texto,
-        ),
+        "matricula": _matricula(texto),
+        "identificadores": "",
         "cargo": cargo,
-        "competencia": _buscar(
-            (
-                r"(?:compet[eê]ncia|refer[eê]ncia|m[eê]s/?ano|per[ií]odo)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{2,4})",
-                r"\b((?:0?[1-9]|1[0-2])[/.\-]20[0-9]{2})\s+Mensal\b",
-                r"\b((?:0?[1-9]|1[0-2])[/.\-]20[0-9]{2})\b",
-            ),
+        "cbo": _buscar((r"\bCBO\b\s*[:\-]?\s*(\d{4,6})\b",), texto),
+        "competencia": _competencia(texto),
+        "referencia_pagamento": "Mensal" if re.search(r"\bMensal\b", texto or "") else "",
+        "data_admissao": _buscar(
+            (r"(?:admiss[aã]o|data de admiss[aã]o)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",),
             texto,
         ),
-        "data_admissao": _buscar((r"(?:admiss[aã]o|data de admiss[aã]o)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
-        "salario_base": _moeda_no_contexto(texto, ("sal[aá]rio[\\s\\-]?base",)),
+        "salario_base": salario_base,
         "total_proventos": _buscar((r"Total\s+([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s+[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}",), texto)
         or _moeda_no_contexto(texto, ("total\\s+de\\s+proventos", "proventos")),
         "total_descontos": _buscar((r"Total\s+[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}\s+([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",), texto)
         or _moeda_no_contexto(texto, ("total\\s+de\\s+descontos", "descontos")),
         "valor_liquido": _moeda_no_contexto(texto, ("total\\s+l[ií]quido", "l[ií]quido\\s+a\\s+receber", "valor\\s+l[ií]quido", "l[ií]quido")),
-        "irrf": _moeda_no_contexto(texto, ("irrf", "i\\.?r\\.?r\\.?f\\.?")),
-        "inss": _moeda_no_contexto(texto, ("inss",)),
+        "irrf": _valor_rotulo(texto, r"\birrf\b", evitar=(r"base", r"faixa", r"c[aá]lc"), ultimo=True),
+        "inss": _valor_rotulo(texto, r"\binss\b", evitar=(r"base", r"sal\s*cont", r"c[aá]lc"), ultimo=True),
         "rubricas_proventos": _listar_rubricas(texto, "provento"),
         "rubricas_descontos": _listar_rubricas(texto, "desconto"),
-        "bases_calculo": "",
-        "assinaturas": _buscar((r"(assinatura|carimbo|atesto).{0,40}",), texto),
+        "base_inss": base_inss,
+        "base_fgts": base_fgts,
+        "fgts_mes": fgts_mes,
+        "base_irrf": base_irrf,
+        "bases_calculo": " · ".join(partes_base),
+        "data_recebimento": data_recebimento,
+        "assinaturas": " · ".join(assinatura),
+        "responsavel_atesto": responsavel,
+        "cpf_atesto": cpf_atesto,
         "liquido_calculado": "",
     }
 
 
-def _listar_rubricas(texto: str, tipo: str) -> str:
-    """Coleta linhas candidatas a rubrica; vazio se não houver evidência tabular."""
-    linhas = []
+def _empregador(texto: str) -> str:
+    especifico = re.search(
+        r"APAE\s+ASSOC\.?\s*DE\s+PAIS\s+E\s+AMIGOS\s+DOS\s+EXCEP\.?",
+        texto or "",
+        flags=re.IGNORECASE,
+    )
+    if especifico:
+        nome = re.sub(r"\s+", " ", especifico.group(0)).strip()
+        nome = re.sub(r"ASSOC\.?\s*DE", "ASSOC. DE", nome, count=1, flags=re.IGNORECASE)
+        if not nome.endswith("."):
+            nome += "."
+        return nome
+    generico = _buscar((r"(?:empregador|empresa|raz[aã]o social)\s*[:\-]\s*([^\n]{3,80})",), texto)
+    return re.split(r"demonstrativ|compet[eê]ncia", generico, maxsplit=1, flags=re.IGNORECASE)[0].strip(" .-|")
+
+
+def _matricula(texto: str) -> str:
+    achado = re.search(r"cadastro[^\n]{0,40}\n\s*(\d{1,6})\b", texto or "", flags=re.IGNORECASE)
+    if not achado:
+        achado = re.search(r"(?:matr[ií]cula|cadastro)\s*[:\-]?\s*(\d{1,6})\b", texto or "", flags=re.IGNORECASE)
+    if not achado:
+        return ""
+    return achado.group(1)
+
+
+def _competencia(texto: str) -> str:
+    rotulada = _buscar(
+        (r"(?:compet[eê]ncia|m[eê]s/?ano)\s*[:\-]\s*([0-9]{1,2}[/.\-][0-9]{2,4})",),
+        texto,
+    )
+    if rotulada:
+        return rotulada
+    mensal = re.search(r"\b((?:0?[1-9]|1[0-2])[/.\-]20[0-9]{2})\s+Mensal\b", texto or "", flags=re.IGNORECASE)
+    if mensal:
+        return mensal.group(1)
+    for achado in re.finditer(r"(?<![\d/])((?:0?[1-9]|1[0-2])[/.\-]20[0-9]{2})\b", texto or ""):
+        return achado.group(1)
+    return ""
+
+
+def _valor_rotulo(texto: str, padrao: str, evitar: tuple[str, ...] = (), ultimo: bool = False) -> str:
+    moeda = r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}"
     for linha in (texto or "").splitlines():
-        limpa = linha.strip()
-        if not limpa:
+        achado = re.search(padrao, linha, flags=re.IGNORECASE)
+        if not achado:
             continue
-        if re.search(r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}", limpa) and len(limpa) > 8:
-            if tipo == "desconto" and re.search(r"inss|irrf|desconto|faltas|vale", limpa, re.I):
-                linhas.append(limpa[:120])
-            elif tipo == "provento" and re.search(r"sal[aá]rio|hora|adicional|provento|vencimento", limpa, re.I):
-                linhas.append(limpa[:120])
-        if len(linhas) >= 8:
+        if any(re.search(item, linha, flags=re.IGNORECASE) for item in evitar):
+            continue
+        if re.search(r"certifico|presidente|cpf", linha, flags=re.IGNORECASE):
+            continue
+        if ultimo:
+            valores = re.findall(moeda, linha)
+            if valores:
+                return valores[-1]
+            continue
+        resto = linha[achado.end() :]
+        corte = re.search(r"\b(?:sal[aá]rio|sal\s*cont|bas\w*|fgts|faixa|dep)\b", resto, flags=re.IGNORECASE)
+        if corte:
+            resto = resto[: corte.start()]
+        valores = re.findall(moeda, resto)
+        if valores:
+            return valores[0]
+    return ""
+
+
+def _mapa_bases(texto: str) -> dict[str, str]:
+    rotulos = (
+        ("salario_base", r"sal[aá]rio\s*base"),
+        ("base_inss", r"sal\s*cont\s*inss"),
+        ("base_fgts", r"bas\w*\s*c[aá]lc\w*\s*fgts"),
+        ("fgts_mes", r"fgts\s*m[eê]s"),
+        ("base_irrf", r"bas\w*\s*c[aá]lc\w*\s*irrf"),
+    )
+    linhas = (texto or "").splitlines()
+    for indice, linha in enumerate(linhas[:-1]):
+        posicoes = []
+        for chave, padrao in rotulos:
+            achado = re.search(padrao, linha, flags=re.IGNORECASE)
+            if achado:
+                posicoes.append((achado.start(), chave))
+        if len(posicoes) < 3:
+            continue
+        valores = re.findall(r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}", linhas[indice + 1])
+        posicoes.sort()
+        return {chave: valores[ordem] for ordem, (_pos, chave) in enumerate(posicoes) if ordem < len(valores)}
+    return {}
+
+
+def _responsavel_atesto(texto: str) -> str:
+    achado = re.search(
+        r"nome\s*:\s*([A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç ]{5,60})",
+        texto or "",
+        flags=re.IGNORECASE,
+    )
+    if not achado:
+        return ""
+    nome = re.sub(r"\s+", " ", achado.group(1)).strip(" .:-")
+    if re.search(r"funcion|empregad|trabalhador", nome, flags=re.IGNORECASE):
+        return ""
+    cargo = _buscar((r"cargo\s*:\s*(presidente|diretor[a]?|tesoureiro[a]?)",), texto)
+    if cargo:
+        return f"{nome} · {cargo}"
+    return nome
+
+
+def _cpf_atesto(texto: str) -> str:
+    bloco = re.search(r"(certifico[\s\S]{0,500}|presidente[\s\S]{0,160})", texto or "", flags=re.IGNORECASE)
+    if not bloco:
+        return ""
+    achado = re.search(r"\d{3}\.\d{3}\.\d{3}-\d{2}", bloco.group(0))
+    return achado.group(0) if achado else ""
+
+
+_RUBRICA = re.compile(
+    r"^\s*(\d{1,4})\s+(.+?)\s+(?:(\d{2,3}:\d{2}\s*hs|\d{1,3},\d{2}\s*%)\s+)?([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*$",
+    flags=re.IGNORECASE,
+)
+
+
+def _listar_rubricas(texto: str, tipo: str) -> str:
+    """Uma rubrica por linha de origem, sem puxar carimbo nem totais."""
+    linhas = []
+    for bruta in (texto or "").splitlines():
+        limpa = bruta.strip()
+        if not limpa or re.search(r"certifico|presidente|cpf|total\b", limpa, flags=re.IGNORECASE):
+            continue
+        achado = _RUBRICA.match(limpa)
+        if not achado:
+            continue
+        codigo, descricao, referencia, valor = achado.group(1), achado.group(2).strip(), achado.group(3) or "", achado.group(4)
+        desconto = bool(re.search(r"\b(inss|irrf|faltas|vale)\b", descricao, flags=re.IGNORECASE) or codigo in {"920", "950"})
+        if tipo == "desconto" and not desconto:
+            continue
+        if tipo == "provento" and desconto:
+            continue
+        if referencia:
+            linhas.append(f"{codigo} · {descricao} · {referencia.strip()} · {valor}")
+        else:
+            linhas.append(f"{codigo} · {descricao} · {valor}")
+        if len(linhas) >= 12:
             break
-    return " | ".join(linhas)
+    return "\n".join(linhas)
 
 
 def _extrair_comprovante(texto: str) -> dict[str, str]:
+    partes = re.split(r"transferido\s+para", texto or "", maxsplit=1, flags=re.IGNORECASE)
+    origem = partes[0]
+    destino = partes[1] if len(partes) > 1 else ""
+    agencia_origem = _buscar((r"ag[eê]ncia\s*[:\-]?\s*([0-9]{3,6}-[0-9])",), origem)
+    conta_origem = _buscar((r"conta\s*[:\-]?\s*([0-9]{2,3}(?:\.[0-9]{3})*-[0-9Xx])",), origem)
+    agencia_destino = _buscar((r"ag[eê]ncia\s*[:\-]?\s*([0-9]{3,6}-[0-9])",), destino)
+    conta_destino = _buscar((r"conta\s*[:\-]?\s*([0-9]{2,3}(?:\.[0-9]{3})*-[0-9Xx])",), destino)
+    data_operacao, hora_operacao, impressao = _tempos_comprovante(texto or "")
+    instituicao = _buscar(
+        (r"(banco\s+do\s+brasil|caixa econ[oô]mica|sicredi|sicoob|bradesco|ita[uú])",),
+        texto or "",
+    )
+    if re.search(r"banco\s+do\s+brasil", instituicao, flags=re.IGNORECASE):
+        instituicao = "Banco do Brasil"
+    tipo = ""
+    if re.search(r"conta\s+corrente\s+p/?\s*conta\s+corrente", texto or "", flags=re.IGNORECASE):
+        tipo = "Transferência entre contas correntes"
+    elif re.search(r"\b(ted|doc|pix|transfer[eê]ncia)\b", texto or "", flags=re.IGNORECASE):
+        tipo = _buscar((r"\b(ted|doc|pix|transfer[eê]ncia)\b",), texto or "").capitalize()
     return {
-        "instituicao": _buscar((r"(banco\s+do\s+brasil|caixa econ[oô]mica|sicredi|sicoob|bradesco|ita[uú]|banco\s+[^\n]{2,40})",), texto),
-        "titular_origem": _buscar((r"(?:titular|nome do pagador|cliente)\s*[:\-]?\s*([^\n]{3,80})",), texto),
-        "conta_origem": _buscar((r"(?:agencia|ag[eê]ncia)\s*[:\-]?\s*([0-9.\-]+).{0,40}conta\s*[:\-]?\s*([0-9.\-X]+)", r"conta\s*[:\-]?\s*([0-9.\-X]+)"), texto),
-        "beneficiario": _buscar(
-            (
-                r"(?:transferido para|creditado para)[\s\S]{0,120}?cliente\s*[:\-]?\s*([^\n]{3,80})",
-                r"(?:favorecido|benefici[aá]rio|destinat[aá]rio|creditado)\s*[:\-]?\s*([^\n]{3,80})",
-            ),
-            texto,
+        "instituicao": instituicao,
+        "tipo_operacao": tipo,
+        "titular_origem": _nome_conta(origem),
+        "agencia_origem": agencia_origem,
+        "conta_origem": conta_origem,
+        "beneficiario": _nome_conta(destino) or _buscar(
+            (r"(?:favorecido|benefici[aá]rio|destinat[aá]rio)\s*[:\-]\s*([^\n]{3,80})",),
+            texto or "",
         ),
-        "dados_destino": _buscar(
-            (
-                r"(?:transferido para)[\s\S]{0,160}?ag[eê]ncia\s*[:\-]?\s*([0-9.\-]+\s*conta\s*[:\-]?\s*[0-9.\-X]+)",
-                r"(?:conta destino|destino|conta creditada)\s*[:\-]?\s*([^\n]{3,80})",
-            ),
-            texto,
+        "agencia_destino": agencia_destino,
+        "conta_destino": conta_destino,
+        "dados_destino": "",
+        "data_hora": data_operacao,
+        "hora_operacao": hora_operacao,
+        "data_hora_impressao": impressao,
+        "valor": _moeda_no_contexto(texto or "", ("valor total", "valor da transfer[eê]ncia", "valor pago", "valor")),
+        "numero_documento": _buscar((r"(?:nr\.?\s*documento|nr\.?\s*docum)\s*[:\-]?\s*([0-9][0-9.\-]{8,})",), origem),
+        "autenticacao": _buscar(
+            (r"autentica[cç][aã]o\s*[:\-]?\s*([0-9A-Za-z](?:\.[0-9A-Za-z]{2,4}){3,8})",),
+            texto or "",
         ),
-        "data_hora": _buscar(
-            (
-                r"(?:data da transfer[eê]ncia)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",
-                r"([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4}(?:\s+[0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?)?)",
-            ),
-            texto,
-        ),
-        "valor": _moeda_no_contexto(texto, ("valor total", "valor da transfer[eê]ncia", "valor pago", "valor")),
-        "tipo_operacao": _buscar((r"(ted|doc|pix|transfer[eê]ncia)",), texto),
-        "identificadores": _buscar(
-            (
-                r"(?:nr\.?\s*documento|nr\.?\s*docum)\s*[:\-]?\s*([0-9.\-]+)",
-                r"(?:autentica[cç][aã]o|nsu|protocolo)\s*[:\-]?\s*([A-Za-z0-9\-./]+)",
-            ),
-            texto,
-        ),
-        "situacao": _buscar((r"(efetivad[ao]|realizad[ao]|confirmad[ao]|rejeitad[ao])",), texto),
+        "identificadores": "",
+        "situacao": _buscar((r"\b(efetivad[ao]|realizad[ao]|confirmad[ao]|rejeitad[ao])\b",), texto or ""),
     }
+
+
+def _nome_conta(trecho: str) -> str:
+    nome = _buscar((r"(?:cliente|titular|nome do pagador)\s*[:\-]\s*([^\n]{3,80})",), trecho)
+    nome = re.split(r"\b(?:ag[eê]ncia|conta|nr\.|data|valor)\b", nome, maxsplit=1, flags=re.IGNORECASE)[0]
+    return nome.strip(" :-")
+
+
+def _tempos_comprovante(texto: str) -> tuple[str, str, str]:
+    data = _buscar((r"data da transfer[eê]ncia\s*[:\-]?\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})",), texto)
+    hora = ""
+    operacao = re.search(r"banco\s+do\s+brasil\s*[-–—]\s*(\d{2}:\d{2}:\d{2})", texto, flags=re.IGNORECASE)
+    if operacao:
+        hora = operacao.group(1)
+    impressao = ""
+    cabecalho = re.search(r"(\d{2}/\d{2}/\d{2,4})\s*,\s*(\d{2}:\d{2})(?!:)", texto)
+    if cabecalho and (not hora or cabecalho.group(2) != hora):
+        impressao = f"{cabecalho.group(1)} {cabecalho.group(2)}"
+    return data, hora, impressao
 
 
 def _extrair_rescisao(texto: str) -> dict[str, str]:

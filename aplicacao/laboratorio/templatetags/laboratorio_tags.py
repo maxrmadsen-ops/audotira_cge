@@ -10,6 +10,13 @@ def tipo_documental(codigo: str) -> str:
     return rotulo_tipo(codigo or "")
 
 
+@register.simple_tag
+def rotulo_segmentacao(regiao) -> str:
+    from aplicacao.laboratorio.apresentacao import rotulo_metodo
+
+    return rotulo_metodo(regiao.metodo_deteccao, regiao.estado_classificacao)
+
+
 @register.filter
 def pct(valor) -> str:
     try:

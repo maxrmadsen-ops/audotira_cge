@@ -28,7 +28,27 @@ def montar_identificacao(prestacao) -> dict:
         "situacao_plano": _situacao_plano(plano),
         "situacao_termo_rotulo": rotulo_situacao(_situacao_termo(termo)),
         "situacao_plano_rotulo": rotulo_situacao(_situacao_plano(plano)),
+        "instrumento_documental": _instrumento_documental(prestacao, termo),
     }
+
+
+def _instrumento_documental(prestacao, termo) -> dict | None:
+    numero = (prestacao.numero_instrumento or "").strip()
+    if numero:
+        return {"numero": numero, "tipo": prestacao.tipo_instrumento or "", "pendente": False, "fonte": "cadastro"}
+    if termo is not None and (getattr(termo, "numero", "") or "").strip():
+        return {"numero": termo.numero.strip(), "tipo": "", "pendente": True, "fonte": "termo"}
+    from aplicacao.laboratorio.models import LoteLaboratorio
+
+    lote = (
+        LoteLaboratorio.objects.filter(prestacao_parceria=prestacao)
+        .exclude(numero_instrumento="")
+        .order_by("-id")
+        .first()
+    )
+    if lote is None:
+        return None
+    return {"numero": lote.numero_instrumento, "tipo": "", "pendente": True, "fonte": "documento_do_lote"}
 
 
 def _termo_da_prestacao(prestacao):

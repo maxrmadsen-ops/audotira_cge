@@ -20,13 +20,18 @@ def _ativo(url: str, caminho: str) -> bool:
 def _prestacao_contextual(usuario, caminho: str):
     if usuario is None or not getattr(usuario, "is_authenticated", False):
         return None
-    achado = re.match(r"^/prestacoes/(\d+)(?:/|$)", caminho or "")
-    if not achado:
-        return None
     from aplicacao.prestacoes_contas.models import PrestacaoContas
     from aplicacao.usuarios.acesso import pode_ver_prestacao
 
-    prestacao = PrestacaoContas.objects.filter(pk=int(achado.group(1))).first()
+    achado = re.match(r"^/prestacoes/(\d+)(?:/|$)", caminho or "")
+    prestacao = PrestacaoContas.objects.filter(pk=int(achado.group(1))).first() if achado else None
+    if prestacao is None:
+        lote = re.match(r"^/laboratorio/lotes/(\d+)(?:/|$)", caminho or "")
+        if lote:
+            from aplicacao.laboratorio.models import LoteLaboratorio
+
+            item = LoteLaboratorio.objects.select_related("prestacao_parceria").filter(pk=int(lote.group(1))).first()
+            prestacao = item.prestacao_parceria if item is not None else None
     if prestacao is None or not pode_ver_prestacao(usuario, prestacao):
         return None
     return prestacao
