@@ -926,12 +926,16 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     min-height: 28rem;
 }
 .laboratorio-visor canvas { display: block; max-width: none; }
+.cadeia-resumo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55rem; margin: 0 0 0.8rem; }
+.cadeia-resumo div { border: 1px solid var(--cge-borda); border-radius: 0.4rem; padding: 0.45rem 0.6rem; }
+.cadeia-resumo dt { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cge-texto-suave, #52615b); }
+.cadeia-resumo dd { margin: 0.15rem 0 0; }
 .cadeia-passos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; list-style: none; padding: 0; margin: 0 0 0.8rem; }
 .cadeia-passos li { border: 1px solid var(--cge-borda); border-radius: 0.4rem; padding: 0.55rem 0.65rem; }
 .cadeia-passos span { display: block; font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cge-texto-suave, #52615b); }
 .cadeia-camadas { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; padding: 0; margin: 0 0 0.8rem; list-style: none; font-size: 0.82rem; }
 .cadeia-card { margin-bottom: 0.6rem; }
-@media (max-width: 991px) { .cadeia-passos { grid-template-columns: 1fr; } }
+@media (max-width: 991px) { .cadeia-passos, .cadeia-resumo { grid-template-columns: 1fr; } }
 .pdf-estado { margin: 0.75rem; color: var(--cge-texto-suave, #52615b); }
 .regioes-overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
 .regiao-box {

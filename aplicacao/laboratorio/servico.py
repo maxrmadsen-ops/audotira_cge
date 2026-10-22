@@ -26,6 +26,7 @@ from aplicacao.laboratorio.classificacao import (
     classificar_texto,
     detectar_numero_impresso,
     candidatos_da_peca,
+    dividir_dispensa_e_transferencia,
     recortar_texto_para_tipo,
     segmentar_regioes,
     tipo_principal,
@@ -37,7 +38,7 @@ from aplicacao.laboratorio.escolhas import (
     PrioridadePendencia,
     StatusPendencia,
 )
-from aplicacao.laboratorio.extracao import estruturar_rubricas, extrair_campos
+from aplicacao.laboratorio.extracao import estruturar_rubricas, estruturar_rubricas_rescisao, extrair_campos
 from aplicacao.laboratorio.localizacao import caixa_do_valor, faixa_abaixo, faixa_do_rotulo, localizar_campos, projetar_pagina
 from aplicacao.laboratorio.models import (
     CampoExtraido,
@@ -504,7 +505,7 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
     }
 
 
-VERSAO_EXTRACAO_REGIAO = "6.1"
+VERSAO_EXTRACAO_REGIAO = "6.1.1"
 
 
 def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> dict:
@@ -544,31 +545,45 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
             continue
         recorte = imagem.crop((x0, y0, x1, y1))
         texto, palavras = ocr.extrair_imagem_com_caixas(recorte)
-        candidatos = candidatos_da_peca(
-            [item for item in classificar_texto(texto) if item["tipo"] != "outros_nao_classificados"],
-            texto,
-        )
-        if not candidatos:
-            continue
-        principal = tipo_principal(candidatos, texto) or candidatos[0]
-        tipos = [item["tipo"] for item in candidatos]
-        texto_util = recortar_texto_para_tipo(texto, principal["tipo"], tipos) if len(tipos) > 1 else texto
-        pecas.append(
-            {
-                "ordem": len(pecas) + 1,
-                "tipo": principal["tipo"],
-                "confianca": principal["confianca"],
-                "texto": (texto_util or "")[:20000],
-                "mistura": len(tipos) > 1,
-                "x": faixa["x"],
-                "y": faixa["y"],
-                "largura": faixa["largura"],
-                "altura": faixa["altura"],
-                "ordem_visual": ordem,
-                "palavras": palavras,
-                "recorte": recorte,
-            }
-        )
+        partes = [(recorte, texto, palavras, 0.0, 1.0, False)]
+        corte = dividir_dispensa_e_transferencia(texto, palavras)
+        if corte:
+            altura_px = recorte.size[1]
+            limite = max(1, min(altura_px - 1, int(corte * altura_px)))
+            partes = []
+            for imagem_parte, y_rel, alt_rel in (
+                (recorte.crop((0, 0, recorte.size[0], limite)), 0.0, corte),
+                (recorte.crop((0, limite, recorte.size[0], altura_px)), corte, 1 - corte),
+            ):
+                texto_parte, palavras_parte = ocr.extrair_imagem_com_caixas(imagem_parte)
+                partes.append((imagem_parte, texto_parte, palavras_parte, y_rel, alt_rel, True))
+        for recorte_parte, texto_parte, palavras_parte, y_rel, alt_rel, separada in partes:
+            candidatos = candidatos_da_peca(
+                [item for item in classificar_texto(texto_parte) if item["tipo"] != "outros_nao_classificados"],
+                texto_parte,
+            )
+            if not candidatos:
+                continue
+            principal = tipo_principal(candidatos, texto_parte) or candidatos[0]
+            tipos = [item["tipo"] for item in candidatos]
+            texto_util = recortar_texto_para_tipo(texto_parte, principal["tipo"], tipos) if len(tipos) > 1 else texto_parte
+            pecas.append(
+                {
+                    "ordem": len(pecas) + 1,
+                    "tipo": principal["tipo"],
+                    "confianca": principal["confianca"],
+                    "texto": (texto_util or "")[:20000],
+                    "mistura": len(tipos) > 1,
+                    "x": faixa["x"],
+                    "y": round(faixa["y"] + (y_rel * faixa["altura"]), 4),
+                    "largura": faixa["largura"],
+                    "altura": round(alt_rel * faixa["altura"], 4),
+                    "ordem_visual": ordem,
+                    "palavras": palavras_parte,
+                    "recorte": recorte_parte,
+                    "separada": separada,
+                }
+            )
     if not pecas:
         return _retorno_pagina(numero, len(faixas), [], True, lote, hash_antes, paginas_antes, outras_antes)
     from django.conf import settings
@@ -586,7 +601,7 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                 y=peca["y"],
                 largura=peca["largura"],
                 altura=peca["altura"],
-                metodo_deteccao="faixa_em_branco",
+                metodo_deteccao="separacao_dispensa_transferencia" if peca.get("separada") else "faixa_em_branco",
                 confianca=peca["confianca"],
                 versao_classificacao=1,
                 versao_extracao=VERSAO_EXTRACAO_REGIAO,
@@ -594,7 +609,11 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                 estado_revisao=EstadoRevisao.PENDENTE,
                 texto_regiao=peca["texto"],
                 justificativa=(
-                    "Separação pela faixa em branco. Revisão humana pendente."
+                    (
+                        "Separação entre comunicação de dispensa e comprovante de transferência. Revisão humana pendente."
+                        if peca.get("separada")
+                        else "Separação pela faixa em branco. Revisão humana pendente."
+                    )
                     + (
                         " A região ainda contém mais de um tipo; a extração usou só o tipo predominante."
                         if peca["mistura"]
@@ -606,6 +625,10 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
             campos = extrair_campos(regiao.tipo_documental, peca["texto"], numero, "ocr_regiao")
             _reler_campos_dificeis(campos, peca["recorte"], peca["palavras"], peca["texto"], idioma)
             localizar_campos(campos, peca["palavras"], faixa)
+            if regiao.tipo_documental == "termo_rescisao":
+                _completar_liquido_lido(campos, peca["recorte"])
+            if regiao.tipo_documental == "termo_quitacao":
+                _completar_traco_quitacao(campos, imagem)
             CampoExtraido.objects.bulk_create(
                 [
                     CampoExtraido(
@@ -687,9 +710,97 @@ def _reler_campos_dificeis(campos: list[dict], recorte, palavras: list[dict], te
         aplicar_em_campos(campos, "data_recebimento", decidir_data(reler_faixa(recorte, faixa_recebi, idioma)))
 
 
+def _completar_liquido_lido(campos: list[dict], recorte) -> None:
+    """Segunda leitura só da faixa inferior do TRCT. Não grava o valor calculado no campo lido."""
+    import re
+
+    import pytesseract
+    from PIL import ImageOps
+
+    from aplicacao.laboratorio.extracao import _MOEDA_PONTUADA, _moeda_para_decimal
+
+    atual = next((campo for campo in campos if campo["chave"] == "total_liquido"), None)
+    if atual is None or atual.get("valor_original"):
+        return
+    largura, altura = recorte.size
+    if altura < 40:
+        return
+    faixa = recorte.crop((0, int(altura * 0.82), largura, altura))
+    preparada = ImageOps.autocontrast(faixa.convert("L"))
+    try:
+        texto = pytesseract.image_to_string(preparada, lang="por", config="--psm 4") or ""
+    except Exception:
+        return
+    achado = re.search(rf"valor\s+l[ií]quido\s*[:\-]?\s*({_MOEDA_PONTUADA})", texto, flags=re.IGNORECASE)
+    if not achado:
+        return
+    valor = achado.group(1)
+    decimal = _moeda_para_decimal(valor)
+    calculado = next((campo for campo in campos if campo["chave"] == "liquido_calculado"), None)
+    decimal_calculado = _moeda_para_decimal((calculado or {}).get("valor_original") or "")
+    atual["valor_original"] = valor
+    atual["valor_normalizado"] = str(decimal) if decimal is not None else ""
+    atual["trecho_evidencia"] = f"VALOR LÍQUIDO {valor}"
+    atual["metodo"] = "ocr_recorte"
+    atual["estado_confianca"] = (
+        "ambiguo" if decimal is not None and decimal_calculado is not None and decimal != decimal_calculado else "parcial"
+    )
+    atual["localizacao_precisa"] = False
+    try:
+        dados = pytesseract.image_to_data(preparada, lang="por", config="--psm 4", output_type=pytesseract.Output.DICT)
+    except Exception:
+        return
+    alvo = re.sub(r"\D", "", valor)
+    posicoes = [indice for indice, token in enumerate(dados.get("text", [])) if re.sub(r"\D", "", str(token)) == alvo and alvo]
+    if len(posicoes) != 1:
+        return
+    indice = posicoes[0]
+    faixa_altura = max(preparada.size[1], 1)
+    atual.update(
+        {
+            "evidencia_x": round(int(dados["left"][indice]) / max(largura, 1), 4),
+            "evidencia_y": round(0.82 + (int(dados["top"][indice]) / faixa_altura) * 0.18, 4),
+            "evidencia_largura": round(max(int(dados["width"][indice]) / max(largura, 1), 0.02), 4),
+            "evidencia_altura": round(max((int(dados["height"][indice]) / faixa_altura) * 0.18, 0.012), 4),
+            "localizacao_precisa": True,
+        }
+    )
+
+
+def _completar_traco_quitacao(campos: list[dict], imagem) -> None:
+    """Presença visual na faixa clara. Não usa o título QUITAÇÃO nem nomeia o signatário."""
+    atual = next((campo for campo in campos if campo["chave"] == "assinaturas"), None)
+    if atual is None or atual.get("valor_original"):
+        return
+    cinza = imagem.convert("L")
+    largura, altura = cinza.size
+    superior = int(altura * 0.62)
+    inferior = int(altura * 0.82)
+    if inferior <= superior:
+        return
+    faixa = cinza.crop((int(largura * 0.12), superior, int(largura * 0.88), inferior))
+    largura_faixa, altura_faixa = faixa.size
+    pixels = list(faixa.getdata())
+    linhas_com_traco = 0
+    for linha in range(altura_faixa):
+        inicio = linha * largura_faixa
+        escuros = sum(1 for pixel in pixels[inicio : inicio + largura_faixa] if pixel < 150)
+        proporcao = escuros / max(largura_faixa, 1)
+        if 0.02 <= proporcao <= 0.4:
+            linhas_com_traco += 1
+    if not 0.03 <= (linhas_com_traco / max(altura_faixa, 1)) <= 0.35:
+        return
+    atual["valor_original"] = "Traço manuscrito visível. Signatário não identificado."
+    atual["valor_normalizado"] = atual["valor_original"]
+    atual["trecho_evidencia"] = "Faixa entre os blocos impressos da quitação."
+    atual["metodo"] = "imagem_regiao"
+    atual["estado_confianca"] = "parcial"
+
+
 def _gravar_rubricas(regiao, texto: str, palavras: list[dict], faixa: dict) -> None:
     linhas = []
-    for ordem, item in enumerate(estruturar_rubricas(texto), start=1):
+    fonte = estruturar_rubricas_rescisao(texto) if regiao.tipo_documental == "termo_rescisao" else estruturar_rubricas(texto)
+    for ordem, item in enumerate(fonte, start=1):
         caixa = caixa_do_valor(palavras, item["trecho_evidencia"]) or caixa_do_valor(palavras, item["valor_original"])
         coords = projetar_pagina(caixa, faixa) if caixa else {}
         linhas.append(

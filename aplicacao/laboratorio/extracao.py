@@ -54,6 +54,7 @@ CHAVES_MOEDA = {
     "inss",
     "salario_base",
     "total_bruto",
+    "deducoes",
     "total_liquido",
     "valor_quitado",
     "valor_recolhimento",
@@ -118,10 +119,17 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
         if item.chave in CHAVES_MOEDA:
             decimal = _moeda_para_decimal(original) if original else None
             if item.chave == "liquido_calculado" and not original:
-                decimal = liquido_deterministico(
-                    _moeda_para_decimal(mapeados.get("total_proventos", "")),
-                    _moeda_para_decimal(mapeados.get("total_descontos", "")),
-                )
+                bruto = _moeda_para_decimal(mapeados.get("total_bruto", ""))
+                deducoes = _moeda_para_decimal(mapeados.get("deducoes", ""))
+                if bruto is not None and deducoes is not None:
+                    decimal = liquido_deterministico(bruto, deducoes)
+                    mapeados["liquido_calculado__metodo"] = "calculo"
+                    mapeados["liquido_calculado__confianca"] = "calculo"
+                else:
+                    decimal = liquido_deterministico(
+                        _moeda_para_decimal(mapeados.get("total_proventos", "")),
+                        _moeda_para_decimal(mapeados.get("total_descontos", "")),
+                    )
                 original = texto_moeda(decimal) if decimal is not None else ""
             normalizado = str(decimal) if decimal is not None else ""
         campos.append(
@@ -133,8 +141,8 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
                 "valor_normalizado": normalizado,
                 "numero_pagina": numero_pagina,
                 "trecho_evidencia": mapeados.get(f"{item.chave}__evidencia") or (_trecho(texto, original) if original else ""),
-                "metodo": metodo if original else "nao_localizado",
-                "estado_confianca": "evidencia_textual" if original else "ausente",
+                "metodo": mapeados.get(f"{item.chave}__metodo") or (metodo if original else "nao_localizado"),
+                "estado_confianca": mapeados.get(f"{item.chave}__confianca") or ("evidencia_textual" if original else "ausente"),
                 "obrigatorio": item.obrigatorio,
             }
         )
@@ -502,6 +510,10 @@ def _extrair_comprovante(texto: str) -> dict[str, str]:
     )
     if re.search(r"banco\s+do\s+brasil", instituicao, flags=re.IGNORECASE):
         instituicao = "Banco do Brasil"
+    beneficiario = _nome_conta(destino) or _buscar(
+        (r"(?:favorecido|benefici[aá]rio|destinat[aá]rio)\s*[:\-]\s*([^\n]{3,80})",),
+        destino or texto or "",
+    )
     tipo = ""
     if re.search(r"conta\s+corrente\s+p/?\s*conta\s+corrente", texto or "", flags=re.IGNORECASE):
         tipo = "Transferência entre contas correntes"
@@ -513,10 +525,8 @@ def _extrair_comprovante(texto: str) -> dict[str, str]:
         "titular_origem": _nome_conta(origem),
         "agencia_origem": agencia_origem,
         "conta_origem": conta_origem,
-        "beneficiario": _nome_conta(destino) or _buscar(
-            (r"(?:favorecido|benefici[aá]rio|destinat[aá]rio)\s*[:\-]\s*([^\n]{3,80})",),
-            texto or "",
-        ),
+        "beneficiario": beneficiario,
+        "beneficiario__evidencia": _linha_preferida(destino, beneficiario, "") if destino else "",
         "agencia_destino": agencia_destino,
         "conta_destino": conta_destino,
         "dados_destino": "",
@@ -575,15 +585,85 @@ def _nome_apos_identificacao(texto: str) -> str:
 _MOEDA_PONTUADA = r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}"
 
 
+_CODIGO_RESCISAO = re.compile(
+    r"(?:(?<=^)|(?<=[\s\[\|/]))(\d{2,3}(?:\.\d)?)\s+(?=[A-Za-zÀ-ÿ0-9])"
+)
+_VALOR_RUBRICA = re.compile(r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}")
+
+
+def estruturar_rubricas_rescisao(texto: str) -> list[dict]:
+    """Uma rubrica por código do TRCT. Não junta a descrição do código seguinte."""
+    itens = []
+    vistos = set()
+    for bruta in (texto or "").splitlines():
+        linha = re.split(
+            r"total\s+bruto|total\s+dedu|valor\s+l[ií]quido",
+            bruta,
+            maxsplit=1,
+            flags=re.IGNORECASE,
+        )[0]
+        marcas = list(_CODIGO_RESCISAO.finditer(linha))
+        for indice, marca in enumerate(marcas):
+            codigo = marca.group(1)
+            base = int(codigo.split(".")[0])
+            if base < 50 or base > 199 or codigo in vistos:
+                continue
+            fim = marcas[indice + 1].start() if indice + 1 < len(marcas) else len(linha)
+            trecho = linha[marca.start() : fim]
+            valores = _VALOR_RUBRICA.findall(trecho)
+            descricao = trecho[len(codigo) :].strip()
+            for valor in valores:
+                descricao = descricao.replace(valor, " ")
+            descricao = re.sub(r"\d{1,2}/\d{1,2}", " ", descricao)
+            descricao = re.sub(r"\s+", " ", descricao).strip(" .:-|[]/()")
+            if len(descricao) < 3:
+                continue
+            referencia = ""
+            dias = re.search(r"(\d{1,2}/\d{1,2}|\d{1,2}/dias)", trecho, flags=re.IGNORECASE)
+            if dias:
+                referencia = dias.group(1)
+            vistos.add(codigo)
+            itens.append(
+                {
+                    "codigo": codigo,
+                    "descricao": descricao[:80],
+                    "referencia": referencia[:40],
+                    "unidade": "",
+                    "natureza": "desconto" if base >= 100 else "provento",
+                    "valor_original": valores[-1] if valores else "",
+                    "valor_normalizado": str(_moeda_para_decimal(valores[-1])) if valores else "",
+                    "trecho_evidencia": re.sub(r"\s+", " ", trecho).strip()[:180],
+                    "metodo": "ocr_regiao",
+                    "estado_confianca": "evidencia_textual" if valores else "ausente",
+                }
+            )
+            if len(itens) >= 30:
+                return itens
+    return itens
+
+
 def _linhas_de_verba(texto: str) -> str:
     linhas = []
-    for linha in (texto or "").splitlines():
-        if re.search(r"saldo de|f[eé]rias proporcionais|ter[cç]o constitucional|total bruto|total dedu", linha, flags=re.IGNORECASE):
-            linhas.append(re.sub(r"\s+", " ", linha).strip()[:140])
-    return " | ".join(linhas)[:500]
+    for item in estruturar_rubricas_rescisao(texto):
+        valor = item["valor_original"] or "valor não lido"
+        linhas.append(f"{item['codigo']} {item['descricao']} {valor}")
+    return "\n".join(linhas)[:800]
+
+
+def _datas_do_trct(texto: str) -> tuple[str, str, str]:
+    achado = re.search(
+        r"data de admiss[aã]o.{0,120}data de afastamento.{0,80}\n\s*"
+        r"([0-9]{2}/[0-9]{2}/[0-9]{4})\s+([0-9]{2}/[0-9]{2}/[0-9]{4})\s+([0-9]{2}/[0-9]{2}/[0-9]{4})",
+        texto or "",
+        flags=re.IGNORECASE,
+    )
+    if not achado:
+        return "", "", ""
+    return achado.group(1), achado.group(2), achado.group(3)
 
 
 def _extrair_rescisao(texto: str) -> dict[str, str]:
+    datas = _datas_do_trct(texto)
     return {
         "empregador": _buscar(
             (
@@ -597,9 +677,9 @@ def _extrair_rescisao(texto: str) -> dict[str, str]:
             texto,
         ),
         "dados_vinculo": "",
-        "data_admissao": _buscar((r"(?:admiss[aã]o)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
-        "data_aviso": _buscar((r"(?:aviso)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
-        "data_desligamento": _buscar((r"(?:desligamento|rescis[aã]o|afastamento)\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
+        "data_admissao": datas[0],
+        "data_aviso": datas[1],
+        "data_desligamento": datas[2],
         "motivo": _buscar(
             (
                 r"causa do afastamento\s*\n\s*([^\n]{3,80})",
@@ -610,8 +690,8 @@ def _extrair_rescisao(texto: str) -> dict[str, str]:
         "verbas_rescisorias": _linhas_de_verba(texto),
         "deducoes": _buscar((rf"total\s+dedu[cç][oõ]es\s*[:\-]?\s*({_MOEDA_PONTUADA})",), texto),
         "total_bruto": _buscar((rf"total\s+bruto\s*[,:\-]?\s*({_MOEDA_PONTUADA})",), texto),
-        "total_liquido": _buscar((rf"(?:valor|total)\s+l[ií]quido\s*[:\|\-]?\s*({_MOEDA_PONTUADA})",), texto),
-        "assinaturas": _buscar((r"(assinatura|quitação|quitacao).{0,40}",), texto),
+        "total_liquido": _buscar((rf"valor\s+l[ií]quido\s*[:\|\-]?\s*({_MOEDA_PONTUADA})",), texto),
+        "assinaturas": "",
     }
 
 
@@ -630,14 +710,21 @@ def _extrair_quitacao(texto: str) -> dict[str, str]:
             (r"(?:local\s+e\s+data|data\s+da\s+quita[cç][aã]o)\s*[:\-]?\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})",),
             texto,
         ),
-        "assinaturas": _buscar((r"(assinatura|quitação|quitacao).{0,40}",), texto),
+        "assinaturas": "",
     }
 
 
 def _extrair_dispensa(texto: str) -> dict[str, str]:
     return {
         "empregador": _buscar((r"(?:empregador|empresa)\s*[:\-]?\s*(.+)",), texto),
-        "trabalhador": _buscar((r"(?:trabalhador|empregado|funcion[aá]rio|sr[a]?\.?)\s*[:\-]?\s*(.+)",), texto),
+        "trabalhador": _nome_apos_identificacao(texto)
+        or _buscar(
+            (
+                r"nome\s*\n\s*([A-ZÁÉÍÓÚÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÃÕÇ]{2,}){1,4})",
+                r"(?:trabalhador|empregado|funcion[aá]rio)\s*[:\-]?\s*(.+)",
+            ),
+            texto,
+        ),
         "data_comunicacao": _buscar((r"([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
         "motivo": _buscar((r"(?:motivo|dispensa)\s*[:\-]?\s*(.+)",), texto),
         "comprovante_recebimento": _buscar((r"(recebi|ciente|protocolo|ar\b).{0,40}",), texto),

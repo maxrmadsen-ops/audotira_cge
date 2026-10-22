@@ -1,5 +1,5 @@
 """Identificação mostrada na interface. Uma publicação nova altera somente este arquivo."""
 
-VERSAO_APLICACAO = "poc-6.1"
-ONDA_ATUAL = "POC 6.1"
+VERSAO_APLICACAO = "poc-6.1.1"
+ONDA_ATUAL = "POC 6.1.1"
 NOME_APLICACAO = "CGE — Análise Inteligente de Prestação de Contas"

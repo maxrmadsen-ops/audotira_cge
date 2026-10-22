@@ -103,6 +103,20 @@ def candidatos_da_peca(candidatos: list[dict], texto: str) -> list[dict]:
     return mantidos
 
 
+def dividir_dispensa_e_transferencia(texto: str, palavras: list[dict]) -> float | None:
+    """Corte relativo quando a dispensa e a transferência estão no mesmo recorte."""
+    baixo = _normalizar(texto)
+    if "dispensa" not in baixo or "transfer" not in baixo:
+        return None
+    alturas = [float(palavra["y"]) for palavra in palavras if "transfer" in (palavra.get("texto") or "").lower()]
+    if not alturas:
+        return None
+    corte = min(alturas) - 0.03
+    if corte <= 0.2 or corte >= 0.85:
+        return None
+    return round(corte, 4)
+
+
 def segmentar_regioes(texto: str, candidatos: list[dict]) -> list[dict]:
     """
     Heurística de segmentação vertical quando há múltiplos tipos na mesma página.

@@ -111,6 +111,21 @@ SECOES_PECA = {
             "data_recebimento", "assinaturas", "responsavel_atesto", "cpf_atesto",
         )),
     ),
+    "termo_rescisao": (
+        ("partes", "Partes", ("trabalhador", "empregador", "motivo")),
+        ("datas", "Datas", ("data_admissao", "data_aviso", "data_desligamento")),
+        ("totais", "Totais", ("total_bruto", "deducoes", "total_liquido", "liquido_calculado")),
+        ("verbas", "Verbas e deduções", ("verbas_rescisorias",)),
+        ("assinaturas", "Assinaturas", ("assinaturas",)),
+    ),
+    "termo_quitacao": (
+        ("partes", "Partes", ("trabalhador", "empregador")),
+        ("quitacao", "Quitação", ("valor_quitado", "assinaturas")),
+    ),
+    "comunicacao_dispensa": (
+        ("partes", "Partes", ("trabalhador", "empregador")),
+        ("dispensa", "Dispensa", ("data_dispensa", "protocolo")),
+    ),
 }
 
 
@@ -130,6 +145,7 @@ def secoes_da_peca(tipo: str, campos: list, rubricas_estruturadas: bool = False)
                 continue
             if not campo.valor_original and not campo.obrigatorio and campo.estado_confianca != "ambiguo" and campo.chave not in {
                 "cpf_atesto", "autenticacao", "salario_base", "hora_operacao", "data_hora_impressao", "matricula", "data_recebimento",
+                "total_liquido", "liquido_calculado", "assinaturas", "deducoes", "total_bruto", "valor_quitado",
             }:
                 continue
             itens.append(campo)
@@ -172,6 +188,37 @@ def resumo_peca(regiao) -> dict:
             "pessoa": valores.get("funcionario") or "Trabalhadora não localizada",
             "referencia": valores.get("competencia") or "Competência não localizada",
             "valor": valores.get("valor_liquido") or "Líquido não localizado",
+        }
+    if regiao.tipo_documental == "termo_rescisao":
+        lido = valores.get("total_liquido") or ""
+        calculado = valores.get("liquido_calculado") or ""
+        if lido and calculado:
+            valor = f"Lido {lido} · calculado {calculado}"
+        elif lido:
+            valor = f"Lido {lido}"
+        elif calculado:
+            valor = f"Calculado {calculado}"
+        else:
+            valor = "Líquido não localizado"
+        return {
+            "tipo": "Termo de rescisão",
+            "pessoa": valores.get("trabalhador") or "Trabalhador não localizado",
+            "referencia": valores.get("data_desligamento") or "Desligamento não localizado",
+            "valor": valor,
+        }
+    if regiao.tipo_documental == "termo_quitacao":
+        return {
+            "tipo": "Termo de quitação",
+            "pessoa": valores.get("trabalhador") or "Trabalhador não localizado",
+            "referencia": "Quitação",
+            "valor": valores.get("valor_quitado") or "Valor não localizado",
+        }
+    if regiao.tipo_documental == "comunicacao_dispensa":
+        return {
+            "tipo": "Comunicação de dispensa",
+            "pessoa": valores.get("trabalhador") or "Trabalhador não localizado",
+            "referencia": valores.get("protocolo") or "Protocolo não localizado",
+            "valor": valores.get("data_dispensa") or "Data não localizada",
         }
     from aplicacao.laboratorio.catalogo import rotulo_tipo
 

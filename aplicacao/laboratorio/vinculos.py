@@ -112,16 +112,21 @@ def _pares_rescisao_quitacao(lote, por_tipo) -> list[VinculoEvidencia]:
                     _criar(lote, rescisao, quitacao, "rescisao_quitacao", criterios, [])
                 )
         liquido = _decimal(_campo(rescisao, "total_liquido"))
+        calculado = _decimal(_campo(rescisao, "liquido_calculado"))
         for transferencia in por_tipo.get("comprovante_transferencia", []):
             beneficiario = (_campo(transferencia, "beneficiario") or "").lower()
             valor = _decimal(_campo(transferencia, "valor"))
             criterios = []
             if trabalhador and beneficiario and (trabalhador in beneficiario or beneficiario in trabalhador):
                 criterios.append("mesmo_trabalhador_beneficiario")
+            if abs(rescisao.pagina.numero_fisico - transferencia.pagina.numero_fisico) > 2:
+                continue
             if liquido is not None and valor is not None and liquido == valor:
                 criterios.append("mesmo_valor")
+            elif liquido is None and calculado is not None and valor is not None and calculado == valor:
+                criterios.append("valor_calculado")
             # Nome parecido, sem o mesmo valor, não comprova o pagamento da rescisão.
-            if "mesmo_valor" in criterios and "mesmo_trabalhador_beneficiario" in criterios:
+            if ("mesmo_valor" in criterios or "valor_calculado" in criterios) and "mesmo_trabalhador_beneficiario" in criterios:
                 resultado.append(
                     _criar(lote, rescisao, transferencia, "rescisao_pagamento", criterios, [])
                 )

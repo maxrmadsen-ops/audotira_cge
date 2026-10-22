@@ -31,6 +31,14 @@
         <span class="texto-apoio"> · {{ cadeia.get_estado_display }} · sugestão {{ cadeia.confianca }}</span>
     </summary>
     <div class="secao-corpo">
+        <dl class="cadeia-resumo">
+            <div><dt>Previsto</dt><dd>{{ cadeia.painel.previsto }}</dd></div>
+            <div><dt>Executado</dt><dd>{{ cadeia.painel.executado }}</dd></div>
+            <div><dt>Comprovado</dt><dd>{{ cadeia.painel.comprovado }}</dd></div>
+            <div><dt>Conferências</dt><dd>{{ cadeia.painel.conferencias|join:" · " }}</dd></div>
+            <div><dt>Pendências</dt><dd>{{ cadeia.painel.pendencias|join:" · " }}</dd></div>
+            <div><dt>Próxima ação</dt><dd>{{ cadeia.painel.proxima }}</dd></div>
+        </dl>
         <ol class="cadeia-passos">
             <li>
                 <span>Previsto</span>

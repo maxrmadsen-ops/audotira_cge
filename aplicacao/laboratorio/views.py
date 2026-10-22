@@ -565,7 +565,7 @@ class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
 
     def get(self, request, lote_pk):
         from aplicacao.laboratorio.catalogo import rotulo_tipo
-        from aplicacao.laboratorio.conciliacao import sincronizar_cadeias
+        from aplicacao.laboratorio.conciliacao import painel_da_cadeia, sincronizar_cadeias
 
         lote = _lote_visivel(request, lote_pk)
         sincronizar_cadeias(lote)
@@ -578,6 +578,8 @@ class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
                 "revisado_por",
             )
         )
+        for cadeia in cadeias:
+            cadeia.painel = painel_da_cadeia(cadeia)
         return render(
             request,
             "laboratorio/conciliacao.html",

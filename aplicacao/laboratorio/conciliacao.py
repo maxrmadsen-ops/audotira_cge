@@ -280,52 +280,108 @@ def _cadeias_rescisao(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
             None,
         )
         liquido = _valor(rescisao, "total_liquido")
+        bruto = _valor(rescisao, "total_bruto")
+        deducoes = _valor(rescisao, "deducoes")
+        calculado = _valor(rescisao, "liquido_calculado")
+        if calculado is None and bruto is not None and deducoes is not None:
+            calculado = bruto - deducoes
+        referencia = liquido if liquido is not None else calculado
         comprovante = None
+        origem_valor = ""
         proxima_diferente = ""
         for transferencia in transferencias:
             valor = _valor(transferencia, "valor")
             mesmo_nome = _nome_proximo(trabalhador, _texto(transferencia, "beneficiario"))
-            if (
-                liquido is not None
-                and valor is not None
-                and liquido == valor
-                and mesmo_nome
-            ):
+            mesma_faixa = abs(transferencia.pagina.numero_fisico - rescisao.pagina.numero_fisico) <= 2
+            if referencia is not None and valor is not None and referencia == valor and mesmo_nome and mesma_faixa:
                 comprovante = transferencia
+                origem_valor = "lido" if liquido is not None and liquido == valor else "calculado"
                 break
-            if (
-                not proxima_diferente
-                and mesmo_nome
-                and abs(transferencia.pagina.numero_fisico - rescisao.pagina.numero_fisico) <= 2
-            ):
+            if not proxima_diferente and mesmo_nome and mesma_faixa:
                 proxima_diferente = (
                     f" Há transferência na página {transferencia.pagina.numero_fisico} "
                     f"com nome semelhante e valor {_moeda(valor)}. Não foi vinculada."
                 )
-        bruto = _valor(rescisao, "total_bruto")
-        leitura_incompleta = ""
-        if liquido is None and re.search(r"(?:valor|total)\s+l[ií]quido", rescisao.texto_regiao or "", flags=re.IGNORECASE):
-            leitura_incompleta = " A linha de valor líquido não tem centavos legíveis e não foi usada."
-        if liquido is None and bruto is not None:
-            leitura_incompleta += f" Total bruto lido {_moeda(bruto)}; sem líquido pontuado, esse bruto não vira pagamento."
+        if bruto is not None and deducoes is not None and calculado is not None and calculado == bruto - deducoes:
+            situacao_calculo = "confere"
+            detalhe_calculo = (
+                f"{_moeda(bruto)} − {_moeda(deducoes)} = {_moeda(calculado)}. "
+                "Este é o líquido calculado, distinto do valor lido no campo."
+            )
+        else:
+            situacao_calculo = "nao_verificavel"
+            detalhe_calculo = "Bruto ou deduções não estão ambos legíveis, então o líquido não foi calculado."
+        if liquido is None:
+            situacao_lido = "nao_verificavel"
+            detalhe_lido = "O campo VALOR LÍQUIDO não teve leitura pontuada confiável e permanece pendente."
+        elif calculado is not None and liquido == calculado:
+            situacao_lido = "confere"
+            detalhe_lido = (
+                f"Líquido lido no recorte {_moeda(liquido)}. Coincide com o calculado. "
+                "A leitura continua pendente de revisão humana."
+            )
+        elif calculado is not None:
+            situacao_lido = "diverge"
+            detalhe_lido = f"Líquido lido {_moeda(liquido)} e líquido calculado {_moeda(calculado)} divergem. Nenhum dos dois foi confirmado."
+        else:
+            situacao_lido = "pendente"
+            detalhe_lido = f"Líquido lido no recorte {_moeda(liquido)}. Sem cálculo para comparar."
+        data_rescisao = _texto(rescisao, "data_desligamento")
+        data_transferencia = _texto(comprovante, "data_hora") if comprovante is not None else ""
+        contexto_data = ""
+        if data_rescisao and data_transferencia:
+            if data_rescisao in data_transferencia or data_transferencia.startswith(data_rescisao):
+                contexto_data = f" A data de afastamento lida {data_rescisao} e a data da transferência {data_transferencia} coincidem como contexto, sem provar o pagamento."
+            else:
+                contexto_data = (
+                    f" Afastamento lido {data_rescisao}; transferência {data_transferencia}. "
+                    "Datas diferentes não são tratadas como irregularidade."
+                )
         detalhe_pagamento = (
-            f"Comprovante com o mesmo valor líquido {_moeda(liquido)}. A coincidência não comprova o pagamento."
+            (
+                f"Candidato: transferência da página {comprovante.pagina.numero_fisico} no valor {_moeda(_valor(comprovante, 'valor'))}. "
+                f"A comparação usou o líquido {origem_valor} {_moeda(referencia)}. "
+                "A coincidência matemática não comprova o pagamento. "
+                "A semelhança do nome é correspondência sugerida, não identidade confirmada."
+                + contexto_data
+            )
             if comprovante is not None
             else (
                 "Nenhum comprovante com o mesmo valor da rescisão foi associado. "
                 "Semelhança de nome com outra transferência, inclusive a da página 17, não cria esse vínculo. "
                 "A ausência nesta amostra não é irregularidade."
                 + proxima_diferente
-                + leitura_incompleta
             )
         )
         verificacoes = [
+            {
+                "codigo": "liquido_calculado",
+                "titulo": "Líquido calculado",
+                "situacao": situacao_calculo,
+                "detalhe": detalhe_calculo,
+                "evidencias": [
+                    _evidencia(rescisao, "total_bruto", "Total bruto"),
+                    _evidencia(rescisao, "deducoes", "Deduções"),
+                    _evidencia(rescisao, "liquido_calculado", "Líquido calculado"),
+                ],
+            },
+            {
+                "codigo": "liquido_lido",
+                "titulo": "Líquido lido",
+                "situacao": situacao_lido,
+                "detalhe": detalhe_lido,
+                "evidencias": [_evidencia(rescisao, "total_liquido", "Total líquido lido")],
+            },
             {
                 "codigo": "pagamento_rescisao",
                 "titulo": "Comprovante da rescisão",
                 "situacao": "pendente" if comprovante is not None else "nao_verificavel",
                 "detalhe": detalhe_pagamento,
-                "evidencias": [_evidencia(rescisao, "total_liquido", "Total líquido da rescisão")],
+                "evidencias": [
+                    _evidencia(rescisao, "total_liquido", "Total líquido lido"),
+                    _evidencia(rescisao, "liquido_calculado", "Líquido calculado"),
+                ]
+                + ([_evidencia(comprovante, "valor", "Valor transferido")] if comprovante is not None else []),
             },
             {
                 "codigo": "plano_trabalho",
@@ -345,11 +401,46 @@ def _cadeias_rescisao(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
                 "comprovante": comprovante,
                 "apoio": apoio,
                 "verificacoes": verificacoes,
-                "separacao": _separacao("nao_verificavel", comprovante is not None),
+                "separacao": _separacao(situacao_calculo, comprovante is not None),
                 "confianca": "sugerida",
             }
         )
     return propostas
+
+
+def painel_da_cadeia(cadeia) -> dict:
+    conferencias = []
+    pendencias = []
+    for item in cadeia.verificacoes or []:
+        if item.get("situacao") == "confere":
+            conferencias.append(item.get("titulo") or "")
+        else:
+            pendencias.append(item.get("titulo") or "")
+    if cadeia.comprovante_id and cadeia.comprovante is not None:
+        comprovado = (
+            f"{cadeia.comprovante.tipo_documental} · página {cadeia.comprovante.pagina.numero_fisico}. "
+            "Sugestão de vínculo. A coincidência não comprova pagamento."
+        )
+    else:
+        comprovado = "Sem comprovante associado. Isso não indica irregularidade."
+    if cadeia.execucao_id and cadeia.execucao is not None:
+        executado = f"{cadeia.execucao.tipo_documental} · página {cadeia.execucao.pagina.numero_fisico}"
+    else:
+        executado = "Documento de execução não associado"
+    if cadeia.estado == EstadoVinculo.CONFIRMADO:
+        proxima = "Vínculo confirmado pelo auditor. A despesa segue sem aprovação automática."
+    elif cadeia.estado == EstadoVinculo.REJEITADO:
+        proxima = "Vínculo rejeitado. A decisão administrativa continua pendente."
+    else:
+        proxima = "Conferir os recortes e confirmar, corrigir ou rejeitar o vínculo."
+    return {
+        "previsto": cadeia.criterio_item or "Item do plano não sugerido",
+        "executado": executado,
+        "comprovado": comprovado,
+        "conferencias": conferencias or ["Nenhuma conferência fechou com os dados lidos"],
+        "pendencias": pendencias or ["Nenhuma pendência registrada"],
+        "proxima": proxima,
+    }
 
 
 def _cadeias_fgts(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
@@ -479,7 +570,7 @@ def depurar_vinculos_sugeridos(lote) -> None:
         criterios = vinculo.criterios or []
         if vinculo.tipo_vinculo == "holerite_transferencia" and "mesmo_valor_liquido" not in criterios:
             vinculo.delete()
-        elif vinculo.tipo_vinculo == "rescisao_pagamento" and "mesmo_valor" not in criterios:
+        elif vinculo.tipo_vinculo == "rescisao_pagamento" and "mesmo_valor" not in criterios and "valor_calculado" not in criterios:
             vinculo.delete()
 
 
