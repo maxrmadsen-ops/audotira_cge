@@ -11,7 +11,7 @@ from aplicacao.laboratorio.classificacao import (
     dividir_dispensa_e_transferencia,
     tipo_principal,
 )
-from aplicacao.laboratorio.extracao import estruturar_rubricas_rescisao, extrair_campos
+from aplicacao.laboratorio.extracao import estruturar_rubricas_rescisao, extrair_campos, liquido_lido_no_texto
 
 from aplicacao.laboratorio.conciliacao import _valores_na_guia, sincronizar_cadeias
 from aplicacao.laboratorio.releitura import decidir_autenticacao
@@ -106,6 +106,11 @@ class TesteTipoDaAmostra(SimpleTestCase):
         self.assertEqual(itens["65"]["valor_original"], "2.089,78")
         self.assertNotIn("0,00", itens["65"]["valor_original"])
         self.assertEqual(itens["63"]["natureza"], "provento")
+
+    def test_liquido_lido_aceita_valor_na_linha_seguinte(self):
+        self.assertEqual(liquido_lido_no_texto("E LÍQUIDO\n4.166,51"), "4.166,51")
+        self.assertEqual(liquido_lido_no_texto("VALOR LÍQUIDO 4.166,51"), "4.166,51")
+        self.assertEqual(liquido_lido_no_texto("Salário (líquido 1.693,97"), "")
 
     def test_liquido_lido_permanece_distinto_do_calculado(self):
         sem_leitura = """
