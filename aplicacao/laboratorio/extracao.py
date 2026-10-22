@@ -593,13 +593,21 @@ _VALOR_RUBRICA = re.compile(r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}")
 
 def liquido_lido_no_texto(texto: str) -> str:
     """Lê o líquido na faixa inferior. Não usa o salário líquido da rubrica."""
-    for linha in (texto or "").splitlines():
+    linhas = (texto or "").splitlines()
+    for indice, linha in enumerate(linhas):
         baixo = linha.lower()
         if "salário" in baixo or "salario" in baixo or "dedu" in baixo:
             continue
-        achado = re.search(rf"l[ií]quido\s*[:\|\-]?\s*({_MOEDA_PONTUADA})", linha, flags=re.IGNORECASE)
-        if achado:
-            return achado.group(1)
+        if "liquido" not in baixo and "líquido" not in baixo:
+            continue
+        mesma = re.search(rf"l[ií]quido\s*[:\|\-]?\s*({_MOEDA_PONTUADA})", linha, flags=re.IGNORECASE)
+        if mesma:
+            return mesma.group(1)
+        # O OCR do rodapé às vezes quebra o valor na linha seguinte.
+        for seguinte in linhas[indice + 1 : indice + 4]:
+            valor = re.search(rf"^[\s\|\]\[]*({_MOEDA_PONTUADA})\s*$", seguinte.strip())
+            if valor:
+                return valor.group(1)
     return ""
 
 
