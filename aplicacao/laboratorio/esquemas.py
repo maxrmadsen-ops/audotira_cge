@@ -90,6 +90,7 @@ ESQUEMAS: dict[str, tuple[CampoEsquema, ...]] = {
         CampoEsquema("empregador", "Empregador"),
         CampoEsquema("trabalhador", "Trabalhador", True),
         CampoEsquema("data_comunicacao", "Data da comunicação"),
+        CampoEsquema("protocolo", "Protocolo"),
         CampoEsquema("motivo", "Motivo"),
         CampoEsquema("comprovante_recebimento", "Comprovante de recebimento", condicional=True),
     ),

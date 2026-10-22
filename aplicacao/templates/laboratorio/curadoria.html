@@ -244,7 +244,7 @@
                             <strong>{{ campo.rotulo }}</strong>
                             <span class="texto-apoio">{{ campo.get_estado_revisao_display }}</span>
                         </div>
-                        <p class="mb-0"><span class="texto-apoio">Original:</span> {{ campo.valor_original|default:"(ausente na evidência)" }}</p>
+                        <p class="mb-0"><span class="texto-apoio">Original:</span> {% if campo.estado_confianca == "inconsistente" and not campo.valor_original %}leitura rejeitada{% else %}{{ campo.valor_original|default:"(não consta no trecho lido)" }}{% endif %}</p>
                         <p class="mb-0"><span class="texto-apoio">Normalizado:</span> {{ campo.valor_normalizado|default:"—" }}</p>
                         <p class="mb-0 texto-apoio">Técnica: {{ campo.metodo|default:"—" }} · {{ campo.estado_confianca|default:"—" }}</p>
                         <p class="rotulo-evidencia">Evidência — página {{ campo.numero_pagina }}:</p>
@@ -256,6 +256,12 @@
                         {% endif %}
                         {% if campo.estado_confianca == "ambiguo" %}
                         <p class="texto-apoio">Leitura ambígua. Confira o recorte no PDF e registre a revisão manual.</p>
+                        {% endif %}
+                        {% if campo.estado_confianca == "inconsistente" %}
+                        <p class="texto-apoio">Leitura incompatível com o tipo do campo. O valor não foi aceito.</p>
+                        {% endif %}
+                        {% if campo.estado_confianca == "parcial" %}
+                        <p class="texto-apoio">Leitura parcial, pendente de conferência. Não confirma autenticidade nem pagamento.</p>
                         {% endif %}
                         <form method="post" action="{% url 'laboratorio:revisar_campo' lote.pk campo.pk %}" class="row g-1 mt-1">
                             {% csrf_token %}

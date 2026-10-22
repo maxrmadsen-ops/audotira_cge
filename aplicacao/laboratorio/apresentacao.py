@@ -124,7 +124,7 @@ SECOES_PECA = {
     ),
     "comunicacao_dispensa": (
         ("partes", "Partes", ("trabalhador", "empregador")),
-        ("dispensa", "Dispensa", ("data_dispensa", "protocolo")),
+        ("dispensa", "Dispensa", ("data_comunicacao", "protocolo", "motivo", "comprovante_recebimento")),
     ),
 }
 
@@ -143,9 +143,10 @@ def secoes_da_peca(tipo: str, campos: list, rubricas_estruturadas: bool = False)
             campo = por_chave.get(chave)
             if campo is None:
                 continue
-            if not campo.valor_original and not campo.obrigatorio and campo.estado_confianca != "ambiguo" and campo.chave not in {
+            if not campo.valor_original and not campo.obrigatorio and campo.estado_confianca not in {"ambiguo", "inconsistente", "parcial"} and campo.chave not in {
                 "cpf_atesto", "autenticacao", "salario_base", "hora_operacao", "data_hora_impressao", "matricula", "data_recebimento",
                 "total_liquido", "liquido_calculado", "assinaturas", "deducoes", "total_bruto", "valor_quitado",
+                "data_comunicacao", "protocolo", "motivo",
             }:
                 continue
             itens.append(campo)
@@ -211,14 +212,14 @@ def resumo_peca(regiao) -> dict:
             "tipo": "Termo de quitação",
             "pessoa": valores.get("trabalhador") or "Trabalhador não localizado",
             "referencia": "Quitação",
-            "valor": valores.get("valor_quitado") or "Valor não localizado",
+            "valor": valores.get("valor_quitado") or "Valor não consta no termo",
         }
     if regiao.tipo_documental == "comunicacao_dispensa":
         return {
             "tipo": "Comunicação de dispensa",
             "pessoa": valores.get("trabalhador") or "Trabalhador não localizado",
-            "referencia": valores.get("protocolo") or "Protocolo não localizado",
-            "valor": valores.get("data_dispensa") or "Data não localizada",
+            "referencia": valores.get("protocolo") or "Protocolo não identificado",
+            "valor": valores.get("data_comunicacao") or "Data não consta no trecho",
         }
     from aplicacao.laboratorio.catalogo import rotulo_tipo
 

@@ -109,13 +109,37 @@ def _linha_mistura_outro_campo(linha: str, valor: str) -> bool:
     return any(vizinho in baixo and vizinho not in valor_baixo for vizinho in vizinhos)
 
 
+CHAVES_DATA = {
+    "data_admissao",
+    "data_aviso",
+    "data_desligamento",
+    "data_comunicacao",
+    "data",
+    "data_recebimento",
+}
+
+
 def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> list[dict]:
+    from aplicacao.laboratorio.validacao import data_rejeitada_no_texto, data_valida_no_texto
+
     esquema = esquema_do_tipo(tipo)
     mapeados = _extratores.get(tipo, _extrair_generico)(texto)
     campos = []
     for item in esquema:
         original = mapeados.get(item.chave, "")
         normalizado = original
+        if item.chave in CHAVES_DATA and original:
+            valida = data_valida_no_texto(original)
+            rejeitada = data_rejeitada_no_texto(original)
+            if valida:
+                original = valida
+                normalizado = valida
+            elif rejeitada:
+                mapeados[f"{item.chave}__confianca"] = "inconsistente"
+                mapeados[f"{item.chave}__evidencia"] = f"Formato de data rejeitado: {rejeitada}."
+                mapeados[f"{item.chave}__metodo"] = "validacao_semantica"
+                original = ""
+                normalizado = ""
         if item.chave in CHAVES_MOEDA:
             decimal = _moeda_para_decimal(original) if original else None
             if item.chave == "liquido_calculado" and not original:
@@ -644,14 +668,19 @@ def estruturar_rubricas_rescisao(texto: str) -> list[dict]:
             if len(descricao) < 3:
                 continue
             referencia = ""
-            dias = re.search(r"(\d{1,2}/\d{1,2}|\d{1,2}/dias)", trecho, flags=re.IGNORECASE)
+            unidade = ""
+            dias = re.search(r"(\d{1,2})\s*/\s*dias", trecho, flags=re.IGNORECASE)
+            fracao = re.search(r"(\d{1,2}/\d{1,2})", trecho)
             if dias:
-                referencia = dias.group(1)
+                referencia = f"{int(dias.group(1))}/dias"
+                unidade = "dias"
+            elif fracao:
+                referencia = fracao.group(1)
             item = {
                 "codigo": codigo,
                 "descricao": descricao[:80],
                 "referencia": referencia[:40],
-                "unidade": "",
+                "unidade": unidade,
                 "natureza": "desconto" if base >= 100 else "provento",
                 "valor_original": valor,
                 "valor_normalizado": str(_moeda_para_decimal(valor)) if valor else "",
@@ -670,6 +699,25 @@ def estruturar_rubricas_rescisao(texto: str) -> list[dict]:
     return [por_codigo[codigo] for codigo in ordem]
 
 
+def mesclar_rubricas_rescisao(texto_pagina: str, texto_tabela: str) -> list[dict]:
+    """A leitura da tabela preenche valor ausente ou confirma o mesmo valor. Valor divergente fica na primeira leitura."""
+    por_codigo = {}
+    ordem = []
+    for item in estruturar_rubricas_rescisao(texto_pagina):
+        ordem.append(item["codigo"])
+        por_codigo[item["codigo"]] = item
+    for item in estruturar_rubricas_rescisao(texto_tabela):
+        anterior = por_codigo.get(item["codigo"])
+        if anterior is None:
+            ordem.append(item["codigo"])
+            por_codigo[item["codigo"]] = item
+        elif item["valor_original"]:
+            if anterior["valor_original"] and anterior["valor_original"] != item["valor_original"]:
+                continue
+            por_codigo[item["codigo"]] = item
+    return [por_codigo[codigo] for codigo in ordem]
+
+
 def _linhas_de_verba(texto: str) -> str:
     linhas = []
     for item in estruturar_rubricas_rescisao(texto):
@@ -678,20 +726,10 @@ def _linhas_de_verba(texto: str) -> str:
     return "\n".join(linhas)[:800]
 
 
-def _datas_do_trct(texto: str) -> tuple[str, str, str]:
-    achado = re.search(
-        r"data de admiss[aã]o.{0,120}data de afastamento.{0,80}\n\s*"
-        r"([0-9]{2}/[0-9]{2}/[0-9]{4})\s+([0-9]{2}/[0-9]{2}/[0-9]{4})\s+([0-9]{2}/[0-9]{2}/[0-9]{4})",
-        texto or "",
-        flags=re.IGNORECASE,
-    )
-    if not achado:
-        return "", "", ""
-    return achado.group(1), achado.group(2), achado.group(3)
-
-
 def _extrair_rescisao(texto: str) -> dict[str, str]:
-    datas = _datas_do_trct(texto)
+    from aplicacao.laboratorio.validacao import datas_rotuladas_trct
+
+    datas = datas_rotuladas_trct(texto)
     return {
         "empregador": _buscar(
             (
@@ -705,9 +743,12 @@ def _extrair_rescisao(texto: str) -> dict[str, str]:
             texto,
         ),
         "dados_vinculo": "",
-        "data_admissao": datas[0],
-        "data_aviso": datas[1],
-        "data_desligamento": datas[2],
+        "data_admissao": datas.get("data_admissao", ""),
+        "data_admissao__evidencia": datas.get("data_admissao__evidencia", ""),
+        "data_aviso": datas.get("data_aviso", ""),
+        "data_aviso__evidencia": datas.get("data_aviso__evidencia", ""),
+        "data_desligamento": datas.get("data_desligamento", ""),
+        "data_desligamento__evidencia": datas.get("data_desligamento__evidencia", ""),
         "motivo": _buscar(
             (
                 r"causa do afastamento\s*\n\s*([^\n]{3,80})",
@@ -743,6 +784,8 @@ def _extrair_quitacao(texto: str) -> dict[str, str]:
 
 
 def _extrair_dispensa(texto: str) -> dict[str, str]:
+    from aplicacao.laboratorio.validacao import data_rejeitada_no_texto, data_valida_no_texto, motivo_rotulado, protocolo_documental
+
     trabalhador = _nome_apos_identificacao(texto) or _buscar(
         (
             r"nome\s*\n\s*[|\s]*([A-ZÁÉÍÓÚÃÕÇ][A-Za-zÁÉÍÓÚÃÕÇáéíóúãõç]{1,}(?:\s+[A-ZÁÉÍÓÚÃÕÇ][A-Za-zÁÉÍÓÚÃÕÇáéíóúãõç]{1,}){1,4})",
@@ -753,12 +796,24 @@ def _extrair_dispensa(texto: str) -> dict[str, str]:
     empregador = ""
     if not re.search(r"protocolo\s+do\s+empregador", texto or "", flags=re.IGNORECASE):
         empregador = _buscar((r"(?:empregador|empresa)\s*[:\-]?\s*(.+)",), texto)
+    protocolo = protocolo_documental(texto)
+    motivo = motivo_rotulado(texto)
+    if motivo and re.fullmatch(r"\d{6,}", motivo) and not protocolo:
+        protocolo = motivo
+        motivo = ""
+    data = data_valida_no_texto(texto)
+    rejeitada = "" if data else data_rejeitada_no_texto(texto)
     return {
         "empregador": empregador,
         "trabalhador": trabalhador,
-        "data_comunicacao": _buscar((r"([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
-        "motivo": _buscar((r"(?:motivo|dispensa)\s*[:\-]?\s*(.+)",), texto),
-        "comprovante_recebimento": _buscar((r"(recebi|ciente|protocolo\s+\d|ar\b).{0,40}",), texto),
+        "data_comunicacao": data,
+        "data_comunicacao__confianca": "inconsistente" if rejeitada else "",
+        "data_comunicacao__evidencia": f"Formato de data rejeitado: {rejeitada}." if rejeitada else "",
+        "data_comunicacao__metodo": "validacao_semantica" if rejeitada else "",
+        "motivo": motivo,
+        "protocolo": protocolo,
+        "protocolo__evidencia": _linha_preferida(texto, protocolo, "dispensa") if protocolo else "",
+        "comprovante_recebimento": _buscar((r"(recebi|ciente).{0,40}",), texto),
     }
 
 

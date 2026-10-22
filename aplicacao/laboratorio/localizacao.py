@@ -15,6 +15,34 @@ def _casa(atual: str, alvo: str) -> bool:
     return atual == alvo or alvo in atual or (atual in alvo and len(atual) >= 3)
 
 
+def caixa_da_rubrica(palavras: list[dict], codigo: str, valor: str = "") -> dict | None:
+    """Ancora a rubrica no código. O valor zero pode repetir; o código não."""
+    codigo_n = _norm(codigo)
+    if not codigo_n:
+        return None
+    normas = [_norm(palavra.get("texto", "")) for palavra in palavras]
+    indices = [indice for indice, norma in enumerate(normas) if norma == codigo_n]
+    if len(indices) != 1:
+        return None
+    inicio = indices[0]
+    y = float(palavras[inicio]["y"])
+    x = float(palavras[inicio]["x"])
+    alvo_valor = _norm(valor)
+    fim = inicio
+    for posicao in range(inicio + 1, min(inicio + 16, len(palavras))):
+        if abs(float(palavras[posicao]["y"]) - y) > 0.025:
+            continue
+        if float(palavras[posicao]["x"]) + float(palavras[posicao]["largura"]) < x:
+            continue
+        token = normas[posicao]
+        if re.fullmatch(r"\d{2,3}", token) and token != codigo_n:
+            break
+        fim = posicao
+        if alvo_valor and alvo_valor in token:
+            break
+    return _unir(palavras[inicio : fim + 1])
+
+
 def caixa_do_valor(palavras: list[dict], consulta: str) -> dict | None:
     """Devolve uma caixa só quando a consulta aparece uma única vez."""
     tokens = [_norm(parte) for parte in re.split(r"\s+", (consulta or "").strip())]

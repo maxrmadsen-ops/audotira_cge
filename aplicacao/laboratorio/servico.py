@@ -38,8 +38,20 @@ from aplicacao.laboratorio.escolhas import (
     PrioridadePendencia,
     StatusPendencia,
 )
-from aplicacao.laboratorio.extracao import estruturar_rubricas, estruturar_rubricas_rescisao, extrair_campos
-from aplicacao.laboratorio.localizacao import caixa_do_valor, faixa_abaixo, faixa_do_rotulo, localizar_campos, projetar_pagina
+from aplicacao.laboratorio.extracao import (
+    estruturar_rubricas,
+    estruturar_rubricas_rescisao,
+    extrair_campos,
+    mesclar_rubricas_rescisao,
+)
+from aplicacao.laboratorio.localizacao import (
+    caixa_da_rubrica,
+    caixa_do_valor,
+    faixa_abaixo,
+    faixa_do_rotulo,
+    localizar_campos,
+    projetar_pagina,
+)
 from aplicacao.laboratorio.models import (
     CampoExtraido,
     InventarioPagina,
@@ -505,7 +517,7 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
     }
 
 
-VERSAO_EXTRACAO_REGIAO = "6.1.1"
+VERSAO_EXTRACAO_REGIAO = "6.1.2"
 
 
 def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> dict:
@@ -625,10 +637,15 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
             campos = extrair_campos(regiao.tipo_documental, peca["texto"], numero, "ocr_regiao")
             _reler_campos_dificeis(campos, peca["recorte"], peca["palavras"], peca["texto"], idioma)
             localizar_campos(campos, peca["palavras"], faixa)
+            texto_tabela = ""
+            palavras_rubrica = peca["palavras"]
             if regiao.tipo_documental == "termo_rescisao":
+                texto_tabela, palavras_rubrica = _ler_tabela_verbas(ocr, peca["recorte"], peca["palavras"])
+                if texto_tabela:
+                    _aplicar_rubricas_na_verba(campos, peca["texto"], texto_tabela)
                 _completar_liquido_lido(campos, peca["recorte"])
             if regiao.tipo_documental == "termo_quitacao":
-                _completar_traco_quitacao(campos, imagem)
+                _completar_traco_quitacao(campos, imagem, peca["palavras"], faixa)
             CampoExtraido.objects.bulk_create(
                 [
                     CampoExtraido(
@@ -647,13 +664,17 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                         localizacao_precisa=bool(campo.get("localizacao_precisa")),
                         metodo=campo["metodo"],
                         estado_confianca=campo["estado_confianca"],
-                        estado_revisao=EstadoCampo.AUSENTE if not campo["valor_original"] and campo.get("estado_confianca") != "ambiguo" else EstadoCampo.PENDENTE,
+                        estado_revisao=(
+                            EstadoCampo.AUSENTE
+                            if not campo["valor_original"] and campo.get("estado_confianca") not in {"ambiguo", "inconsistente", "parcial"}
+                            else EstadoCampo.PENDENTE
+                        ),
                         obrigatorio=campo["obrigatorio"],
                     )
                     for campo in campos
                 ]
             )
-            _gravar_rubricas(regiao, peca["texto"], peca["palavras"], faixa)
+            _gravar_rubricas(regiao, peca["texto"], palavras_rubrica, faixa, texto_tabela)
         inventario.tipos_candidatos = [peca["tipo"] for peca in pecas]
         inventario.quantidade_regioes = len(pecas)
         inventario.estado_classificacao = EstadoClassificacao.PROPOSTO
@@ -768,41 +789,123 @@ def _completar_liquido_lido(campos: list[dict], recorte) -> None:
     )
 
 
-def _completar_traco_quitacao(campos: list[dict], imagem) -> None:
-    """Presença visual na faixa clara. Não usa o título QUITAÇÃO nem nomeia o signatário."""
+def _densidade_traco(imagem, y0: float, y1: float) -> float:
+    cinza = imagem.convert("L")
+    largura, altura = cinza.size
+    superior = max(0, min(altura - 2, int(y0 * altura)))
+    inferior = max(superior + 1, min(altura, int(y1 * altura)))
+    faixa = cinza.crop((int(largura * 0.08), superior, int(largura * 0.92), inferior))
+    largura_faixa, altura_faixa = faixa.size
+    pixels = list(faixa.getdata())
+    linhas = 0
+    for linha in range(altura_faixa):
+        inicio = linha * largura_faixa
+        escuros = sum(1 for pixel in pixels[inicio : inicio + largura_faixa] if pixel < 160)
+        proporcao = escuros / max(largura_faixa, 1)
+        if 0.015 <= proporcao <= 0.45:
+            linhas += 1
+    return linhas / max(altura_faixa, 1)
+
+
+def _completar_traco_quitacao(campos: list[dict], imagem, palavras: list[dict], faixa_peca: dict) -> None:
+    """Nota presença visual ou pendência. Não usa o título e não afirma ausência nem autenticidade."""
     atual = next((campo for campo in campos if campo["chave"] == "assinaturas"), None)
     if atual is None or atual.get("valor_original"):
         return
-    cinza = imagem.convert("L")
-    largura, altura = cinza.size
-    superior = int(altura * 0.62)
-    inferior = int(altura * 0.82)
-    if inferior <= superior:
-        return
-    faixa = cinza.crop((int(largura * 0.12), superior, int(largura * 0.88), inferior))
-    largura_faixa, altura_faixa = faixa.size
-    pixels = list(faixa.getdata())
-    linhas_com_traco = 0
-    for linha in range(altura_faixa):
-        inicio = linha * largura_faixa
-        escuros = sum(1 for pixel in pixels[inicio : inicio + largura_faixa] if pixel < 150)
-        proporcao = escuros / max(largura_faixa, 1)
-        if 0.02 <= proporcao <= 0.4:
-            linhas_com_traco += 1
-    if not 0.03 <= (linhas_com_traco / max(altura_faixa, 1)) <= 0.35:
-        return
-    atual["valor_original"] = "Traço manuscrito visível. Signatário não identificado."
+    rotulos = [palavra for palavra in palavras if "assin" in (palavra.get("texto") or "").lower()]
+    if rotulos:
+        y0 = faixa_peca["y"] + min(float(palavra["y"]) for palavra in rotulos) * faixa_peca["altura"]
+    else:
+        y0 = faixa_peca["y"] + faixa_peca["altura"] * 0.75
+    y1 = min(0.9, y0 + 0.16)
+    densidade = _densidade_traco(imagem, y0, y1)
+    if 0.02 <= densidade <= 0.28:
+        atual["valor_original"] = (
+            "Traço manuscrito visível. Signatário não identificado. "
+            "A presença não comprova autenticidade nem quitação."
+        )
+        atual["trecho_evidencia"] = "Faixa do termo de quitação abaixo do rótulo de assinatura."
+    else:
+        atual["valor_original"] = (
+            "Conferência visual pendente. A leitura automática não confirma nem nega assinatura."
+        )
+        atual["trecho_evidencia"] = "A faixa observada não permitiu decidir a presença do traço."
     atual["valor_normalizado"] = atual["valor_original"]
-    atual["trecho_evidencia"] = "Faixa entre os blocos impressos da quitação."
     atual["metodo"] = "imagem_regiao"
     atual["estado_confianca"] = "parcial"
 
 
-def _gravar_rubricas(regiao, texto: str, palavras: list[dict], faixa: dict) -> None:
+def _ler_tabela_verbas(ocr, recorte, palavras: list[dict]) -> tuple[str, list[dict]]:
+    """Segunda leitura da faixa de rubricas. Coordenadas continuam relativas à peça."""
+    import re
+
+    alturas = []
+    for palavra in palavras:
+        texto = palavra.get("texto") or ""
+        if re.search(r"verbas|rubrica", texto, flags=re.IGNORECASE):
+            alturas.append(float(palavra["y"]))
+        elif re.fullmatch(r"\d{2,3}", texto) and 50 <= int(texto) <= 199:
+            alturas.append(float(palavra["y"]))
+    if len(alturas) < 2:
+        return "", palavras
+    y0 = max(0.0, min(alturas) - 0.02)
+    y1 = min(1.0, max(alturas) + 0.06)
+    if y1 - y0 < 0.08:
+        return "", palavras
+    altura_px = recorte.size[1]
+    textos = []
+    projetadas = []
+    cursor = y0
+    while cursor < y1 - 0.02:
+        fim = min(y1, cursor + 0.18)
+        tabela = recorte.crop((0, int(cursor * altura_px), recorte.size[0], int(fim * altura_px)))
+        texto, palavras_tabela = ocr.extrair_imagem_com_caixas(tabela)
+        if texto:
+            textos.append(texto)
+        for palavra in palavras_tabela:
+            copia = dict(palavra)
+            copia["y"] = cursor + float(palavra["y"]) * (fim - cursor)
+            copia["altura"] = float(palavra["altura"]) * (fim - cursor)
+            projetadas.append(copia)
+        cursor += 0.14
+    unicas = []
+    for copia in projetadas:
+        repetida = any(
+            copia.get("texto") == outra.get("texto")
+            and abs(float(copia["x"]) - float(outra["x"])) < 0.02
+            and abs(float(copia["y"]) - float(outra["y"])) < 0.02
+            for outra in unicas
+        )
+        if not repetida:
+            unicas.append(copia)
+    return "\n".join(textos), unicas or palavras
+
+
+def _aplicar_rubricas_na_verba(campos: list[dict], texto_pagina: str, texto_tabela: str) -> None:
+    itens = mesclar_rubricas_rescisao(texto_pagina, texto_tabela)
     linhas = []
-    fonte = estruturar_rubricas_rescisao(texto) if regiao.tipo_documental == "termo_rescisao" else estruturar_rubricas(texto)
+    for item in itens:
+        valor = item["valor_original"] or "valor não lido"
+        linhas.append(f"{item['codigo']} {item['descricao']} {valor}")
+    verba = next((campo for campo in campos if campo["chave"] == "verbas_rescisorias"), None)
+    if verba is not None and linhas:
+        verba["valor_original"] = "\n".join(linhas)[:800]
+        verba["valor_normalizado"] = verba["valor_original"]
+        verba["metodo"] = "ocr_tabela"
+        verba["estado_confianca"] = "parcial"
+
+
+def _gravar_rubricas(regiao, texto: str, palavras: list[dict], faixa: dict, texto_tabela: str = "") -> None:
+    linhas = []
+    if regiao.tipo_documental == "termo_rescisao":
+        fonte = mesclar_rubricas_rescisao(texto, texto_tabela) if texto_tabela else estruturar_rubricas_rescisao(texto)
+    else:
+        fonte = estruturar_rubricas(texto)
     for ordem, item in enumerate(fonte, start=1):
-        caixa = caixa_do_valor(palavras, item["trecho_evidencia"]) or caixa_do_valor(palavras, item["valor_original"])
+        if regiao.tipo_documental == "termo_rescisao":
+            caixa = caixa_da_rubrica(palavras, item["codigo"], item["valor_original"])
+        else:
+            caixa = caixa_do_valor(palavras, item["trecho_evidencia"]) or caixa_do_valor(palavras, item["valor_original"])
         coords = projetar_pagina(caixa, faixa) if caixa else {}
         linhas.append(
             RubricaExtraida(
