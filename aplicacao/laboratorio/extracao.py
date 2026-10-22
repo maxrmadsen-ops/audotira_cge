@@ -591,10 +591,22 @@ _CODIGO_RESCISAO = re.compile(
 _VALOR_RUBRICA = re.compile(r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}")
 
 
+def liquido_lido_no_texto(texto: str) -> str:
+    """Lê o líquido na faixa inferior. Não usa o salário líquido da rubrica."""
+    for linha in (texto or "").splitlines():
+        baixo = linha.lower()
+        if "salário" in baixo or "salario" in baixo or "dedu" in baixo:
+            continue
+        achado = re.search(rf"l[ií]quido\s*[:\|\-]?\s*({_MOEDA_PONTUADA})", linha, flags=re.IGNORECASE)
+        if achado:
+            return achado.group(1)
+    return ""
+
+
 def estruturar_rubricas_rescisao(texto: str) -> list[dict]:
     """Uma rubrica por código do TRCT. Não junta a descrição do código seguinte."""
-    itens = []
-    vistos = set()
+    por_codigo = {}
+    ordem = []
     for bruta in (texto or "").splitlines():
         linha = re.split(
             r"total\s+bruto|total\s+dedu|valor\s+l[ií]quido",
@@ -602,24 +614,23 @@ def estruturar_rubricas_rescisao(texto: str) -> list[dict]:
             maxsplit=1,
             flags=re.IGNORECASE,
         )[0]
+        if not _VALOR_RUBRICA.search(linha):
+            continue
         marcas = []
         for marca in _CODIGO_RESCISAO.finditer(linha):
-            codigo = marca.group(1)
-            base = int(codigo.split(".")[0])
-            if base < 50 or base > 199 or codigo in vistos:
-                continue
-            marcas.append(marca)
+            base = int(marca.group(1).split(".")[0])
+            if 50 <= base <= 199:
+                marcas.append(marca)
         for indice, marca in enumerate(marcas):
             codigo = marca.group(1)
             base = int(codigo.split(".")[0])
-            if codigo in vistos:
-                continue
             fim = marcas[indice + 1].start() if indice + 1 < len(marcas) else len(linha)
             trecho = linha[marca.start() : fim]
             valores = _VALOR_RUBRICA.findall(trecho)
+            valor = valores[0] if valores else ""
             descricao = trecho[len(codigo) :].strip()
-            for valor in valores:
-                descricao = descricao.replace(valor, " ")
+            if valor:
+                descricao = descricao.split(valor)[0]
             descricao = re.sub(r"\d{1,2}/\d{1,2}", " ", descricao)
             descricao = re.sub(r"\s+", " ", descricao).strip(" .:-|[]/()")
             if len(descricao) < 3:
@@ -628,24 +639,27 @@ def estruturar_rubricas_rescisao(texto: str) -> list[dict]:
             dias = re.search(r"(\d{1,2}/\d{1,2}|\d{1,2}/dias)", trecho, flags=re.IGNORECASE)
             if dias:
                 referencia = dias.group(1)
-            vistos.add(codigo)
-            itens.append(
-                {
-                    "codigo": codigo,
-                    "descricao": descricao[:80],
-                    "referencia": referencia[:40],
-                    "unidade": "",
-                    "natureza": "desconto" if base >= 100 else "provento",
-                    "valor_original": valores[-1] if valores else "",
-                    "valor_normalizado": str(_moeda_para_decimal(valores[-1])) if valores else "",
-                    "trecho_evidencia": re.sub(r"\s+", " ", trecho).strip()[:180],
-                    "metodo": "ocr_regiao",
-                    "estado_confianca": "evidencia_textual" if valores else "ausente",
-                }
-            )
-            if len(itens) >= 30:
-                return itens
-    return itens
+            item = {
+                "codigo": codigo,
+                "descricao": descricao[:80],
+                "referencia": referencia[:40],
+                "unidade": "",
+                "natureza": "desconto" if base >= 100 else "provento",
+                "valor_original": valor,
+                "valor_normalizado": str(_moeda_para_decimal(valor)) if valor else "",
+                "trecho_evidencia": re.sub(r"\s+", " ", trecho).strip()[:180],
+                "metodo": "ocr_regiao",
+                "estado_confianca": "evidencia_textual" if valor else "ausente",
+            }
+            anterior = por_codigo.get(codigo)
+            if anterior is not None and (anterior["valor_original"] or not valor):
+                continue
+            if codigo not in por_codigo:
+                ordem.append(codigo)
+            por_codigo[codigo] = item
+            if len(ordem) >= 30:
+                break
+    return [por_codigo[codigo] for codigo in ordem]
 
 
 def _linhas_de_verba(texto: str) -> str:
@@ -721,19 +735,22 @@ def _extrair_quitacao(texto: str) -> dict[str, str]:
 
 
 def _extrair_dispensa(texto: str) -> dict[str, str]:
-    return {
-        "empregador": _buscar((r"(?:empregador|empresa)\s*[:\-]?\s*(.+)",), texto),
-        "trabalhador": _nome_apos_identificacao(texto)
-        or _buscar(
-            (
-                r"nome\s*\n\s*([A-ZÁÉÍÓÚÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÃÕÇ]{2,}){1,4})",
-                r"(?:trabalhador|empregado|funcion[aá]rio)\s*[:\-]?\s*(.+)",
-            ),
-            texto,
+    trabalhador = _nome_apos_identificacao(texto) or _buscar(
+        (
+            r"nome\s*\n\s*[|\s]*([A-ZÁÉÍÓÚÃÕÇ][A-Za-zÁÉÍÓÚÃÕÇáéíóúãõç]{1,}(?:\s+[A-ZÁÉÍÓÚÃÕÇ][A-Za-zÁÉÍÓÚÃÕÇáéíóúãõç]{1,}){1,4})",
+            r"(?:trabalhador|empregado|funcion[aá]rio)\s*[:\-]?\s*(.+)",
         ),
+        texto,
+    )
+    empregador = ""
+    if not re.search(r"protocolo\s+do\s+empregador", texto or "", flags=re.IGNORECASE):
+        empregador = _buscar((r"(?:empregador|empresa)\s*[:\-]?\s*(.+)",), texto)
+    return {
+        "empregador": empregador,
+        "trabalhador": trabalhador,
         "data_comunicacao": _buscar((r"([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
         "motivo": _buscar((r"(?:motivo|dispensa)\s*[:\-]?\s*(.+)",), texto),
-        "comprovante_recebimento": _buscar((r"(recebi|ciente|protocolo|ar\b).{0,40}",), texto),
+        "comprovante_recebimento": _buscar((r"(recebi|ciente|protocolo\s+\d|ar\b).{0,40}",), texto),
     }
 
 

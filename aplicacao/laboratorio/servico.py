@@ -717,7 +717,7 @@ def _completar_liquido_lido(campos: list[dict], recorte) -> None:
     import pytesseract
     from PIL import ImageOps
 
-    from aplicacao.laboratorio.extracao import _MOEDA_PONTUADA, _moeda_para_decimal
+    from aplicacao.laboratorio.extracao import _moeda_para_decimal, liquido_lido_no_texto
 
     atual = next((campo for campo in campos if campo["chave"] == "total_liquido"), None)
     if atual is None or atual.get("valor_original"):
@@ -725,16 +725,16 @@ def _completar_liquido_lido(campos: list[dict], recorte) -> None:
     largura, altura = recorte.size
     if altura < 40:
         return
-    faixa = recorte.crop((0, int(altura * 0.82), largura, altura))
+    inicio_rel = 0.8
+    faixa = recorte.crop((0, int(altura * inicio_rel), largura, altura))
     preparada = ImageOps.autocontrast(faixa.convert("L"))
     try:
         texto = pytesseract.image_to_string(preparada, lang="por", config="--psm 4") or ""
     except Exception:
         return
-    achado = re.search(rf"valor\s+l[ií]quido\s*[:\-]?\s*({_MOEDA_PONTUADA})", texto, flags=re.IGNORECASE)
-    if not achado:
+    valor = liquido_lido_no_texto(texto)
+    if not valor:
         return
-    valor = achado.group(1)
     decimal = _moeda_para_decimal(valor)
     calculado = next((campo for campo in campos if campo["chave"] == "liquido_calculado"), None)
     decimal_calculado = _moeda_para_decimal((calculado or {}).get("valor_original") or "")
@@ -756,12 +756,13 @@ def _completar_liquido_lido(campos: list[dict], recorte) -> None:
         return
     indice = posicoes[0]
     faixa_altura = max(preparada.size[1], 1)
+    faixa_rel = 1 - inicio_rel
     atual.update(
         {
             "evidencia_x": round(int(dados["left"][indice]) / max(largura, 1), 4),
-            "evidencia_y": round(0.82 + (int(dados["top"][indice]) / faixa_altura) * 0.18, 4),
+            "evidencia_y": round(inicio_rel + (int(dados["top"][indice]) / faixa_altura) * faixa_rel, 4),
             "evidencia_largura": round(max(int(dados["width"][indice]) / max(largura, 1), 0.02), 4),
-            "evidencia_altura": round(max((int(dados["height"][indice]) / faixa_altura) * 0.18, 0.012), 4),
+            "evidencia_altura": round(max((int(dados["height"][indice]) / faixa_altura) * faixa_rel, 0.012), 4),
             "localizacao_precisa": True,
         }
     )
