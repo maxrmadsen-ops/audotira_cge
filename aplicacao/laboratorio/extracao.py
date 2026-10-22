@@ -602,11 +602,17 @@ def estruturar_rubricas_rescisao(texto: str) -> list[dict]:
             maxsplit=1,
             flags=re.IGNORECASE,
         )[0]
-        marcas = list(_CODIGO_RESCISAO.finditer(linha))
-        for indice, marca in enumerate(marcas):
+        marcas = []
+        for marca in _CODIGO_RESCISAO.finditer(linha):
             codigo = marca.group(1)
             base = int(codigo.split(".")[0])
             if base < 50 or base > 199 or codigo in vistos:
+                continue
+            marcas.append(marca)
+        for indice, marca in enumerate(marcas):
+            codigo = marca.group(1)
+            base = int(codigo.split(".")[0])
+            if codigo in vistos:
                 continue
             fim = marcas[indice + 1].start() if indice + 1 < len(marcas) else len(linha)
             trecho = linha[marca.start() : fim]
