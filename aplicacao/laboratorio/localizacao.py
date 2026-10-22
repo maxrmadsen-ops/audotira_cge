@@ -35,7 +35,8 @@ def caixa_da_rubrica(palavras: list[dict], codigo: str, valor: str = "") -> dict
         if float(palavras[posicao]["x"]) + float(palavras[posicao]["largura"]) < x:
             continue
         token = normas[posicao]
-        if re.fullmatch(r"\d{2,3}", token) and token != codigo_n:
+        bruto = (palavras[posicao].get("texto") or "").strip()
+        if re.fullmatch(r"\d{2,3}(?:\.\d)?", bruto) and token != codigo_n:
             break
         fim = posicao
         if alvo_valor and alvo_valor in token:
