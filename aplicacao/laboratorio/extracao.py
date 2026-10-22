@@ -699,6 +699,19 @@ def estruturar_rubricas_rescisao(texto: str) -> list[dict]:
     return [por_codigo[codigo] for codigo in ordem]
 
 
+def _rubrica_ja_representada(item: dict, por_codigo: dict) -> bool:
+    """Não cria outro código quando a linha ampliada só troca 68 por 88 na mesma verba."""
+    descricao = (item.get("descricao") or "")[:28].casefold()
+    valor = item.get("valor_original") or ""
+    if len(descricao) < 8 or not valor:
+        return False
+    for outro in por_codigo.values():
+        outra = (outro.get("descricao") or "")[:28].casefold()
+        if outra == descricao and outro.get("valor_original") == valor:
+            return True
+    return False
+
+
 def normalizar_pontuacao_monetaria(texto: str) -> str:
     """0.00 lido na linha ampliada vira 0,00. Não altera milhar brasileiro 1.693,97."""
 
@@ -718,6 +731,8 @@ def mesclar_rubricas_rescisao(texto_pagina: str, texto_tabela: str) -> list[dict
     for item in estruturar_rubricas_rescisao(texto_tabela):
         anterior = por_codigo.get(item["codigo"])
         if anterior is None:
+            if _rubrica_ja_representada(item, por_codigo):
+                continue
             ordem.append(item["codigo"])
             por_codigo[item["codigo"]] = item
         elif item["valor_original"]:

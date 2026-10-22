@@ -106,6 +106,10 @@ class TesteDatasERubricas(SimpleTestCase):
         preservada = _por_codigo(mesclar_rubricas_rescisao(TRCT, divergente))
         self.assertEqual(preservada["50"]["valor_original"], "1.693,97")
         self.assertEqual(preservada["50"]["referencia"], "27/dias")
+        fantasma = "68 Terço Constitucional de Férias 696,59\n88 Terço Constitucional de Férias 696,59"
+        sem_fantasma = _por_codigo(mesclar_rubricas_rescisao("68 Terço Constitucional de Férias 696,59", fantasma))
+        self.assertIn("68", sem_fantasma)
+        self.assertNotIn("88", sem_fantasma)
 
     def test_liquido_da_rubrica_nao_substitui_o_rodape(self):
         self.assertEqual(liquido_lido_no_texto("Salário (líquido 1.693,97"), "")

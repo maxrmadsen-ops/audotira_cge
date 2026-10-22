@@ -645,7 +645,7 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                 if texto_tabela:
                     _aplicar_rubricas_na_verba(campos, peca["texto"], texto_tabela)
                 _completar_liquido_lido(campos, peca["recorte"])
-            if regiao.tipo_documental == "termo_quitacao":
+            if regiao.tipo_documental in {"termo_quitacao", "termo_rescisao"}:
                 _completar_traco_quitacao(campos, imagem, peca["palavras"], faixa)
             CampoExtraido.objects.bulk_create(
                 [
