@@ -43,6 +43,7 @@ from aplicacao.laboratorio.extracao import (
     estruturar_rubricas_rescisao,
     extrair_campos,
     mesclar_rubricas_rescisao,
+    normalizar_pontuacao_monetaria,
 )
 from aplicacao.laboratorio.localizacao import (
     caixa_da_rubrica,
@@ -814,12 +815,20 @@ def _completar_traco_quitacao(campos: list[dict], imagem, palavras: list[dict], 
         return
     rotulos = [palavra for palavra in palavras if "assin" in (palavra.get("texto") or "").lower()]
     if rotulos:
-        y0 = faixa_peca["y"] + min(float(palavra["y"]) for palavra in rotulos) * faixa_peca["altura"]
+        y_base = faixa_peca["y"] + min(float(palavra["y"]) for palavra in rotulos) * faixa_peca["altura"]
+        y_fim = faixa_peca["y"] + max(float(palavra["y"]) for palavra in rotulos) * faixa_peca["altura"] + 0.12
     else:
-        y0 = faixa_peca["y"] + faixa_peca["altura"] * 0.75
-    y1 = min(0.9, y0 + 0.16)
-    densidade = _densidade_traco(imagem, y0, y1)
-    if 0.02 <= densidade <= 0.28:
+        y_base = faixa_peca["y"] + faixa_peca["altura"] * 0.72
+        y_fim = faixa_peca["y"] + faixa_peca["altura"] + 0.08
+    y_fim = min(0.92, y_fim)
+    densidade = 0.0
+    cursor = y_base
+    while cursor < y_fim - 0.04:
+        densidade = _densidade_traco(imagem, cursor, min(y_fim, cursor + 0.08))
+        if 0.04 <= densidade <= 0.25:
+            break
+        cursor += 0.03
+    if 0.04 <= densidade <= 0.25:
         atual["valor_original"] = (
             "Traço manuscrito visível. Signatário não identificado. "
             "A presença não comprova autenticidade nem quitação."
@@ -836,49 +845,55 @@ def _completar_traco_quitacao(campos: list[dict], imagem, palavras: list[dict], 
 
 
 def _ler_tabela_verbas(ocr, recorte, palavras: list[dict]) -> tuple[str, list[dict]]:
-    """Segunda leitura da faixa de rubricas. Coordenadas continuam relativas à peça."""
+    """Relê cada linha de rubrica ampliada. O contraste da página inteira confunde dígitos."""
     import re
 
-    alturas = []
+    candidatos = []
     for palavra in palavras:
-        texto = palavra.get("texto") or ""
-        if re.search(r"verbas|rubrica", texto, flags=re.IGNORECASE):
-            alturas.append(float(palavra["y"]))
-        elif re.fullmatch(r"\d{2,3}", texto) and 50 <= int(texto) <= 199:
-            alturas.append(float(palavra["y"]))
-    if len(alturas) < 2:
-        return "", palavras
-    y0 = max(0.0, min(alturas) - 0.02)
-    y1 = min(1.0, max(alturas) + 0.06)
-    if y1 - y0 < 0.08:
+        texto = (palavra.get("texto") or "").strip()
+        if not re.fullmatch(r"\d{2,3}(?:\.\d)?", texto):
+            continue
+        base = int(texto.split(".")[0])
+        if 50 <= base <= 199:
+            candidatos.append(float(palavra["y"]))
+    linhas_y = []
+    for y in sorted(candidatos):
+        if linhas_y and abs(y - linhas_y[-1]) <= 0.016:
+            continue
+        linhas_y.append(y)
+    if len(linhas_y) < 2:
         return "", palavras
     altura_px = recorte.size[1]
     textos = []
     projetadas = []
-    cursor = y0
-    while cursor < y1 - 0.02:
-        fim = min(y1, cursor + 0.18)
-        tabela = recorte.crop((0, int(cursor * altura_px), recorte.size[0], int(fim * altura_px)))
-        texto, palavras_tabela = ocr.extrair_imagem_com_caixas(tabela)
+    for y in linhas_y:
+        y0 = max(0.0, y - 0.012)
+        y1 = min(1.0, y + 0.022)
+        if y1 <= y0:
+            continue
+        tabela = recorte.crop((0, int(y0 * altura_px), recorte.size[0], max(int(y1 * altura_px), int(y0 * altura_px) + 8)))
+        try:
+            texto, palavras_tabela = ocr.extrair_linha_ampliada(tabela)
+        except RuntimeError:
+            continue
         if texto:
             textos.append(texto)
         for palavra in palavras_tabela:
             copia = dict(palavra)
-            copia["y"] = cursor + float(palavra["y"]) * (fim - cursor)
-            copia["altura"] = float(palavra["altura"]) * (fim - cursor)
+            copia["y"] = y0 + float(palavra["y"]) * (y1 - y0)
+            copia["altura"] = float(palavra["altura"]) * (y1 - y0)
             projetadas.append(copia)
-        cursor += 0.14
     unicas = []
     for copia in projetadas:
         repetida = any(
             copia.get("texto") == outra.get("texto")
             and abs(float(copia["x"]) - float(outra["x"])) < 0.02
-            and abs(float(copia["y"]) - float(outra["y"])) < 0.02
+            and abs(float(copia["y"]) - float(outra["y"])) < 0.015
             for outra in unicas
         )
         if not repetida:
             unicas.append(copia)
-    return "\n".join(textos), unicas or palavras
+    return normalizar_pontuacao_monetaria("\n".join(textos)), unicas or palavras
 
 
 def _aplicar_rubricas_na_verba(campos: list[dict], texto_pagina: str, texto_tabela: str) -> None:

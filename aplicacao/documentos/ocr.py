@@ -98,3 +98,38 @@ class ServicoOCR:
                 }
             )
         return texto, caixas
+
+    def extrair_linha_ampliada(self, imagem) -> tuple[str, list[dict]]:
+        """Linha de tabela ampliada, sem autocontraste. O contraste fechado confunde 1 com 7."""
+        try:
+            import pytesseract
+        except ImportError as exc:
+            raise RuntimeError("OCR indisponível: dependências não instaladas.") from exc
+        idioma = settings.OCR_IDIOMA
+        cinza = imagem.convert("L")
+        preparada = cinza.resize((cinza.size[0] * 3, max(cinza.size[1] * 3, 1)))
+        try:
+            texto = pytesseract.image_to_string(preparada, lang=idioma, config="--psm 6") or ""
+            dados = pytesseract.image_to_data(
+                preparada,
+                lang=idioma,
+                config="--psm 6",
+                output_type=pytesseract.Output.DICT,
+            )
+        except Exception as exc:
+            raise RuntimeError("Falha ao executar o OCR desta linha.") from exc
+        largura, altura = preparada.size
+        caixas = []
+        for indice, palavra in enumerate(dados.get("text", [])):
+            if not str(palavra).strip() or largura <= 0 or altura <= 0:
+                continue
+            caixas.append(
+                {
+                    "texto": str(palavra),
+                    "x": int(dados["left"][indice]) / largura,
+                    "y": int(dados["top"][indice]) / altura,
+                    "largura": max(int(dados["width"][indice]) / largura, 0.001),
+                    "altura": max(int(dados["height"][indice]) / altura, 0.001),
+                }
+            )
+        return texto, caixas

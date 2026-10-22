@@ -8,6 +8,7 @@ from aplicacao.laboratorio.extracao import (
     extrair_campos,
     liquido_lido_no_texto,
     mesclar_rubricas_rescisao,
+    normalizar_pontuacao_monetaria,
 )
 from aplicacao.laboratorio.localizacao import caixa_da_rubrica
 from aplicacao.laboratorio.servico import _completar_traco_quitacao
@@ -92,6 +93,15 @@ class TesteDatasERubricas(SimpleTestCase):
         self.assertEqual(mesclada["65"]["valor_original"], "2.089,78")
         self.assertEqual(mesclada["68"]["valor_original"], "696,59")
         self.assertEqual(mesclada["112.1"]["valor_original"], "134,27")
+        linha = normalizar_pontuacao_monetaria(
+            "50 Saldo de 21/dias Salário (líquido 1.693,97 |51 Comissões 0,00 |52 Gratificações 0.00"
+        )
+        ampliada = _por_codigo(estruturar_rubricas_rescisao(linha))
+        self.assertEqual(ampliada["50"]["referencia"], "21/dias")
+        self.assertEqual(ampliada["50"]["valor_original"], "1.693,97")
+        self.assertEqual(ampliada["51"]["valor_original"], "0,00")
+        self.assertEqual(ampliada["52"]["valor_original"], "0,00")
+        self.assertIn("1.693,97", normalizar_pontuacao_monetaria("1.693,97"))
         divergente = "50 Saldo de 21/dias Salário 9.999,99"
         preservada = _por_codigo(mesclar_rubricas_rescisao(TRCT, divergente))
         self.assertEqual(preservada["50"]["valor_original"], "1.693,97")
@@ -118,6 +128,7 @@ class TesteDispensaEProtocolo(SimpleTestCase):
         94/45/9095
         PROTOCOLO DO EMPREGADOR
         AR
+        RECEBI DE (firma ou razão social)
         """
         campos = _por_chave("comunicacao_dispensa", texto)
         self.assertEqual(campos["protocolo"]["valor_original"], "7798259488")
@@ -128,6 +139,7 @@ class TesteDispensaEProtocolo(SimpleTestCase):
         self.assertEqual(campos["data_comunicacao"]["estado_confianca"], "inconsistente")
         self.assertIn("94/45/9095", campos["data_comunicacao"]["trecho_evidencia"])
         self.assertNotEqual(campos["comprovante_recebimento"]["valor_original"], "AR")
+        self.assertEqual(campos["comprovante_recebimento"]["valor_original"], "")
 
     def test_motivo_rotulado_que_nao_e_numero_permanece(self):
         texto = "Comunicação de Dispensa - 123456\nmotivo: encerramento do contrato"

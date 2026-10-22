@@ -699,6 +699,15 @@ def estruturar_rubricas_rescisao(texto: str) -> list[dict]:
     return [por_codigo[codigo] for codigo in ordem]
 
 
+def normalizar_pontuacao_monetaria(texto: str) -> str:
+    """0.00 lido na linha ampliada vira 0,00. Não altera milhar brasileiro 1.693,97."""
+
+    def trocar(achado: re.Match) -> str:
+        return f"{achado.group(1)},{achado.group(2)}"
+
+    return re.sub(r"\b(\d{1,3})\.(\d{2})\b", trocar, texto or "")
+
+
 def mesclar_rubricas_rescisao(texto_pagina: str, texto_tabela: str) -> list[dict]:
     """A leitura da tabela preenche valor ausente ou confirma o mesmo valor. Valor divergente fica na primeira leitura."""
     por_codigo = {}
@@ -813,8 +822,18 @@ def _extrair_dispensa(texto: str) -> dict[str, str]:
         "motivo": motivo,
         "protocolo": protocolo,
         "protocolo__evidencia": _linha_preferida(texto, protocolo, "dispensa") if protocolo else "",
-        "comprovante_recebimento": _buscar((r"(recebi|ciente).{0,40}",), texto),
+        "comprovante_recebimento": _comprovante_preenchido(texto),
     }
+
+
+def _comprovante_preenchido(texto: str) -> str:
+    """Rótulo em branco de formulário não é comprovante de recebimento."""
+    achado = _buscar((r"\b(?:recebi|ciente)\b.{0,50}",), texto)
+    if not achado:
+        return ""
+    if re.search(r"recebi\s+de\s*\(|firma ou|raz[aã]o social", achado, flags=re.IGNORECASE):
+        return ""
+    return achado
 
 
 def _extrair_fgts(texto: str) -> dict[str, str]:
