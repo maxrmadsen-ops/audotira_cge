@@ -931,7 +931,7 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     border: 1px solid var(--cge-borda);
     background: #f8faf9;
     min-height: 28rem;
-    padding-left: 12.5rem;
+    padding-left: 1.75rem;
 }
 .laboratorio-visor canvas { display: block; max-width: none; }
 .indicador-documental strong { font-size: 1.05rem; }
@@ -982,18 +982,22 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 }
 .regiao-rotulo {
     position: absolute;
-    top: -2px;
-    right: calc(100% + 0.35rem);
+    top: 0;
+    right: calc(100% + 0.22rem);
     left: auto;
-    width: 11.6rem;
+    width: 1.15rem;
     max-width: none;
-    padding: 0.12rem 0.4rem;
+    max-height: 100%;
+    padding: 0.28rem 0;
     background: rgba(13, 59, 46, 0.92);
     color: #fff;
-    font-size: 0.72rem;
-    line-height: 1.25;
-    text-align: right;
-    white-space: normal;
+    font-size: 0.68rem;
+    line-height: 1.15rem;
+    text-align: left;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    white-space: nowrap;
+    overflow: hidden;
     pointer-events: none;
 }
 .alca {
@@ -1015,9 +1019,9 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 }
 .destaque-evidencia {
     position: absolute;
-    border: 3px solid #9a3412;
-    background: rgba(251, 191, 36, 0.55);
-    box-shadow: 0 0 0 3px rgba(154, 52, 18, 0.95), 0 0 0 8px rgba(251, 191, 36, 0.45);
+    border: 1.5px solid #9a3412;
+    background: rgba(251, 191, 36, 0.28);
+    box-shadow: none;
     pointer-events: none;
     z-index: 30;
     box-sizing: border-box;
