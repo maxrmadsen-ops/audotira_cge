@@ -103,6 +103,8 @@ class Ciclo615cTests(TestCase):
     def test_separa_recibo_de_guia_e_nao_trata_o_aviso_de_dez_reais_como_total(self):
         self.assertEqual(tipo_principal(classificar_texto(RECIBO_FGTS), RECIBO_FGTS)["tipo"], "comprovante_fgts")
         self.assertEqual(tipo_principal(classificar_texto(GUIA_FGTS), GUIA_FGTS)["tipo"], "guia_fgts")
+        junto = RECIBO_FGTS + "\n" + GUIA_FGTS
+        self.assertEqual(tipo_principal(classificar_texto(junto), junto)["tipo"], "guia_fgts")
         palavras_darf = [{"texto": "MINISTERIO", "y": 0.58}, {"texto": "arrecadador", "y": 0.2}]
         self.assertEqual(
             dividir_comprovante_e_guia(

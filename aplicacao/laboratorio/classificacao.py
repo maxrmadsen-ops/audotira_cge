@@ -72,7 +72,7 @@ def tipo_principal(candidatos: list[dict], texto: str) -> dict | None:
         holerite = next((item for item in candidatos if item["tipo"] == "holerite"), None)
         if holerite is not None:
             return holerite
-    if "convenio fgts" in baixo or "convênio fgts" in baixo:
+    if ("convenio fgts" in baixo or "convênio fgts" in baixo) and "guia de recolhimento" not in baixo and "fundo de garantia" not in baixo and "gfip" not in baixo:
         recibo_fgts = next((item for item in candidatos if item["tipo"] == "comprovante_fgts"), None)
         if recibo_fgts is not None:
             return recibo_fgts
