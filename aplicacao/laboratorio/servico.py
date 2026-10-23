@@ -26,6 +26,7 @@ from aplicacao.laboratorio.classificacao import (
     classificar_texto,
     detectar_numero_impresso,
     candidatos_da_peca,
+    dividir_comprovante_e_guia,
     dividir_dispensa_e_transferencia,
     dividir_transferencia_e_holerite,
     recortar_texto_para_tipo,
@@ -559,9 +560,11 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
             continue
         recorte = imagem.crop((x0, y0, x1, y1))
         texto, palavras = ocr.extrair_imagem_com_caixas(recorte)
-        partes = [(recorte, texto, palavras, 0.0, 1.0, False, False)]
+        partes = [(recorte, texto, palavras, 0.0, 1.0, False, False, False)]
         corte_dispensa = dividir_dispensa_e_transferencia(texto, palavras)
-        corte = corte_dispensa or dividir_transferencia_e_holerite(texto, palavras)
+        corte_folha = None if corte_dispensa else dividir_transferencia_e_holerite(texto, palavras)
+        corte_guia = None if corte_dispensa or corte_folha else dividir_comprovante_e_guia(texto, palavras)
+        corte = corte_dispensa or corte_folha or corte_guia
         if corte:
             altura_px = recorte.size[1]
             limite = max(1, min(altura_px - 1, int(corte * altura_px)))
@@ -571,8 +574,10 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                 (recorte.crop((0, limite, recorte.size[0], altura_px)), corte, 1 - corte),
             ):
                 texto_parte, palavras_parte = ocr.extrair_imagem_com_caixas(imagem_parte)
-                partes.append((imagem_parte, texto_parte, palavras_parte, y_rel, alt_rel, True, bool(corte_dispensa)))
-        for recorte_parte, texto_parte, palavras_parte, y_rel, alt_rel, separada, separou_dispensa in partes:
+                partes.append(
+                    (imagem_parte, texto_parte, palavras_parte, y_rel, alt_rel, True, bool(corte_dispensa), bool(corte_guia))
+                )
+        for recorte_parte, texto_parte, palavras_parte, y_rel, alt_rel, separada, separou_dispensa, separou_guia in partes:
             candidatos = candidatos_da_peca(
                 [item for item in classificar_texto(texto_parte) if item["tipo"] != "outros_nao_classificados"],
                 texto_parte,
@@ -598,6 +603,7 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                     "recorte": recorte_parte,
                     "separada": separada,
                     "separou_dispensa": separou_dispensa,
+                    "separou_guia": separou_guia,
                 }
             )
     if not pecas:
@@ -620,6 +626,8 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                 metodo_deteccao=(
                     "separacao_dispensa_transferencia"
                     if peca.get("separou_dispensa")
+                    else "separacao_comprovante_guia"
+                    if peca.get("separou_guia")
                     else "separacao_transferencia_holerite"
                     if peca.get("separada")
                     else "faixa_em_branco"
@@ -634,6 +642,8 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                     (
                         "Separação entre comunicação de dispensa e comprovante de transferência. Revisão humana pendente."
                         if peca.get("separou_dispensa")
+                        else "Separação entre comprovante e guia pelo conteúdo visual. Revisão humana pendente."
+                        if peca.get("separou_guia")
                         else "Separação entre transferência e holerite pelo conteúdo visual. Revisão humana pendente."
                         if peca.get("separada")
                         else "Separação pela faixa em branco. Revisão humana pendente."

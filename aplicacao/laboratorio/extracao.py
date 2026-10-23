@@ -125,11 +125,32 @@ CHAVES_DATA = {
 }
 
 
+def _marcar_total_inconsistente(mapeados: dict[str, str]) -> None:
+    """Centavos entre principal e total, sem multa nem juros, não entram na soma."""
+    principal = _moeda_para_decimal(mapeados.get("principal", ""))
+    total = _moeda_para_decimal(mapeados.get("total", ""))
+    multa = _moeda_para_decimal(mapeados.get("multa", ""))
+    juros = _moeda_para_decimal(mapeados.get("juros", ""))
+    if principal is None or total is None:
+        return
+    if (multa or Decimal("0")) != 0 or (juros or Decimal("0")) != 0:
+        return
+    if Decimal("0") < abs(total - principal) <= Decimal("1"):
+        mapeados["total__confianca"] = "inconsistente"
+        mapeados["total__metodo"] = "validacao_semantica"
+        mapeados["total__evidencia"] = (
+            f"Total lido {mapeados.get('total')} e principal {mapeados.get('principal')} divergem em centavos. "
+            "O valor não entra na soma até revisão humana."
+        )
+
+
 def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> list[dict]:
     from aplicacao.laboratorio.validacao import data_rejeitada_no_texto, data_valida_no_texto
 
     esquema = esquema_do_tipo(tipo)
     mapeados = _extratores.get(tipo, _extrair_generico)(texto)
+    if tipo == "darf":
+        _marcar_total_inconsistente(mapeados)
     campos = []
     for item in esquema:
         original = mapeados.get(item.chave, "")
@@ -961,6 +982,52 @@ def _moeda_rotulada(texto: str, rotulo: str) -> str:
     )
 
 
+def _moeda_apos_rotulo(texto: str, rotulo: str, parar_antes_de_total: bool = True) -> str:
+    """Primeira moeda logo depois do rótulo, sem atravessar outro campo de valor."""
+    achado = re.search(rotulo, texto or "", flags=re.IGNORECASE)
+    if not achado:
+        return ""
+    trecho = (texto or "")[achado.end(): achado.end() + 70]
+    limite = len(trecho)
+    outro = re.search(r"\bvalor\b", trecho, flags=re.IGNORECASE)
+    if outro and outro.start() > 0:
+        limite = min(limite, outro.start())
+    if parar_antes_de_total:
+        total = re.search(r"\btotal\b|\blor\b", trecho, flags=re.IGNORECASE)
+        if total and total.start() > 0:
+            limite = min(limite, total.start())
+    moedas = re.findall(r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}", trecho[:limite])
+    return moedas[0] if moedas else ""
+
+
+def _total_darf(texto: str) -> str:
+    """Total do DARF. O aviso legal de R$ 10,00 não é o valor do documento."""
+    explicito = _buscar(
+        (
+            r"valor total do documento\s*[:\-]?\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
+            r"\bvalor\s*[:\-]\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
+        ),
+        texto,
+    )
+    if explicito:
+        return explicito
+    sem_aviso = re.sub(
+        r"valor total seja inferior a\s*R\$\s*10,00",
+        " ",
+        texto or "",
+        flags=re.IGNORECASE,
+    )
+    rotulado = _moeda_apos_rotulo(sem_aviso, r"valor total|lor total|10\s*va", parar_antes_de_total=False)
+    if rotulado:
+        return rotulado
+    linha = _buscar(
+        (r"totais\s+((?:[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}\s*){4})",),
+        texto,
+    )
+    moedas = re.findall(r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}", linha)
+    return moedas[-1] if moedas else ""
+
+
 def _extrair_darf(texto: str) -> dict[str, str]:
     return {
         "contribuinte": _buscar(
@@ -968,26 +1035,23 @@ def _extrair_darf(texto: str) -> dict[str, str]:
             texto,
         ),
         "cnpj": _buscar((r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",), texto),
-        "codigo_receita": _buscar((r"\b(1082|8301)\b", r"c[oó]digo(?:\s+de\s+receita)?\s*[:\-]?\s*(\d{4})"), texto),
+        "codigo_receita": _buscar(
+            (r"\b(1082|8301|0561)\b", r"c[oó]digo(?:\s+d[ae]\s+receita)?\s*[:\-]?\s*(\d{4})"),
+            texto,
+        ),
         "periodo_apuracao": _buscar(
             (
                 r"(?:per[ií]odo de apura[cç][aã]o|pa)\s*[:\-]?\s*([0-9]{2}/[0-9]{4}|[A-Za-zçÇ]+/[0-9]{4})",
+                r"(?:per[ií]odo de apura[cç][aã]o)[\s\S]{0,60}?([0-9]{2}/[0-9]{2}/[0-9]{4})",
                 r"\b((?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)/[0-9]{4})\b",
             ),
             texto,
         ),
         "vencimento": _buscar((r"(?:vencimento|pagar este documento at[eé]|pagar at[eé])\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
-        "principal": _moeda_rotulada(texto, "principal"),
-        "multa": _moeda_rotulada(texto, "multa"),
-        "juros": _moeda_rotulada(texto, "juros"),
-        "total": _buscar(
-            (
-                r"valor total do documento\s*[:\-]?\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
-                r"\bvalor\s*[:\-]\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
-                r"totais\s+([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
-            ),
-            texto,
-        ),
+        "principal": _moeda_rotulada(texto, "principal") or _moeda_apos_rotulo(texto, r"valor do principal"),
+        "multa": _moeda_rotulada(texto, "multa") or _moeda_apos_rotulo(texto, r"valor\s*da\s*multa|valorda\s*multa"),
+        "juros": _moeda_rotulada(texto, "juros") or _moeda_apos_rotulo(texto, r"valor dos juros"),
+        "total": _total_darf(texto),
         "numero_documento": _buscar(
             (
                 r"(?:n[uú]mero(?:\s+do\s+documento)?|n[ºo])\s*[:\-]?\s*\|?\s*([0-9]{2}\.[0-9]{2}\.[0-9]{5}\.[0-9]+-\d)",
@@ -1010,7 +1074,10 @@ def _extrair_comprovante_darf(texto: str) -> dict[str, str]:
             ),
             texto,
         ),
-        "codigo_receita": _buscar((r"c[oó]digo de receita\s*[:\-]?\s*(\d{4})",), texto),
+        "codigo_receita": _buscar(
+            (r"\b(1082|8301|0561)\b", r"c[oó]digo d[ae] receita\s*[:\-]?\s*(\d{3,4})"),
+            texto,
+        ),
         "periodo_apuracao": _buscar((r"per[ií]odo de apura[cç][aã]o\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
         "cnpj": _buscar((r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",), texto),
         "numero_documento": _buscar((r"(?:n[uú]mero do documento|documento)\s*[:\-]?\s*([0-9][0-9.\-]{4,})",), texto),

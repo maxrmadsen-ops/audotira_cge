@@ -72,6 +72,10 @@ def tipo_principal(candidatos: list[dict], texto: str) -> dict | None:
         holerite = next((item for item in candidatos if item["tipo"] == "holerite"), None)
         if holerite is not None:
             return holerite
+    if "convenio fgts" in baixo or "convênio fgts" in baixo:
+        recibo_fgts = next((item for item in candidatos if item["tipo"] == "comprovante_fgts"), None)
+        if recibo_fgts is not None:
+            return recibo_fgts
     if "comprovante de transferencia" in baixo or "comprovante de transferência" in baixo or "transferido para" in baixo:
         transferencia = next((item for item in candidatos if item["tipo"] == "comprovante_transferencia"), None)
         if transferencia is not None:
@@ -160,6 +164,34 @@ def dividir_dispensa_e_transferencia(texto: str, palavras: list[dict]) -> float 
         if inicio_transferencia - 0.08 <= y < inicio_transferencia:
             corte = min(corte, y - 0.012)
     if corte <= 0.2 or corte >= 0.85:
+        return None
+    return round(corte, 4)
+
+
+def dividir_comprovante_e_guia(texto: str, palavras: list[dict]) -> float | None:
+    """Corte quando o comprovante e a guia são documentos distintos na mesma página."""
+    baixo = _normalizar(texto)
+    tem_recibo = "comprovante de pagamento" in baixo or "convenio fgts" in baixo or "convênio fgts" in baixo
+    tem_darf = "documento de arrecada" in baixo or "receitas federais" in baixo
+    tem_fgts = "guia de recolhimento" in baixo or "fundo de garantia" in baixo
+    if not tem_recibo or not (tem_darf or tem_fgts):
+        return None
+    # "Arrecadação" e "GRF" também aparecem no comprovante. O corte usa o corpo da guia.
+    if tem_fgts and not tem_darf:
+        padrao = r"gfip|sefip|fundo|remunera|al[ií]quota|validade"
+    elif tem_darf and not tem_fgts:
+        padrao = r"minist|federais"
+    else:
+        padrao = r"gfip|sefip|fundo|minist|federais"
+    alturas = [
+        float(palavra["y"])
+        for palavra in palavras
+        if re.search(padrao, palavra.get("texto") or "", flags=re.IGNORECASE)
+    ]
+    if not alturas:
+        return None
+    corte = min(alturas) - 0.02
+    if corte <= 0.12 or corte >= 0.88:
         return None
     return round(corte, 4)
 

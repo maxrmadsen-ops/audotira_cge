@@ -284,6 +284,32 @@ def _cadeias_folha(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
     return propostas
 
 
+def _digitos(texto: str) -> str:
+    return re.sub(r"\D", "", texto or "")
+
+
+def _numero_compativel(esquerda: str, direita: str) -> bool:
+    """O mesmo identificador longo. Prefixo diferente não basta."""
+    a, b = _digitos(esquerda), _digitos(direita)
+    if len(a) < 12 or len(b) < 12:
+        return False
+    return a == b or a in b or b in a
+
+
+def _periodo_compativel(esquerda: str, direita: str) -> bool:
+    def chave(valor: str) -> str:
+        data = re.search(r"(\d{2})/(\d{2})/(\d{4})", valor or "")
+        if data:
+            return f"{data.group(2)}/{data.group(3)}"
+        mes = re.search(r"(\d{2})/(\d{4})", valor or "")
+        if mes:
+            return f"{mes.group(1)}/{mes.group(2)}"
+        return ""
+
+    uma, outra = chave(esquerda), chave(direita)
+    return bool(uma and outra and uma == outra)
+
+
 def _cadeias_darf(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
     guias = [regiao for regiao in regioes if regiao.tipo_documental == "darf"]
     comprovantes = [regiao for regiao in regioes if regiao.tipo_documental == "comprovante_darf"]
@@ -296,18 +322,27 @@ def _cadeias_darf(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
     propostas = []
     for guia in guias:
         total = _valor(guia, "total")
+        campo_total = _campo(guia, "total")
+        leitura_incerta = campo_total is not None and (campo_total.estado_confianca or "") in {"ambiguo", "inconsistente"}
         comprovante = None
-        for candidato in comprovantes:
-            if candidato.pk in usadas:
-                continue
-            outro = _valor(candidato, "valor")
-            if total is None or outro is None or total != outro:
-                continue
-            if abs(candidato.pagina.numero_fisico - guia.pagina.numero_fisico) > 8:
-                continue
-            comprovante = candidato
-            usadas.add(candidato.pk)
-            break
+        if total is not None and not leitura_incerta:
+            for candidato in comprovantes:
+                if candidato.pk in usadas:
+                    continue
+                outro = _valor(candidato, "valor")
+                if outro is None or total != outro:
+                    continue
+                if abs(candidato.pagina.numero_fisico - guia.pagina.numero_fisico) > 8:
+                    continue
+                mesmo_numero = _numero_compativel(_texto(guia, "numero_documento"), _texto(candidato, "numero_documento"))
+                mesma_obrigacao = _texto(guia, "codigo_receita") and _texto(guia, "codigo_receita") == _texto(
+                    candidato, "codigo_receita"
+                ) and _periodo_compativel(_texto(guia, "periodo_apuracao"), _texto(candidato, "periodo_apuracao"))
+                if not mesmo_numero and not mesma_obrigacao:
+                    continue
+                comprovante = candidato
+                usadas.add(candidato.pk)
+                break
         codigo_receita = _texto(guia, "codigo_receita")
         periodo = _texto(guia, "periodo_apuracao")
         verificacoes = [
@@ -616,9 +651,14 @@ def _cadeias_fgts(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
             outro = _valor(candidato, "valor") or _valor(candidato, "valor_recolhimento")
             if valor is None or outro is None or valor != outro:
                 continue
-            if abs(candidato.pagina.numero_fisico - guia.pagina.numero_fisico) <= 2:
-                comprovante = candidato
-                break
+            if abs(candidato.pagina.numero_fisico - guia.pagina.numero_fisico) > 2:
+                continue
+            competencia_guia = _texto(guia, "competencia")
+            competencia_recibo = _texto(candidato, "competencia")
+            if competencia_guia and competencia_recibo and not _periodo_compativel(competencia_guia, competencia_recibo):
+                continue
+            comprovante = candidato
+            break
         deposito, total_guia = _valores_na_guia(guia.texto_regiao or "")
         if deposito is None or total_guia is None:
             situacao_peca = "nao_verificavel"

@@ -112,7 +112,14 @@ CATALOGO_TIPOS: tuple[TipoDocumentalCatalogo, ...] = (
         "Comprovante de recolhimento de FGTS",
         "Comprovante de pagamento da guia de FGTS.",
         "fgts",
-        ("comprovante de recolhimento", "autenticação bancária", "autenticacao bancaria", "fgts pago"),
+        (
+            "comprovante de recolhimento",
+            "autenticação bancária",
+            "autenticacao bancaria",
+            "fgts pago",
+            "convenio fgts",
+            "convênio fgts",
+        ),
     ),
     TipoDocumentalCatalogo(
         "darf",
