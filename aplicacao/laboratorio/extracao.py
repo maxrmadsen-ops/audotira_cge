@@ -113,6 +113,7 @@ CHAVES_DATA = {
     "data_admissao",
     "data_aviso",
     "data_desligamento",
+    "data_afastamento",
     "data_comunicacao",
     "data",
     "data_recebimento",
@@ -789,6 +790,14 @@ def _extrair_rescisao(texto: str) -> dict[str, str]:
 
 
 def _extrair_quitacao(texto: str) -> dict[str, str]:
+    from aplicacao.laboratorio.validacao import datas_rotuladas_trct, normalizar_data
+
+    datas = datas_rotuladas_trct(texto)
+    data_quitacao = _buscar(
+        (r"data\s+da\s+quita[cç][aã]o\s*[:\-]?\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})",),
+        texto,
+    )
+    data_quitacao = normalizar_data(data_quitacao)
     return {
         "empregador": _buscar(
             (
@@ -799,16 +808,47 @@ def _extrair_quitacao(texto: str) -> dict[str, str]:
         ),
         "trabalhador": _nome_apos_identificacao(texto) or _buscar((r"(?:trabalhador|empregado|funcion[aá]rio)\s*[:\-]?\s*(.+)",), texto),
         "valor_quitado": _buscar((rf"valor\s+l[ií]quido\s+de\s*R?\$?\s*({_MOEDA_PONTUADA})",), texto),
-        "data": _buscar(
-            (r"(?:local\s+e\s+data|data\s+da\s+quita[cç][aã]o)\s*[:\-]?\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4})",),
-            texto,
-        ),
+        "data_admissao": datas.get("data_admissao", ""),
+        "data_admissao__evidencia": datas.get("data_admissao__evidencia", ""),
+        "data_aviso": datas.get("data_aviso", ""),
+        "data_aviso__evidencia": datas.get("data_aviso__evidencia", ""),
+        "data_afastamento": datas.get("data_desligamento", ""),
+        "data_afastamento__evidencia": datas.get("data_desligamento__evidencia", ""),
+        "data": data_quitacao,
         "assinaturas": "",
     }
 
 
+def _data_da_comunicacao(texto: str) -> tuple[str, str, str, str]:
+    """Data só junto do rótulo. Data de outro documento e data impossível não entram."""
+    from aplicacao.laboratorio.validacao import data_rejeitada_no_texto, normalizar_data
+
+    rotulo = re.search(r"local\s+e\s+data|data\s+da\s+comunica[cç][aã]o", texto or "", flags=re.IGNORECASE)
+    if rotulo:
+        inicio = max(0, rotulo.start() - 50)
+        janela = (texto or "")[inicio : rotulo.end() + 40]
+        tokens = re.findall(r"\d{1,2}/\d{1,2}/\d{2,4}", janela)
+        validas = []
+        for token in tokens:
+            normal = normalizar_data(token)
+            if normal:
+                validas.append(normal)
+        if len(validas) == 1:
+            return validas[0], "evidencia_textual", f"{rotulo.group(0).strip()} {validas[0]}", "ocr_regiao"
+        rejeitada = next((token for token in tokens if not normalizar_data(token)), "")
+        mensagem = "Rótulo Local e data identificado. A leitura automática não formou uma data válida."
+        if rejeitada:
+            mensagem += f" Token rejeitado: {rejeitada}."
+        mensagem += " A data não foi copiada de outro documento."
+        return "", "parcial", mensagem, "validacao_semantica"
+    rejeitada = data_rejeitada_no_texto(texto)
+    if rejeitada:
+        return "", "inconsistente", f"Formato de data rejeitado: {rejeitada}.", "validacao_semantica"
+    return "", "", "", ""
+
+
 def _extrair_dispensa(texto: str) -> dict[str, str]:
-    from aplicacao.laboratorio.validacao import data_rejeitada_no_texto, data_valida_no_texto, motivo_rotulado, protocolo_documental
+    from aplicacao.laboratorio.validacao import motivo_rotulado, protocolo_documental
 
     trabalhador = _nome_apos_identificacao(texto) or _buscar(
         (
@@ -825,15 +865,14 @@ def _extrair_dispensa(texto: str) -> dict[str, str]:
     if motivo and re.fullmatch(r"\d{6,}", motivo) and not protocolo:
         protocolo = motivo
         motivo = ""
-    data = data_valida_no_texto(texto)
-    rejeitada = "" if data else data_rejeitada_no_texto(texto)
+    data, confianca, evidencia, metodo = _data_da_comunicacao(texto)
     return {
         "empregador": empregador,
         "trabalhador": trabalhador,
         "data_comunicacao": data,
-        "data_comunicacao__confianca": "inconsistente" if rejeitada else "",
-        "data_comunicacao__evidencia": f"Formato de data rejeitado: {rejeitada}." if rejeitada else "",
-        "data_comunicacao__metodo": "validacao_semantica" if rejeitada else "",
+        "data_comunicacao__confianca": confianca,
+        "data_comunicacao__evidencia": evidencia,
+        "data_comunicacao__metodo": metodo,
         "motivo": motivo,
         "protocolo": protocolo,
         "protocolo__evidencia": _linha_preferida(texto, protocolo, "dispensa") if protocolo else "",

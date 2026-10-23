@@ -120,6 +120,7 @@ SECOES_PECA = {
     ),
     "termo_quitacao": (
         ("partes", "Partes", ("trabalhador", "empregador")),
+        ("datas", "Datas do contrato", ("data_admissao", "data_aviso", "data_afastamento", "data")),
         ("quitacao", "Quitação", ("valor_quitado", "assinaturas")),
     ),
     "comunicacao_dispensa": (
@@ -130,6 +131,12 @@ SECOES_PECA = {
 
 
 CHAVES_RUBRICA_AGREGADA = {"rubricas_proventos", "rubricas_descontos"}
+
+
+def _campo_excepcional(campo) -> bool:
+    if getattr(campo, "estado_confianca", "") == "inconsistente":
+        return True
+    return getattr(campo, "estado_confianca", "") == "parcial" and not (getattr(campo, "valor_original", "") or "").strip()
 
 
 def secoes_da_peca(tipo: str, campos: list, rubricas_estruturadas: bool = False) -> list[dict]:
@@ -146,7 +153,7 @@ def secoes_da_peca(tipo: str, campos: list, rubricas_estruturadas: bool = False)
             if not campo.valor_original and not campo.obrigatorio and campo.estado_confianca not in {"ambiguo", "inconsistente", "parcial"} and campo.chave not in {
                 "cpf_atesto", "autenticacao", "salario_base", "hora_operacao", "data_hora_impressao", "matricula", "data_recebimento",
                 "total_liquido", "liquido_calculado", "assinaturas", "deducoes", "total_bruto", "valor_quitado",
-                "data_comunicacao", "protocolo", "motivo",
+                "data_comunicacao", "protocolo", "motivo", "data_admissao", "data_aviso", "data_afastamento", "data",
             }:
                 continue
             itens.append(campo)
@@ -154,7 +161,8 @@ def secoes_da_peca(tipo: str, campos: list, rubricas_estruturadas: bool = False)
         pendentes = sum(1 for item in itens if item.estado_revisao == "pendente" or (item.obrigatorio and not item.valor_original))
         if not itens:
             continue
-        secoes.append({"codigo": codigo, "titulo": titulo, "campos": itens, "pendentes": pendentes})
+        excecoes = sum(1 for item in itens if _campo_excepcional(item))
+        secoes.append({"codigo": codigo, "titulo": titulo, "campos": itens, "pendentes": pendentes, "excecoes": excecoes})
     resto = [
         campo
         for campo in campos
@@ -169,6 +177,7 @@ def secoes_da_peca(tipo: str, campos: list, rubricas_estruturadas: bool = False)
                 "titulo": "Outros campos",
                 "campos": resto,
                 "pendentes": sum(1 for item in resto if item.estado_revisao == "pendente"),
+                "excecoes": sum(1 for item in resto if _campo_excepcional(item)),
             }
         )
     return secoes
@@ -211,7 +220,7 @@ def resumo_peca(regiao) -> dict:
         return {
             "tipo": "Termo de quitação",
             "pessoa": valores.get("trabalhador") or "Trabalhador não localizado",
-            "referencia": "Quitação",
+            "referencia": valores.get("data_afastamento") or "Afastamento não lido",
             "valor": valores.get("valor_quitado") or "Valor não consta no termo",
         }
     if regiao.tipo_documental == "comunicacao_dispensa":
@@ -219,7 +228,7 @@ def resumo_peca(regiao) -> dict:
             "tipo": "Comunicação de dispensa",
             "pessoa": valores.get("trabalhador") or "Trabalhador não localizado",
             "referencia": valores.get("protocolo") or "Protocolo não identificado",
-            "valor": valores.get("data_comunicacao") or "Data não consta no trecho",
+            "valor": valores.get("data_comunicacao") or "Data da comunicação pendente de leitura",
         }
     from aplicacao.laboratorio.catalogo import rotulo_tipo
 

@@ -262,6 +262,65 @@ def _cadeias_folha(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
     return propostas
 
 
+def comparar_datas_evento(data_a: str, origem_a: str, data_b: str, origem_b: str) -> dict:
+    """Compara o mesmo evento em dois documentos. Não autentica nenhum deles."""
+    from aplicacao.laboratorio.validacao import normalizar_data
+
+    esquerda = normalizar_data(data_a) or (data_a or "").strip()
+    direita = normalizar_data(data_b) or (data_b or "").strip()
+    if not esquerda or not direita:
+        return {
+            "situacao": "nao_verificavel",
+            "detalhe": (
+                f"{origem_a or 'Primeiro documento'}: {esquerda or 'não lida'}. "
+                f"{origem_b or 'Segundo documento'}: {direita or 'não lida'}. "
+                "A comparação não foi fechada e nenhum documento foi autenticado."
+            ),
+        }
+    if esquerda == direita:
+        return {
+            "situacao": "coincidente",
+            "detalhe": (
+                f"{origem_a}: {esquerda}. {origem_b}: {direita}. "
+                "As evidências permanecem independentes. A coincidência não autentica os documentos nem comprova quitação."
+            ),
+        }
+    return {
+        "situacao": "diverge",
+        "detalhe": (
+            f"{origem_a}: {esquerda}. {origem_b}: {direita}. "
+            "As datas divergem. Nenhuma das duas foi confirmada."
+        ),
+    }
+
+
+def _verificacao_datas_desligamento(rescisao: RegiaoDocumental, apoio: RegiaoDocumental | None) -> dict:
+    data_rescisao = _texto(rescisao, "data_desligamento")
+    data_apoio = ""
+    chave_apoio = "data_afastamento"
+    if apoio is not None:
+        data_apoio = _texto(apoio, "data_afastamento") or _texto(apoio, "data_desligamento")
+        if not _texto(apoio, "data_afastamento") and _texto(apoio, "data_desligamento"):
+            chave_apoio = "data_desligamento"
+    origem_a = f"Rescisão · página {rescisao.pagina.numero_fisico} · Data de desligamento"
+    origem_b = (
+        f"Quitação · página {apoio.pagina.numero_fisico} · Data de Afastamento"
+        if apoio is not None
+        else "Quitação"
+    )
+    comparado = comparar_datas_evento(data_rescisao, origem_a, data_apoio, origem_b)
+    evidencias = [_evidencia(rescisao, "data_desligamento", "Data de desligamento")]
+    if apoio is not None:
+        evidencias.append(_evidencia(apoio, chave_apoio, "Data de Afastamento"))
+    return {
+        "codigo": "datas_desligamento",
+        "titulo": "Data de desligamento e de afastamento",
+        "situacao": comparado["situacao"],
+        "detalhe": comparado["detalhe"],
+        "evidencias": evidencias,
+    }
+
+
 def _cadeias_rescisao(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
     rescisoes = [regiao for regiao in regioes if regiao.tipo_documental == "termo_rescisao"]
     quitacoes = [regiao for regiao in regioes if regiao.tipo_documental == "termo_quitacao"]
@@ -342,7 +401,8 @@ def _cadeias_rescisao(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
                 f"Candidato: transferência da página {comprovante.pagina.numero_fisico} no valor {_moeda(_valor(comprovante, 'valor'))}. "
                 f"A comparação usou o líquido {origem_valor} {_moeda(referencia)}. "
                 "A coincidência matemática não comprova o pagamento. "
-                "A semelhança do nome é correspondência sugerida, não identidade confirmada."
+                "A semelhança do nome é correspondência sugerida, não identidade confirmada. "
+                "A data da transferência não substitui a data da comunicação."
                 + contexto_data
             )
             if comprovante is not None
@@ -354,6 +414,7 @@ def _cadeias_rescisao(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
             )
         )
         verificacoes = [
+            _verificacao_datas_desligamento(rescisao, apoio),
             {
                 "codigo": "liquido_calculado",
                 "titulo": "Líquido calculado",
@@ -412,7 +473,7 @@ def painel_da_cadeia(cadeia) -> dict:
     conferencias = []
     pendencias = []
     for item in cadeia.verificacoes or []:
-        if item.get("situacao") == "confere":
+        if item.get("situacao") in {"confere", "coincidente"}:
             conferencias.append(item.get("titulo") or "")
         else:
             pendencias.append(item.get("titulo") or "")

@@ -518,7 +518,7 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
     }
 
 
-VERSAO_EXTRACAO_REGIAO = "6.1.2"
+VERSAO_EXTRACAO_REGIAO = "6.1.3"
 
 
 def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> dict:
@@ -647,6 +647,8 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                 _completar_liquido_lido(campos, peca["recorte"])
             if regiao.tipo_documental in {"termo_quitacao", "termo_rescisao"}:
                 _completar_traco_quitacao(campos, imagem, peca["palavras"], faixa)
+            if regiao.tipo_documental == "comunicacao_dispensa":
+                _completar_data_comunicacao(campos, ocr, peca["recorte"], peca["palavras"], faixa)
             CampoExtraido.objects.bulk_create(
                 [
                     CampoExtraido(
@@ -833,7 +835,12 @@ def _completar_traco_quitacao(campos: list[dict], imagem, palavras: list[dict], 
             "Traço manuscrito visível. Signatário não identificado. "
             "A presença não comprova autenticidade nem quitação."
         )
-        atual["trecho_evidencia"] = "Faixa do termo de quitação abaixo do rótulo de assinatura."
+        atual["trecho_evidencia"] = "Faixa do termo abaixo do rótulo de assinatura."
+        atual["localizacao_precisa"] = True
+        atual["evidencia_x"] = 0.08
+        atual["evidencia_y"] = round(cursor, 4)
+        atual["evidencia_largura"] = 0.84
+        atual["evidencia_altura"] = 0.08
     else:
         atual["valor_original"] = (
             "Conferência visual pendente. A leitura automática não confirma nem nega assinatura."
@@ -896,6 +903,52 @@ def _ler_tabela_verbas(ocr, recorte, palavras: list[dict]) -> tuple[str, list[di
     return normalizar_pontuacao_monetaria("\n".join(textos)), unicas or palavras
 
 
+def _completar_data_comunicacao(campos: list[dict], ocr, recorte, palavras: list[dict], faixa: dict) -> None:
+    """Segunda leitura do rótulo Local e data. Não copia data de outro documento."""
+    from aplicacao.laboratorio.extracao import _data_da_comunicacao
+    from aplicacao.laboratorio.localizacao import caixa_do_valor, projetar_pagina
+
+    atual = next((campo for campo in campos if campo["chave"] == "data_comunicacao"), None)
+    if atual is None or atual.get("valor_original"):
+        return
+    altura = recorte.size[1]
+    inicio = int(altura * 0.5)
+    if altura - inicio < 24:
+        return
+    try:
+        texto, palavras_linha = ocr.extrair_linha_ampliada(recorte.crop((0, inicio, recorte.size[0], altura)))
+    except RuntimeError:
+        return
+    data, confianca, evidencia, metodo = _data_da_comunicacao(texto or "")
+    if not data and confianca != "parcial":
+        return
+    if data:
+        atual["valor_original"] = data
+        atual["valor_normalizado"] = data
+        atual["estado_confianca"] = "parcial"
+        atual["metodo"] = "ocr_linha"
+    else:
+        atual["valor_original"] = ""
+        atual["valor_normalizado"] = ""
+        atual["estado_confianca"] = "parcial"
+        atual["metodo"] = metodo or "validacao_semantica"
+    if evidencia:
+        anterior = atual.get("trecho_evidencia") or ""
+        if "rejeitado" in anterior.lower() and "rejeitado" not in evidencia.lower():
+            atual["trecho_evidencia"] = f"{evidencia} {anterior}"[:500]
+        else:
+            atual["trecho_evidencia"] = evidencia
+    projetadas = []
+    for palavra in palavras_linha:
+        copia = dict(palavra)
+        copia["y"] = 0.5 + float(palavra["y"]) * 0.5
+        projetadas.append(copia)
+    caixa = caixa_do_valor(projetadas, "LOCAL E DATA") or caixa_do_valor(palavras, "LOCAL E DATA")
+    if caixa:
+        atual.update(projetar_pagina(caixa, faixa))
+        atual["localizacao_precisa"] = True
+
+
 def _aplicar_rubricas_na_verba(campos: list[dict], texto_pagina: str, texto_tabela: str) -> None:
     itens = mesclar_rubricas_rescisao(texto_pagina, texto_tabela)
     linhas = []
@@ -906,6 +959,9 @@ def _aplicar_rubricas_na_verba(campos: list[dict], texto_pagina: str, texto_tabe
     if verba is not None and linhas:
         verba["valor_original"] = "\n".join(linhas)[:800]
         verba["valor_normalizado"] = verba["valor_original"]
+        verba["trecho_evidencia"] = (
+            "Leitura estruturada da tabela. O OCR integral permanece no texto da região.\n" + verba["valor_original"]
+        )[:900]
         verba["metodo"] = "ocr_tabela"
         verba["estado_confianca"] = "parcial"
 

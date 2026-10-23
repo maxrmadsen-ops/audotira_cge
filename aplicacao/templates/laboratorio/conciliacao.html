@@ -100,6 +100,7 @@
                     {% if item.situacao == "confere" %}Confere
                     {% elif item.situacao == "diverge" %}Diverge
                     {% elif item.situacao == "pendente" %}Pendente de revisão humana
+                    {% elif item.situacao == "coincidente" %}Coincidente
                     {% else %}Não verificável{% endif %}
                 </td>
                 <td>{{ item.detalhe }}</td>

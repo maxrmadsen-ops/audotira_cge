@@ -103,13 +103,48 @@ def projetar_pagina(caixa: dict, regiao: dict) -> dict:
     }
 
 
+def caixa_na_linha(palavras: list[dict], valor: str, ancora: str) -> dict | None:
+    """Localiza o valor na mesma linha de uma âncora única. Não devolve a linha inteira."""
+    ancora_n = _norm(ancora)
+    valor_n = _norm(valor)
+    if not ancora_n or not valor_n or ancora_n == valor_n:
+        return None
+    normas = [_norm(palavra.get("texto", "")) for palavra in palavras]
+    indices = [indice for indice, norma in enumerate(normas) if norma == ancora_n]
+    if len(indices) != 1:
+        return None
+    y = float(palavras[indices[0]]["y"])
+    hits = [
+        indice
+        for indice, norma in enumerate(normas)
+        if abs(float(palavras[indice]["y"]) - y) <= 0.02 and (norma == valor_n or (len(valor_n) >= 4 and valor_n in norma))
+    ]
+    if len(hits) != 1:
+        return None
+    return _unir([palavras[hits[0]]])
+
+
 def localizar_campos(campos: list[dict], palavras: list[dict], regiao: dict) -> list[dict]:
     for campo in campos:
         consulta = campo.get("valor_original") or ""
         caixa = caixa_do_valor(palavras, consulta)
         trecho = campo.get("trecho_evidencia") or ""
-        if caixa is None and trecho and trecho != consulta and len(trecho) <= 160:
+        if caixa is None and trecho and trecho != consulta and len(trecho) <= len(consulta) + 12:
             caixa = caixa_do_valor(palavras, trecho)
+        elif caixa is None and trecho and consulta:
+            melhor = None
+            for parte in re.split(r"\s+", trecho):
+                if not parte or _norm(parte) == _norm(consulta):
+                    continue
+                if caixa_do_valor(palavras, parte) is None:
+                    continue
+                candidata = caixa_na_linha(palavras, consulta, parte)
+                if candidata is not None and (melhor is None or len(_norm(parte)) > melhor[0]):
+                    melhor = (len(_norm(parte)), candidata)
+            if melhor is not None:
+                caixa = melhor[1]
+        if caixa is None and not consulta and "local e data" in trecho.lower():
+            caixa = caixa_do_valor(palavras, "LOCAL E DATA")
         if caixa is None:
             campo["localizacao_precisa"] = False
             continue

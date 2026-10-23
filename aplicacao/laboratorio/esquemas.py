@@ -83,7 +83,10 @@ ESQUEMAS: dict[str, tuple[CampoEsquema, ...]] = {
         CampoEsquema("empregador", "Empregador"),
         CampoEsquema("trabalhador", "Trabalhador", True),
         CampoEsquema("valor_quitado", "Valor quitado"),
-        CampoEsquema("data", "Data"),
+        CampoEsquema("data_admissao", "Data de admissão"),
+        CampoEsquema("data_aviso", "Data do aviso prévio"),
+        CampoEsquema("data_afastamento", "Data de Afastamento"),
+        CampoEsquema("data", "Data da quitação"),
         CampoEsquema("assinaturas", "Assinaturas"),
     ),
     "dispensa": (
