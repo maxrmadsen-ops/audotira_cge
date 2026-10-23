@@ -184,6 +184,11 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
 
 def _nome_util(nome: str) -> str:
     limpo = re.sub(r"\s+", " ", nome or "").strip(" :-|")
+    palavras = limpo.split()
+    rotulos = {"CBO", "EMPRESA", "LOCAL", "FL", "CPF", "INSS", "FGTS"}
+    while palavras and palavras[-1].upper() in rotulos:
+        palavras.pop()
+    limpo = " ".join(palavras)
     if len(limpo.split()) < 2 or re.search(r"\d", limpo) or "APAE" in limpo.upper():
         return ""
     if re.search(r"funcion|cadastro|descri|provento|desconto|departamento", limpo, flags=re.IGNORECASE):
