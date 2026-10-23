@@ -182,17 +182,32 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
     return campos
 
 
+def _nome_util(nome: str) -> str:
+    limpo = re.sub(r"\s+", " ", nome or "").strip(" :-|")
+    if len(limpo.split()) < 2 or re.search(r"\d", limpo) or "APAE" in limpo.upper():
+        return ""
+    if re.search(r"funcion|cadastro|descri|provento|desconto|departamento", limpo, flags=re.IGNORECASE):
+        return ""
+    return limpo
+
+
 def _nome_trabalhador(texto: str) -> str:
+    # Linha de cadastro em maiúsculas: "55 WALLACE SANTOS DE ARAUJO".
+    linha = re.search(
+        r"^\s*\d{1,6}\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}){1,5})\b",
+        texto or "",
+        flags=re.MULTILINE,
+    )
+    if linha and _nome_util(linha.group(1)):
+        return _nome_util(linha.group(1))
     # Holerite escaneado: cabeçalho "Nome do Funcionário" e linha seguinte com o nome.
     apos_rotulo = re.search(
         r"(?:nome\s+do\s+funcion[aá]rio|cadastro)[^\n]{0,120}\n\s*(?:\d{1,6}\s+)?([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç .']{6,70})",
         texto or "",
         flags=re.IGNORECASE,
     )
-    if apos_rotulo:
-        candidato = re.sub(r"\s+", " ", apos_rotulo.group(1)).strip(" :-|")
-        if len(candidato.split()) >= 2 and "APAE" not in candidato.upper():
-            return candidato
+    if apos_rotulo and _nome_util(apos_rotulo.group(1)):
+        return _nome_util(apos_rotulo.group(1))
     padroes = (
         r"(?:nome\s+do\s+empregado|nome\s+do\s+funcion[aá]rio|funcion[aá]rio|empregado|trabalhador)\s*[:\-]\s*([^\n:]{3,80})",
         r"\b([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}){2,5})\b",
@@ -218,11 +233,10 @@ def _nome_trabalhador(texto: str) -> str:
     }
     for padrao in padroes:
         for achado in re.finditer(padrao, texto or "", flags=re.IGNORECASE):
-            nome = re.sub(r"\s+", " ", achado.group(1)).strip(" :-|")
-            if any(bloco in nome.upper() for bloco in bloqueados):
+            nome = _nome_util(achado.group(1))
+            if not nome or any(bloco in nome.upper() for bloco in bloqueados):
                 continue
-            if len(nome.split()) >= 2 and not re.search(r"\d", nome):
-                return nome
+            return nome
     return ""
 
 
@@ -969,7 +983,13 @@ def _extrair_darf(texto: str) -> dict[str, str]:
             ),
             texto,
         ),
-        "numero_documento": _buscar((r"(?:n[uú]mero(?:\s+do\s+documento)?|n[ºo])\s*[:\-]?\s*([0-9][0-9.\-]{8,})",), texto),
+        "numero_documento": _buscar(
+            (
+                r"(?:n[uú]mero(?:\s+do\s+documento)?|n[ºo])\s*[:\-]?\s*\|?\s*([0-9]{2}\.[0-9]{2}\.[0-9]{5}\.[0-9]+-\d)",
+                r"\b([0-9]{2}\.[0-9]{2}\.[0-9]{5}\.[0-9]{7}-\d)\b",
+            ),
+            texto,
+        ),
         "codigo_barras": _buscar((r"\b((?:\d{11}\s+){3}\d{11})\b", r"\b(\d{11}\s+\d{11}\s+\d{11}\s+\d{11})\b"), texto),
     }
 

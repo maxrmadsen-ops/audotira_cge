@@ -49,6 +49,7 @@ PA:04/2022
 Vencimento:20/05/2022
 Valor Total do Documento
 2.428,92
+Número: 07.16.22116.4889373-0
 """
 
 RECIBO = """
@@ -90,6 +91,15 @@ class Ciclo615bTests(TestCase):
         campos = {item["chave"]: item for item in extrair_campos("darf", DARF, 112, "teste")}
         self.assertEqual(campos["total"]["valor_normalizado"], "2428.92")
         self.assertEqual(campos["codigo_receita"]["valor_original"], "1082")
+        self.assertEqual(campos["numero_documento"]["valor_original"], "07.16.22116.4889373-0")
+        nome = {item["chave"]: item for item in extrair_campos("holerite", """
+Jadastro ee do Funcionário | CBO
+55 WALLACE SANTOS DE ARAUJO 212320
+PROFESSOR ED FISICA
+Total 2.343,75 277,64
+Total Líquido 2.066,11
+""", 50, "teste")}
+        self.assertEqual(nome["funcionario"]["valor_original"], "WALLACE SANTOS DE ARAUJO")
         recibo = {item["chave"]: item for item in extrair_campos("comprovante_darf", RECIBO, 110, "teste")}
         self.assertEqual(recibo["valor"]["valor_original"], "")
         self.assertEqual(recibo["data_pagamento"]["valor_original"], "17/05/2062")
