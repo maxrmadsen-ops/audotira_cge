@@ -103,8 +103,9 @@ class NavegacaoInventarioTests(TestCase):
                 self.assertEqual(cobertura["pecas_placeholder"], 1)
                 inventario = self.client.get(reverse("laboratorio:lote", kwargs={"lote_pk": lote.pk}))
                 self.assertContains(inventario, "Registros de peças")
-                self.assertContains(inventario, "Peças efetivas")
-                self.assertContains(inventario, "placeholder")
+                self.assertContains(inventario, "peças efetivas")
+                self.assertContains(inventario, "menções sem documento")
+                self.assertContains(inventario, "páginas com candidatos documentais")
 
     def test_busca_por_identificador_abre_a_peca_mesmo_com_varias_na_pagina(self):
         with TemporaryDirectory(prefix="navegacao-") as temporario:

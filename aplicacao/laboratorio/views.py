@@ -580,8 +580,10 @@ class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, lote_pk):
+        from aplicacao.laboratorio.apresentacao import ficha_cadeia
         from aplicacao.laboratorio.catalogo import rotulo_tipo
         from aplicacao.laboratorio.conciliacao import painel_da_cadeia
+        from aplicacao.laboratorio.conferencia_integrada import montar_conferencia_integrada
 
         lote = _lote_visivel(request, lote_pk)
         cadeias = list(
@@ -591,10 +593,11 @@ class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
                 "comprovante__pagina",
                 "apoio__pagina",
                 "revisado_por",
-            )
+            ).prefetch_related("execucao__campos", "comprovante__campos", "apoio__campos")
         )
         for cadeia in cadeias:
             cadeia.painel = painel_da_cadeia(cadeia)
+            cadeia.ficha = ficha_cadeia(cadeia)
         return render(
             request,
             "laboratorio/conciliacao.html",
@@ -602,6 +605,7 @@ class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
                 "prestacao": lote.prestacao_parceria,
                 "lote": lote,
                 "cadeias": cadeias,
+                "painel": montar_conferencia_integrada(lote),
                 "rotulo_tipo": rotulo_tipo,
                 "rotulos_separacao": {
                     "vinculo": "Vínculo",

@@ -2,13 +2,58 @@
 
 from __future__ import annotations
 
-from aplicacao.laboratorio.escolhas import EstadoClassificacao, EstadoRevisao
+from aplicacao.laboratorio.escolhas import EstadoClassificacao, EstadoRevisao, EstadoVinculo
 from aplicacao.laboratorio.models import InventarioPagina
 
 
 def eh_placeholder(regiao) -> bool:
     """Menção sem documento ou página inteira inconclusiva. Não é peça efetiva."""
     return regiao.tipo_documental == "outros_nao_classificados" or regiao.metodo_deteccao == "pagina_inteira_inconclusiva"
+
+
+_CHAVES_PESSOA = ("funcionario", "trabalhador", "beneficiario")
+_CHAVES_VALOR_LIDO = {
+    "holerite": "valor_liquido",
+    "folha_pagamento": "valor_liquido",
+    "termo_rescisao": "total_liquido",
+    "guia_fgts": "valor_recolhimento",
+}
+
+
+def ficha_cadeia(cadeia) -> dict:
+    """Textos de apoio da cadeia. Só mostra valor que já está gravado no campo."""
+    pessoa = ""
+    valor = ""
+    regiao = cadeia.execucao
+    if regiao is not None:
+        campos = {campo.chave: (campo.valor_original or "").strip() for campo in regiao.campos.all()}
+        for chave in _CHAVES_PESSOA:
+            if campos.get(chave):
+                pessoa = campos[chave]
+                break
+        valor = campos.get(_CHAVES_VALOR_LIDO.get(regiao.tipo_documental, "valor"), "")
+    if cadeia.estado == EstadoVinculo.CONFIRMADO:
+        vinculo, vinculo_classe = "Vínculo confirmado pelo auditor", "selo-confirmado"
+    elif cadeia.estado == EstadoVinculo.REJEITADO:
+        vinculo, vinculo_classe = "Vínculo rejeitado", "selo-diverge"
+    else:
+        vinculo, vinculo_classe = "Vínculo sugerido", "selo-sugerido"
+    if cadeia.comprovante_id and cadeia.estado == EstadoVinculo.CONFIRMADO:
+        comprovacao, comprovacao_classe = "Comprovante com vínculo confirmado pelo auditor", "selo-confirmado"
+    elif cadeia.comprovante_id and cadeia.estado == EstadoVinculo.REJEITADO:
+        comprovacao, comprovacao_classe = "Comprovante com vínculo rejeitado", "selo-diverge"
+    elif cadeia.comprovante_id:
+        comprovacao, comprovacao_classe = "Correspondência sugerida", "selo-sugerido"
+    else:
+        comprovacao, comprovacao_classe = "Sem comprovante nesta amostra", "selo-pendente"
+    return {
+        "pessoa": pessoa,
+        "valor": valor,
+        "vinculo": vinculo,
+        "vinculo_classe": vinculo_classe,
+        "comprovacao": comprovacao,
+        "comprovacao_classe": comprovacao_classe,
+    }
 
 
 def filtrar_paginas(lote, get) -> list[InventarioPagina]:

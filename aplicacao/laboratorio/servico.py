@@ -511,7 +511,7 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
         "nome_original": lote.documento.nome_original,
         "aviso_inventario": (
             "Registro de peça é toda região gravada. "
-            "Peça efetiva exclui placeholder: menção sem documento ou página inteira inconclusiva. "
+            "Peça efetiva exclui menção sem documento e página inteira inconclusiva. "
             "O inventário de páginas não equivale à classificação integral. "
             "O inventário não transforma inspeção complementar em classificação."
         ),

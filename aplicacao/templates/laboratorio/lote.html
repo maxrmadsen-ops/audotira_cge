@@ -29,9 +29,7 @@
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Com candidato</span><strong>{{ relatorio.paginas_com_candidato }}</strong></article></div>
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Inconclusivas</span><strong>{{ relatorio.paginas_inconclusivas }}</strong></article></div>
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Múltiplas peças</span><strong>{{ relatorio.paginas_multiplas_pecas }}</strong></article></div>
-        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Registros de peças</span><strong>{{ relatorio.pecas_registros }}</strong></article></div>
-        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Peças efetivas</span><strong>{{ relatorio.pecas_efetivas }}</strong></article></div>
-        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Placeholders</span><strong>{{ relatorio.pecas_placeholder }}</strong></article></div>
+        <div class="col-12 col-lg-6">{% include "laboratorio/indicador_documental.html" with registros=relatorio.pecas_registros paginas=relatorio.paginas_com_candidato paginas_rotulo="páginas com candidatos documentais" efetivas=relatorio.pecas_efetivas mencoes=relatorio.pecas_placeholder %}</div>
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Revisadas</span><strong>{{ relatorio.paginas_revisadas }}</strong></article></div>
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Ilegíveis</span><strong>{{ relatorio.paginas_ilegiveis }}</strong></article></div>
     </div>
@@ -121,7 +119,7 @@
                 <tr>
                     <td>
                         {% for peca in linha.pecas %}
-                        <a class="{% if linha.peca_busca == peca.pk %}fw-semibold{% endif %}" href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ linha.pagina.numero_fisico }}&peca={{ peca.pk }}">{{ peca.pk }}</a>{% if peca.tipo_documental == "outros_nao_classificados" %} <span class="texto-apoio">placeholder</span>{% else %} <span class="texto-apoio">{{ peca.tipo_documental|tipo_documental }}</span>{% endif %}{% if not forloop.last %}<br>{% endif %}
+                        <a class="{% if linha.peca_busca == peca.pk %}fw-semibold{% endif %}" href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ linha.pagina.numero_fisico }}&peca={{ peca.pk }}">{{ peca.pk }}</a>{% if peca.tipo_documental == "outros_nao_classificados" %} <span class="texto-apoio">menção sem documento</span>{% else %} <span class="texto-apoio">{{ peca.tipo_documental|tipo_documental }}</span>{% endif %}{% if not forloop.last %}<br>{% endif %}
                         {% empty %}
                         <span class="texto-apoio">—</span>
                         {% endfor %}

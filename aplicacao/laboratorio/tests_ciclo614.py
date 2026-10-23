@@ -211,6 +211,14 @@ class TesteConferenciaIntegrada(TestCase):
         self.assertNotContains(resposta, "despesa aprovada")
         consulta = self.client.get(reverse("laboratorio:conciliacao", kwargs={"lote_pk": self.lote.pk}))
         self.assertEqual(consulta.status_code, 200)
+        self.assertContains(consulta, "Global do plano")
+        self.assertContains(consulta, "Execução identificada")
+        self.assertContains(consulta, "Correspondência sugerida")
+        self.assertContains(consulta, "Pagamento confirmado")
+        self.assertContains(consulta, "Confirmar vínculo")
+        self.assertContains(consulta, "não confirma pagamento")
+        self.assertNotContains(consulta, "pagamento comprovado")
+        self.assertNotContains(consulta, "despesa elegível")
         depois = list(
             CadeiaConciliacao.objects.filter(lote=self.lote).order_by("codigo").values(
                 "codigo", "estado", "execucao_id", "comprovante_id", "apoio_id", "verificacoes"
