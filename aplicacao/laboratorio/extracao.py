@@ -1047,7 +1047,13 @@ def _extrair_darf(texto: str) -> dict[str, str]:
             ),
             texto,
         ),
-        "vencimento": _buscar((r"(?:vencimento|pagar este documento at[eé]|pagar at[eé])\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
+        "vencimento": _buscar(
+            (
+                r"vencimento\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",
+                r"pagar este documento at[eé]\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",
+            ),
+            texto,
+        ),
         "principal": _moeda_rotulada(texto, "principal") or _moeda_apos_rotulo(texto, r"valor do principal"),
         "multa": _moeda_rotulada(texto, "multa") or _moeda_apos_rotulo(texto, r"valor\s*da\s*multa|valorda\s*multa"),
         "juros": _moeda_rotulada(texto, "juros") or _moeda_apos_rotulo(texto, r"valor dos juros"),

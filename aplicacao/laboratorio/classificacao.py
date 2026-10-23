@@ -60,7 +60,7 @@ def tipo_principal(candidatos: list[dict], texto: str) -> dict | None:
     if not candidatos:
         return None
     baixo = _normalizar(texto)
-    if "comprovante de pagamento de darf" in baixo or "darf/darf" in baixo or "convenio rfb-darf" in baixo or "convênio rfb-darf" in baixo:
+    if "comprovante de pagamento de darf" in baixo or "darf/darf" in baixo or "rfb-darf" in baixo or "reb-darf" in baixo or "convenio rfb-darf" in baixo or "convênio rfb-darf" in baixo:
         darf_pago = next((item for item in candidatos if item["tipo"] == "comprovante_darf"), None)
         if darf_pago is not None:
             return darf_pago
@@ -134,7 +134,7 @@ def candidatos_da_peca(candidatos: list[dict], texto: str) -> list[dict]:
         mantidos = [item for item in mantidos if item["tipo"] != "comunicacao_dispensa"]
         if ("termo de quitação" in baixo or "termo de quitacao" in baixo) and not titulo_trct:
             mantidos = [item for item in mantidos if item["tipo"] != "termo_rescisao"]
-    if any(sinal in baixo for sinal in ("comprovante de pagamento de darf", "darf/darf", "convenio rfb-darf", "documento de arrecada")):
+    if any(sinal in baixo for sinal in ("comprovante de pagamento de darf", "darf/darf", "rfb-darf", "reb-darf", "convenio rfb-darf", "documento de arrecada")):
         mantidos = [item for item in mantidos if item["tipo"] != "comprovante_transferencia"]
     if mencao_administrativa(texto):
         mantidos = [
@@ -178,7 +178,7 @@ def dividir_comprovante_e_guia(texto: str, palavras: list[dict]) -> float | None
         return None
     # "Arrecadação" e "GRF" também aparecem no comprovante. O corte usa o corpo da guia.
     if tem_fgts and not tem_darf:
-        padrao = r"gfip|sefip|fundo|remunera|al[ií]quota|validade"
+        padrao = r"gfip|sefip|fundo|\bguia\b|remunera|al[ií]quota|validade"
     elif tem_darf and not tem_fgts:
         padrao = r"minist|federais"
     else:

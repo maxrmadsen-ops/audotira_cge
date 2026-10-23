@@ -66,7 +66,7 @@ def incorporar_amostra(lote, numeros=PAGINAS_615B, versao=VERSAO_AMOSTRA) -> lis
 
 def _corrigir_tipo(regiao: RegiaoDocumental) -> None:
     baixo = (regiao.texto_regiao or "").lower()
-    if "comprovante de pagamento de darf" in baixo or "darf/darf" in baixo or "convenio rfb-darf" in baixo:
+    if "comprovante de pagamento de darf" in baixo or "darf/darf" in baixo or "rfb-darf" in baixo or "reb-darf" in baixo:
         novo = "comprovante_darf"
     elif "documento de arrecada" in baixo or "receitas federais" in baixo:
         novo = "darf"

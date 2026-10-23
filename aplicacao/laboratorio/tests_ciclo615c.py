@@ -113,8 +113,8 @@ class Ciclo615cTests(TestCase):
             ),
             0.56,
         )
-        palavras_fgts = [{"texto": "GRF", "y": 0.22}, {"texto": "FUNDO", "y": 0.61}, {"texto": "GFIP", "y": 0.64}]
-        self.assertEqual(dividir_comprovante_e_guia(RECIBO_FGTS + "\n" + GUIA_FGTS, palavras_fgts), 0.59)
+        palavras_fgts = [{"texto": "GRF", "y": 0.22}, {"texto": "GUIA", "y": 0.48}, {"texto": "FUNDO", "y": 0.62}]
+        self.assertEqual(dividir_comprovante_e_guia(RECIBO_FGTS + "\n" + GUIA_FGTS, palavras_fgts), 0.46)
         self.assertIsNone(
             dividir_comprovante_e_guia(
                 "Documento de Arrecadação de Receitas Federais\nValor Total do Documento\n2.708,32",
@@ -132,6 +132,14 @@ class Ciclo615cTests(TestCase):
         prev = {item["chave"]: item for item in extrair_campos("darf", DARF_PREV, 114, "teste")}
         self.assertEqual(prev["total"]["valor_normalizado"], "2708.32")
         self.assertEqual(prev["numero_documento"]["valor_original"], "07.16.22137.6425585-7")
+        self.assertEqual(prev["vencimento"]["valor_original"], "20/04/2022")
+        recibo_reb = """
+        COMPROVANTE DE PAGAMENTO
+        Convenio REB-DARF
+        Numero do Documento 07.16.22146.4065745-5
+        Valor Total 2.467,97
+        """
+        self.assertEqual(tipo_principal(classificar_texto(recibo_reb), recibo_reb)["tipo"], "comprovante_darf")
         sem_valor = {item["chave"]: item for item in extrair_campos("comprovante_darf", """
 COMPROVANTE DE PAGAMENTO DE DARF/DARF SIMPLES
 PERIODO DE APURACAO 31/05/2022

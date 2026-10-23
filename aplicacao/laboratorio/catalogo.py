@@ -145,6 +145,8 @@ CATALOGO_TIPOS: tuple[TipoDocumentalCatalogo, ...] = (
             "darf/darf simples",
             "convenio rfb-darf",
             "convênio rfb-darf",
+            "reb-darf",
+            "rfb-darf",
         ),
     ),
     TipoDocumentalCatalogo(
