@@ -12,8 +12,8 @@ class TesteReleaseOnda10(SimpleTestCase):
     def test_versao_da_release(self):
         from aplicacao.configuracao.versao import ONDA_ATUAL, VERSAO_APLICACAO
 
-        self.assertEqual(VERSAO_APLICACAO, "poc-6.1.3")
-        self.assertEqual(ONDA_ATUAL, "POC 6.1.3")
+        self.assertEqual(VERSAO_APLICACAO, "poc-6.1.4")
+        self.assertEqual(ONDA_ATUAL, "POC 6.1.4")
 
     def test_cookie_seguro_exige_variavel(self):
         from aplicacao.configuracao.settings import cookies_seguros_habilitados, proxy_reverso_habilitado

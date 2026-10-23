@@ -1,0 +1,71 @@
+{% extends "base_autenticado.html" %}
+{% block titulo %}Conferência integrada{% endblock %}
+{% block conteudo %}
+<p class="trilho">
+    <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
+    / <a href="{% url 'laboratorio:processo' prestacao.pk %}">Classificação e Extração</a>
+    / Conferência integrada
+</p>
+<div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+    <div>
+        <h1 class="h3">Conferência integrada</h1>
+        <p class="texto-apoio mb-0">{{ painel.titulo_plano }}</p>
+        <p class="texto-apoio mb-0">{{ prestacao.numero_processo }} · {{ lote.numero_processo_parcial }} · Plano {{ painel.revisao_plano }}</p>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratorio:conciliacao' lote.pk %}">Cadeias</a>
+</div>
+<p class="texto-apoio">
+    Previsto é o valor da rubrica no plano. Execução identificada soma, uma vez, o documento de obrigação já lido nesta amostra.
+    Pagamento confirmado só existe depois da revisão humana. Correspondência sugerida fica em coluna própria.
+    Esta amostra tem {{ painel.pecas }} peças em {{ painel.paginas }} páginas. Não é a análise financeira completa da prestação.
+</p>
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Global do plano</span><strong>{{ painel.valor_global }}</strong></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Execução identificada</span><strong>{{ painel.executado }}</strong></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Pagamento confirmado</span><strong>{{ painel.confirmado }}</strong></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Correspondência sugerida</span><strong>{{ painel.sugerido }}</strong></article></div>
+</div>
+<p class="texto-apoio">
+    {{ painel.confirmado }} na coluna de pagamento confirmado significa que o auditor ainda não confirmou esse total no sistema.
+    Não indica ausência de pagamento real. O global do plano não é uma despesa.
+    A diferença entre a rubrica anual e um documento da amostra não é saldo orçamentário nem irregularidade.
+    Rubricas parecidas permanecem em linhas separadas, com o valor e a revisão originais.
+</p>
+{% for linha in painel.linhas %}
+<details class="secao-peca" {% if linha.aberto %}open{% endif %}>
+    <summary>
+        <strong>{% if linha.ordem %}{{ linha.ordem }}. {% endif %}{{ linha.descricao|truncatechars:110 }}</strong>
+        <span class="texto-apoio"> · {{ linha.situacao }}</span>
+    </summary>
+    <div class="secao-corpo">
+        <div class="row g-2 mb-2">
+            <div class="col-6 col-md-3"><span class="texto-apoio">Previsto</span><br><strong>{{ linha.previsto }}</strong>{% if linha.revisao_item %}<br><span class="texto-apoio">{{ linha.revisao_item }}</span>{% endif %}</div>
+            <div class="col-6 col-md-3"><span class="texto-apoio">Execução identificada</span><br><strong>{{ linha.executado }}</strong></div>
+            <div class="col-6 col-md-3"><span class="texto-apoio">Correspondência sugerida</span><br><strong>{{ linha.sugerido }}</strong></div>
+            <div class="col-6 col-md-3"><span class="texto-apoio">Pagamento confirmado</span><br><strong>{{ linha.confirmado }}</strong></div>
+        </div>
+        <p class="mb-1">{{ linha.explicacao }}</p>
+        <p class="texto-apoio">{{ linha.documentos }} documento{{ linha.documentos|pluralize }} · {{ linha.pendencias }} pendência{{ linha.pendencias|pluralize:"s" }} de revisão</p>
+        {% if linha.pecas %}
+        <table class="table table-sm">
+            <thead><tr><th>Papel</th><th>Documento</th><th>Valor lido</th><th>Cadeia</th><th></th></tr></thead>
+            <tbody>
+            {% for peca in linha.pecas %}
+            <tr>
+                <td>{{ peca.papel }}</td>
+                <td>{{ peca.rotulo }} · página {{ peca.pagina }}</td>
+                <td>{{ peca.valor }}</td>
+                <td><a href="{% url 'laboratorio:conciliacao' lote.pk %}#cadeia-{{ peca.cadeia }}">{{ peca.cadeia }}</a></td>
+                <td><a href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ peca.pagina }}&peca={{ peca.peca_id }}">Abrir no PDF</a></td>
+            </tr>
+            {% if peca.nota %}<tr><td colspan="5" class="texto-apoio">{{ peca.nota }}</td></tr>{% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</details>
+{% empty %}
+<p class="cartao">Não há plano de trabalho associado a este lote.</p>
+{% endfor %}
+{% endblock %}

@@ -15,6 +15,7 @@
         <p class="texto-apoio mb-0">ID {{ lote.documento_id }} · SHA-256 <code>{{ lote.hash_sha256 }}</code> · {{ lote.quantidade_paginas }} páginas</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratorio:conferencia_integrada' lote.pk %}">Conferência integrada</a>
         <a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratorio:curadoria' lote.pk %}?pagina=17">Conferência pág. 17</a>
         <a class="btn btn-outline-secondary btn-sm" href="{% url 'laboratorio:relatorio' lote.pk %}">Relatório</a>
     </div>

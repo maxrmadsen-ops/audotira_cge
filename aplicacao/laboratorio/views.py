@@ -565,10 +565,9 @@ class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
 
     def get(self, request, lote_pk):
         from aplicacao.laboratorio.catalogo import rotulo_tipo
-        from aplicacao.laboratorio.conciliacao import painel_da_cadeia, sincronizar_cadeias
+        from aplicacao.laboratorio.conciliacao import painel_da_cadeia
 
         lote = _lote_visivel(request, lote_pk)
-        sincronizar_cadeias(lote)
         cadeias = list(
             lote.cadeias.select_related(
                 "item_plano",
@@ -603,6 +602,26 @@ class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
                     "sugerido": "Sugerido",
                     "nao_aplicavel": "Não aplicável",
                 },
+            },
+        )
+
+
+class ConferenciaIntegradaView(PerfilExigidoMixin, View):
+    """Consulta agregada. Abrir a tela não cria nem atualiza cadeias."""
+
+    perfis_permitidos = PERFIS_OPERACIONAIS
+
+    def get(self, request, lote_pk):
+        from aplicacao.laboratorio.conferencia_integrada import montar_conferencia_integrada
+
+        lote = _lote_visivel(request, lote_pk)
+        return render(
+            request,
+            "laboratorio/conferencia_integrada.html",
+            {
+                "prestacao": lote.prestacao_parceria,
+                "lote": lote,
+                "painel": montar_conferencia_integrada(lote),
             },
         )
 

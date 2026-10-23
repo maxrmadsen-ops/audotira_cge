@@ -5,6 +5,7 @@
 <p class="trilho">
     <a href="{% url 'prestacoes_contas:detalhe' prestacao.pk %}">{{ prestacao.numero_processo }}</a>
     / <a href="{% url 'laboratorio:processo' prestacao.pk %}">Classificação e Extração</a>
+    / <a href="{% url 'laboratorio:conferencia_integrada' lote.pk %}">Conferência integrada</a>
     / Conciliação financeira
 </p>
 <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
@@ -25,7 +26,7 @@
 <p class="cartao">Nenhuma cadeia foi sugerida com os documentos já extraídos.</p>
 {% endif %}
 {% for cadeia in cadeias %}
-<details class="secao-peca cadeia-card">
+<details class="secao-peca cadeia-card" id="cadeia-{{ cadeia.codigo }}">
     <summary>
         <strong>{{ cadeia.titulo }}</strong>
         <span class="texto-apoio"> · {{ cadeia.get_estado_display }} · sugestão {{ cadeia.confianca }}</span>

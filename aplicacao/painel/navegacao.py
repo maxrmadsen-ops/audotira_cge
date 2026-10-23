@@ -113,6 +113,15 @@ def _item_conciliacao(prestacao) -> list[ItemMenu]:
         return []
     return [
         ItemMenu(
+            "Conferência Integrada",
+            reverse("laboratorio:conferencia_integrada", kwargs={"lote_pk": lote.pk}),
+            True,
+            "finops",
+            "execucao",
+            chave="conferencia_integrada",
+            descricao="Previsto, execução identificada e pagamento confirmado. Sugestão não é pagamento.",
+        ),
+        ItemMenu(
             "Conciliação Financeira",
             reverse("laboratorio:conciliacao", kwargs={"lote_pk": lote.pk}),
             True,
@@ -120,7 +129,7 @@ def _item_conciliacao(prestacao) -> list[ItemMenu]:
             "execucao",
             chave="conciliacao",
             descricao="Cadeia previsto, executado e comprovado. Não aprova despesa nem conclui a prestação.",
-        )
+        ),
     ]
 
 
