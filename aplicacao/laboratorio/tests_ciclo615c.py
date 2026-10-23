@@ -62,9 +62,8 @@ ENCARGOS DL-1025/69
 
 DARF_PREV = """
 Documento de Arrecadação de Receitas Federais
-Periodo de Apuração Data de Vencimento
-01/03/2022 20/04/2022
-Número: 07.16.22137.6425585-7
+Período de Apuração Data de Vencimento Número do Documento Pagar este documento até
+01/03/2022 20/04/2022 07.16.22137.6425585-7
 Valor Total do Documento
 2.708,32
 Totais 2.471,56 212,05 24,71 2.708,32
