@@ -931,6 +931,7 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     border: 1px solid var(--cge-borda);
     background: #f8faf9;
     min-height: 28rem;
+    padding-left: 12.5rem;
 }
 .laboratorio-visor canvas { display: block; max-width: none; }
 .indicador-documental strong { font-size: 1.05rem; }
@@ -981,13 +982,18 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
 }
 .regiao-rotulo {
     position: absolute;
-    top: 0;
-    left: 0;
-    max-width: 100%;
-    padding: 0.05rem 0.35rem;
-    background: rgba(13, 59, 46, 0.9);
+    top: -2px;
+    right: calc(100% + 0.35rem);
+    left: auto;
+    width: 11.6rem;
+    max-width: none;
+    padding: 0.12rem 0.4rem;
+    background: rgba(13, 59, 46, 0.92);
     color: #fff;
     font-size: 0.72rem;
+    line-height: 1.25;
+    text-align: right;
+    white-space: normal;
     pointer-events: none;
 }
 .alca {
