@@ -83,8 +83,24 @@ def tipo_principal(candidatos: list[dict], texto: str) -> dict | None:
     return candidatos[0]
 
 
+def mencao_administrativa(texto: str) -> bool:
+    """E-mail ou termo que cita um anexo não é o documento financeiro citado."""
+    baixo = _normalizar(texto)
+    if "termo de desentranhamento" in baixo or "foram desentranhadas" in baixo:
+        return True
+    if "gmail.com" in baixo or "e-mail de" in baixo:
+        return True
+    return bool(re.search(r"\d+\s+anexos?\b", baixo) and ".pdf" in baixo)
+
+
+def _oficio_so_no_nome_de_arquivo(texto: str) -> bool:
+    baixo = _normalizar(texto)
+    sem_arquivo = re.sub(r"of[ií]cios?\b.{0,40}?\.pdf", " ", baixo, flags=re.IGNORECASE)
+    return re.search(r"of[ií]cio", sem_arquivo, flags=re.IGNORECASE) is None
+
+
 def candidatos_da_peca(candidatos: list[dict], texto: str) -> list[dict]:
-    """O aviso prévio citado no TRCT não vira comunicação de dispensa."""
+    """Citação em formulário ou em lista de anexos não vira outro documento."""
     baixo = _normalizar(texto)
     formulario = any(
         titulo in baixo
@@ -95,11 +111,19 @@ def candidatos_da_peca(candidatos: list[dict], texto: str) -> list[dict]:
         "termo de rescisão do contrato de trabalho" in baixo
         or "termo de rescisao do contrato de trabalho" in baixo
     )
-    if not formulario or dispensa_propria:
-        return candidatos
-    mantidos = [item for item in candidatos if item["tipo"] != "comunicacao_dispensa"]
-    if ("termo de quitação" in baixo or "termo de quitacao" in baixo) and not titulo_trct:
-        mantidos = [item for item in mantidos if item["tipo"] != "termo_rescisao"]
+    mantidos = list(candidatos)
+    if formulario and not dispensa_propria:
+        mantidos = [item for item in mantidos if item["tipo"] != "comunicacao_dispensa"]
+        if ("termo de quitação" in baixo or "termo de quitacao" in baixo) and not titulo_trct:
+            mantidos = [item for item in mantidos if item["tipo"] != "termo_rescisao"]
+    if mencao_administrativa(texto):
+        mantidos = [
+            item
+            for item in mantidos
+            if item["tipo"] not in {"balancete", "folha_pagamento", "extrato_bancario"}
+        ]
+        if _oficio_so_no_nome_de_arquivo(texto):
+            mantidos = [item for item in mantidos if item["tipo"] != "oficio_encaminhamento"]
     return mantidos
 
 

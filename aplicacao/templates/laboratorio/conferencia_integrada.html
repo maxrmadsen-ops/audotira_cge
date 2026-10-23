@@ -31,6 +31,42 @@
     A diferença entre a rubrica anual e um documento da amostra não é saldo orçamentário nem irregularidade.
     Rubricas parecidas permanecem em linhas separadas, com o valor e a revisão originais.
 </p>
+<div class="row g-2 mb-2">
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Peças classificadas</span><strong>{{ painel.cobertura.pecas }}</strong><small class="texto-apoio d-block">em {{ painel.cobertura.paginas_com_peca }} páginas</small></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Com campos estruturados</span><strong>{{ painel.cobertura.com_campo }}</strong></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Com valor financeiro</span><strong>{{ painel.cobertura.com_valor }}</strong></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Vinculadas ao plano</span><strong>{{ painel.cobertura.vinculadas }}</strong></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Vínculos sugeridos</span><strong>{{ painel.cobertura.vinculos_sugeridos }}</strong></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Vínculos confirmados</span><strong>{{ painel.cobertura.vinculos_confirmados }}</strong></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Peças pendentes de revisão</span><strong>{{ painel.cobertura.pendentes }}</strong></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Páginas sem OCR efetivo</span><strong>{{ painel.cobertura.sem_ocr }}</strong><small class="texto-apoio d-block">de {{ painel.cobertura.paginas }} páginas</small></article></div>
+</div>
+<p class="texto-apoio">
+    A cobertura conta documentos lidos nesta amostra. Não é percentual de execução financeira do plano.
+</p>
+{% if descobertas %}
+<details class="secao-peca">
+    <summary><strong>Páginas inspecionadas na amostra</strong></summary>
+    <div class="secao-corpo">
+        <p class="texto-apoio">A inspeção não entra na execução identificada nem confirma pagamento.</p>
+        <table class="table table-sm">
+            <thead><tr><th>Página</th><th>Qualidade</th><th>Tipo lido</th><th>Sinais</th><th>Revisão</th></tr></thead>
+            <tbody>
+            {% for item in descobertas %}
+            <tr>
+                <td>{{ item.numero }}</td>
+                <td>{{ item.qualidade_visual }}</td>
+                <td>{{ item.tipo }}</td>
+                <td>{{ item.campos_financeiros|join:", "|default:"nenhum valor estruturado" }}</td>
+                <td>{% if item.revisao_humana %}Pendente{% endif %}</td>
+            </tr>
+            <tr><td colspan="5" class="texto-apoio">{{ item.justificativa_amostra }} Texto nativo: {{ item.caracteres_nativos }} caracteres. OCR: {{ item.caracteres_ocr }} caracteres.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+{% endif %}
 {% for linha in painel.linhas %}
 <details class="secao-peca" {% if linha.aberto %}open{% endif %}>
     <summary>

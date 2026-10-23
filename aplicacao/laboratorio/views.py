@@ -613,6 +613,7 @@ class ConferenciaIntegradaView(PerfilExigidoMixin, View):
 
     def get(self, request, lote_pk):
         from aplicacao.laboratorio.conferencia_integrada import montar_conferencia_integrada
+        from aplicacao.laboratorio.descoberta import ler_descobertas
 
         lote = _lote_visivel(request, lote_pk)
         return render(
@@ -622,6 +623,7 @@ class ConferenciaIntegradaView(PerfilExigidoMixin, View):
                 "prestacao": lote.prestacao_parceria,
                 "lote": lote,
                 "painel": montar_conferencia_integrada(lote),
+                "descobertas": ler_descobertas(lote),
             },
         )
 

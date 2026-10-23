@@ -218,7 +218,7 @@ def processar_lote(
         for pagina in paginas:
             numero = pagina["numero_pagina"]
             texto = pagina["texto_extraido"] or ""
-            candidatos = classificar_texto(texto)
+            candidatos = candidatos_da_peca(classificar_texto(texto), texto)
             regioes = segmentar_regioes(texto, candidatos)
             estado_classificacao = (
                 EstadoClassificacao.PROPOSTO if candidatos else EstadoClassificacao.INCONCLUSIVO
@@ -251,7 +251,7 @@ def processar_lote(
         for pagina in paginas:
             numero = pagina["numero_pagina"]
             texto = pagina["texto_extraido"] or ""
-            candidatos = classificar_texto(texto)
+            candidatos = candidatos_da_peca(classificar_texto(texto), texto)
             regioes = segmentar_regioes(texto, candidatos)
             inventario = inventarios_db[numero]
             for regiao in regioes:

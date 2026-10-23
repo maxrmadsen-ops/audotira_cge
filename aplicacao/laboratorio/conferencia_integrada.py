@@ -76,6 +76,77 @@ def _situacao(codigos: set[str], tem_documento: bool) -> str:
     return "insuficiente"
 
 
+_CHAVES_FINANCEIRAS = {
+    "valor",
+    "valor_liquido",
+    "valor_recolhimento",
+    "total_liquido",
+    "total_proventos",
+    "total_descontos",
+    "totais",
+    "base_recolhimento",
+    "saldo_inicial",
+    "saldo_final",
+}
+
+
+def montar_cobertura(lote) -> dict:
+    """Conta o que já foi lido. Não é percentual de execução do plano."""
+    regioes = list(lote.regioes.prefetch_related("campos"))
+    com_campo = 0
+    com_valor = 0
+    pendentes = 0
+    for regiao in regioes:
+        campos = list(regiao.campos.all())
+        if any((campo.valor_original or "").strip() for campo in campos):
+            com_campo += 1
+        if any(campo.chave in _CHAVES_FINANCEIRAS and (campo.valor_original or "").strip() for campo in campos):
+            com_valor += 1
+        if regiao.estado_revisao == "pendente" or any(campo.estado_revisao == EstadoCampo.PENDENTE for campo in campos):
+            pendentes += 1
+    vinculadas = set()
+    for cadeia in lote.cadeias.all():
+        if not cadeia.item_plano_id:
+            continue
+        for identificador in (cadeia.execucao_id, cadeia.apoio_id, cadeia.comprovante_id):
+            if identificador:
+                vinculadas.add(identificador)
+    sem_ocr = lote.paginas.filter(tecnica_utilizada="nativo", quantidade_caracteres__lte=40).count()
+    return {
+        "pecas": len(regioes),
+        "paginas_com_peca": lote.regioes.values("pagina_id").distinct().count(),
+        "com_campo": com_campo,
+        "com_valor": com_valor,
+        "vinculadas": len(vinculadas),
+        "vinculos_sugeridos": lote.vinculos.filter(estado=EstadoVinculo.SUGERIDO).count(),
+        "vinculos_confirmados": lote.vinculos.filter(estado=EstadoVinculo.CONFIRMADO).count(),
+        "pendentes": pendentes,
+        "sem_ocr": sem_ocr,
+        "paginas": lote.quantidade_paginas,
+    }
+
+
+def _nota_guia(regiao, cadeia) -> str:
+    texto = (regiao.texto_regiao or "").lower()
+    banco = "comprovante de pagamento" in texto or "autenticacao sisbb" in texto or "autenticação sisbb" in texto
+    autenticacao = _campo(regiao, "autenticacao")
+    ambigua = (
+        autenticacao is None
+        or (autenticacao.estado_confianca or "") in _NAO_SOMA
+        or not (autenticacao.valor_original or "").strip()
+    )
+    partes = ["Guia e obrigação identificadas."]
+    if banco:
+        partes.append("Comprovante bancário localizado na mesma peça, sem segundo comprovante.")
+    if ambigua:
+        partes.append("Autenticação ambígua e pendente de revisão.")
+    else:
+        partes.append("Autenticação lida e ainda sem confirmação humana.")
+    if cadeia.estado != EstadoVinculo.CONFIRMADO:
+        partes.append("Recolhimento pendente de confirmação do auditor. O valor não foi somado de novo.")
+    return " ".join(partes)
+
+
 def _explicacao(codigo: str) -> str:
     textos = {
         "sem_execucao": (
@@ -166,6 +237,7 @@ def montar_conferencia_integrada(lote) -> dict:
         "paginas": lote.quantidade_paginas,
         "pecas": lote.regioes.count(),
         "linhas": linhas,
+        "cobertura": montar_cobertura(lote),
     }
 
 
@@ -308,6 +380,8 @@ def _contribuicao(regiao, papel, cadeia, somados_obrigacao, somados_sugerido, so
         soma = True
         somados_sugerido.add(regiao.pk)
         nota = "Sugestão automática. Não é pagamento confirmado."
+    if regiao.tipo_documental == "guia_fgts" and papel == "obrigacao":
+        nota = f"{nota} {_nota_guia(regiao, cadeia)}".strip()
     return {
         "soma": soma,
         "valor": valor or Decimal("0.00"),
