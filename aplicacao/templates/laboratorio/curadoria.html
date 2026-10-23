@@ -21,7 +21,7 @@
         </p>
         <p class="texto-apoio mb-0">
             <strong>{{ lote.documento.nome_original }}</strong>
-            · página física {{ pagina.numero_fisico }}{% if pagina.numero_impresso %} · impressa {{ pagina.numero_impresso }}{% endif %}
+            · peça {{ peca.pk }} · página física do PDF {{ pagina.numero_fisico }} · página impressa {{ pagina.numero_impresso|default:"não lida" }}
             · {{ resumo_pagina }}
         </p>
         <p class="texto-apoio mb-0">
@@ -65,7 +65,7 @@
                    data-abrir="?pagina={{ pagina.numero_fisico }}&peca={{ regiao.pk }}"
                    data-x="{{ regiao.x|coordenada }}" data-y="{{ regiao.y|coordenada }}" data-w="{{ regiao.largura|coordenada }}" data-h="{{ regiao.altura|coordenada }}"
                    style="left:{{ regiao.x|pct }}%;top:{{ regiao.y|pct }}%;width:{{ regiao.largura|pct }}%;height:{{ regiao.altura|pct }}%;">
-                    <span class="regiao-rotulo">Peça {{ regiao.ordem }} · {{ regiao.tipo_documental|tipo_documental }}</span>
+                    <span class="regiao-rotulo">Peça {{ regiao.pk }} · {{ regiao.tipo_documental|tipo_documental }}</span>
                     <span class="alca alca-nw" data-alca="nw"></span>
                     <span class="alca alca-ne" data-alca="ne"></span>
                     <span class="alca alca-sw" data-alca="sw"></span>
@@ -96,7 +96,7 @@
                 {% for regiao in regioes %}
                 <li class="{% if peca and peca.pk == regiao.pk %}peca-ativa{% endif %}">
                     <a href="?pagina={{ pagina.numero_fisico }}&peca={{ regiao.pk }}">
-                        <strong>Peça {{ regiao.ordem }} — {{ regiao.tipo_documental|tipo_documental }}</strong>
+                        <strong>Peça {{ regiao.pk }} — {{ regiao.tipo_documental|tipo_documental }}</strong>
                         <span class="texto-apoio d-block">{{ regiao.resumo.pessoa }} · {{ regiao.resumo.referencia }} · {{ regiao.resumo.valor }}</span>
                         <span class="texto-apoio d-block">
                             {% if regiao.estado_classificacao == "confirmado" or regiao.estado_classificacao == "corrigido" %}
@@ -135,7 +135,7 @@
         {% if peca %}
         <article class="cartao mb-3">
             <div class="d-flex justify-content-between flex-wrap gap-2">
-                <h2 class="h5 mb-0">Peça {{ peca.ordem }} — {{ peca.resumo.tipo }}</h2>
+                <h2 class="h5 mb-0">Peça {{ peca.pk }} — {{ peca.resumo.tipo }}</h2>
                 <span>
                     <button class="btn btn-outline-secondary btn-sm" type="button" id="expandir-secoes">Expandir tudo</button>
                     <button class="btn btn-outline-secondary btn-sm" type="button" id="recolher-secoes">Recolher tudo</button>

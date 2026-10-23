@@ -6,8 +6,16 @@ from aplicacao.laboratorio.escolhas import EstadoClassificacao, EstadoRevisao
 from aplicacao.laboratorio.models import InventarioPagina
 
 
+def eh_placeholder(regiao) -> bool:
+    """Menção sem documento ou página inteira inconclusiva. Não é peça efetiva."""
+    return regiao.tipo_documental == "outros_nao_classificados" or regiao.metodo_deteccao == "pagina_inteira_inconclusiva"
+
+
 def filtrar_paginas(lote, get) -> list[InventarioPagina]:
     consulta = lote.paginas.all()
+    peca = (get.get("peca") or "").strip()
+    if peca.isdigit():
+        consulta = consulta.filter(regioes__pk=int(peca))
     pagina = (get.get("pagina") or "").strip()
     if pagina.isdigit():
         consulta = consulta.filter(numero_fisico=int(pagina))
@@ -36,7 +44,14 @@ def filtrar_paginas(lote, get) -> list[InventarioPagina]:
         consulta = consulta.filter(estado_revisao=EstadoRevisao.REVISADA)
     elif revisao == "ilegivel":
         consulta = consulta.filter(estado_revisao=EstadoRevisao.ILEGIVEL)
-    return list(consulta.select_related("pagina_documento").prefetch_related("regioes"))
+    if (get.get("inspecao") or "").strip() == "sim":
+        from aplicacao.laboratorio.models import RevisaoLaboratorio
+
+        numeros = RevisaoLaboratorio.objects.filter(
+            lote=lote, alvo="descoberta_pagina", acao="inspecao_ocr"
+        ).values("alvo_id")
+        consulta = consulta.filter(numero_fisico__in=numeros)
+    return list(consulta.select_related("pagina_documento").prefetch_related("regioes").distinct())
 
 
 def resumo_pagina(pagina: InventarioPagina) -> str:

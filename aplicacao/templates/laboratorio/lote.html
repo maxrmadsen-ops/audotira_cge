@@ -29,7 +29,8 @@
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Com candidato</span><strong>{{ relatorio.paginas_com_candidato }}</strong></article></div>
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Inconclusivas</span><strong>{{ relatorio.paginas_inconclusivas }}</strong></article></div>
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Múltiplas peças</span><strong>{{ relatorio.paginas_multiplas_pecas }}</strong></article></div>
-        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Peças identificadas</span><strong>{{ relatorio.pecas_identificadas }}</strong></article></div>
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Registros de peças</span><strong>{{ relatorio.pecas_registros }}</strong></article></div>
+        <div class="col-6 col-md-3"><article class="indicador-lab"><span>Peças efetivas</span><strong>{{ relatorio.pecas_efetivas }}</strong></article></div>
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Placeholders</span><strong>{{ relatorio.pecas_placeholder }}</strong></article></div>
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Revisadas</span><strong>{{ relatorio.paginas_revisadas }}</strong></article></div>
         <div class="col-6 col-md-3"><article class="indicador-lab"><span>Ilegíveis</span><strong>{{ relatorio.paginas_ilegiveis }}</strong></article></div>
@@ -38,10 +39,12 @@
 
 <article class="cartao mt-3">
     <h2>Filtros</h2>
-    <form class="row g-2" method="get">
-        <div class="col-md-2"><input class="form-control form-control-sm" name="pagina" value="{{ filtros.pagina }}" placeholder="Página física"></div>
+    <form class="row g-2 align-items-end" method="get">
+        <div class="col-6 col-md-2"><label class="form-label small mb-0" for="filtro-peca">Nº da peça</label><input id="filtro-peca" class="form-control form-control-sm" name="peca" value="{{ filtros.peca }}" inputmode="numeric" placeholder="881"></div>
+        <div class="col-6 col-md-2"><label class="form-label small mb-0" for="filtro-pagina">Página física</label><input id="filtro-pagina" class="form-control form-control-sm" name="pagina" value="{{ filtros.pagina }}" inputmode="numeric" placeholder="17"></div>
         <div class="col-md-2">
-            <select class="form-select form-select-sm" name="tipo">
+            <label class="form-label small mb-0" for="filtro-tipo">Tipo documental</label>
+            <select id="filtro-tipo" class="form-select form-select-sm" name="tipo">
                 <option value="">Tipo documental</option>
                 {% for codigo, rotulo in tipos_filtro %}
                 <option value="{{ codigo }}" {% if filtros.tipo == codigo %}selected{% endif %}>{{ rotulo }}</option>
@@ -49,7 +52,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select class="form-select form-select-sm" name="classificacao">
+            <label class="form-label small mb-0" for="filtro-classificacao">Classificação</label>
+            <select id="filtro-classificacao" class="form-select form-select-sm" name="classificacao">
                 <option value="">Classificação</option>
                 <option value="sugerida" {% if filtros.classificacao == "sugerida" %}selected{% endif %}>Sugerida</option>
                 <option value="confirmada" {% if filtros.classificacao == "confirmada" %}selected{% endif %}>Confirmada</option>
@@ -57,7 +61,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select class="form-select form-select-sm" name="qualidade">
+            <label class="form-label small mb-0" for="filtro-qualidade">Qualidade</label>
+            <select id="filtro-qualidade" class="form-select form-select-sm" name="qualidade">
                 <option value="">Qualidade</option>
                 {% for codigo, rotulo in qualidades %}
                 <option value="{{ codigo }}" {% if filtros.qualidade == codigo %}selected{% endif %}>{{ rotulo }}</option>
@@ -65,7 +70,8 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select class="form-select form-select-sm" name="tecnica">
+            <label class="form-label small mb-0" for="filtro-tecnica">Técnica</label>
+            <select id="filtro-tecnica" class="form-select form-select-sm" name="tecnica">
                 <option value="">Técnica</option>
                 {% for codigo, rotulo in tecnicas %}
                 <option value="{{ codigo }}" {% if filtros.tecnica == codigo %}selected{% endif %}>{{ rotulo }}</option>
@@ -73,11 +79,19 @@
             </select>
         </div>
         <div class="col-md-2">
-            <select class="form-select form-select-sm" name="revisao">
+            <label class="form-label small mb-0" for="filtro-revisao">Revisão</label>
+            <select id="filtro-revisao" class="form-select form-select-sm" name="revisao">
                 <option value="">Revisão</option>
                 <option value="pendente" {% if filtros.revisao == "pendente" %}selected{% endif %}>Pendente</option>
                 <option value="concluida" {% if filtros.revisao == "concluida" %}selected{% endif %}>Concluída</option>
                 <option value="ilegivel" {% if filtros.revisao == "ilegivel" %}selected{% endif %}>Ilegível</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-0" for="filtro-inspecao">Inspeção</label>
+            <select id="filtro-inspecao" class="form-select form-select-sm" name="inspecao">
+                <option value="">Todas</option>
+                <option value="sim" {% if filtros.inspecao == "sim" %}selected{% endif %}>Com inspeção complementar</option>
             </select>
         </div>
         <div class="col-12"><button class="btn btn-outline-primary btn-sm" type="submit">Aplicar filtros</button>
@@ -88,14 +102,14 @@
 <article class="cartao mt-3">
     <h2>Páginas ({{ linhas|length }})</h2>
     <div class="table-responsive">
-        <table class="table table-sm align-middle">
+        <table class="table table-sm tabela-inventario">
             <thead>
                 <tr>
-                    <th>Física</th>
-                    <th>Impressa</th>
+                    <th>Peça</th>
+                    <th>Página física</th>
+                    <th>Página impressa</th>
                     <th>Encontrado</th>
-                    <th>Peças</th>
-                    <th>Classificação</th>
+                    <th class="col-classificacao">Classificação</th>
                     <th>Qualidade</th>
                     <th>Técnica</th>
                     <th>Revisão</th>
@@ -105,11 +119,17 @@
             <tbody>
                 {% for linha in linhas %}
                 <tr>
+                    <td>
+                        {% for peca in linha.pecas %}
+                        <a class="{% if linha.peca_busca == peca.pk %}fw-semibold{% endif %}" href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ linha.pagina.numero_fisico }}&peca={{ peca.pk }}">{{ peca.pk }}</a>{% if peca.tipo_documental == "outros_nao_classificados" %} <span class="texto-apoio">placeholder</span>{% else %} <span class="texto-apoio">{{ peca.tipo_documental|tipo_documental }}</span>{% endif %}{% if not forloop.last %}<br>{% endif %}
+                        {% empty %}
+                        <span class="texto-apoio">—</span>
+                        {% endfor %}
+                    </td>
                     <td>{{ linha.pagina.numero_fisico }}</td>
                     <td>{{ linha.pagina.numero_impresso|default:"—" }}</td>
                     <td class="small">{{ linha.resumo }}</td>
-                    <td>{{ linha.pecas|length }}</td>
-                    <td>
+                    <td class="col-classificacao">
                         {% if linha.pagina.estado_classificacao == "confirmado" or linha.pagina.estado_classificacao == "corrigido" %}
                             <span class="estado estado-ok">Confirmada</span>
                         {% elif linha.pagina.estado_classificacao == "proposto" %}
@@ -117,11 +137,12 @@
                         {% else %}
                             <span class="estado">Inconclusiva</span>
                         {% endif %}
+                        {% if linha.inspecao %}<span class="texto-apoio d-block">Inspeção complementar disponível. A classificação do inventário permanece.</span>{% endif %}
                     </td>
                     <td>{{ linha.pagina.get_qualidade_extracao_display }}</td>
                     <td>{{ linha.pagina.get_tecnica_utilizada_display|default:linha.pagina.tecnica_recomendada }}</td>
                     <td>{{ linha.pagina.get_estado_revisao_display }}</td>
-                    <td><a href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ linha.pagina.numero_fisico }}">Conferir</a></td>
+                    <td><a href="{% url 'laboratorio:curadoria' lote.pk %}?pagina={{ linha.pagina.numero_fisico }}{% if linha.peca_busca %}&peca={{ linha.peca_busca }}{% elif linha.pecas %}&peca={{ linha.pecas.0.pk }}{% endif %}">Conferir</a></td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="9">Nenhuma página com esses filtros.</td></tr>

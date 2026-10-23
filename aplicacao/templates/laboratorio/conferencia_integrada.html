@@ -32,7 +32,7 @@
     Rubricas parecidas permanecem em linhas separadas, com o valor e a revisão originais.
 </p>
 <div class="row g-2 mb-2">
-    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Peças classificadas</span><strong>{{ painel.cobertura.pecas }}</strong><small class="texto-apoio d-block">em {{ painel.cobertura.paginas_com_peca }} páginas</small></article></div>
+    <div class="col-6 col-md-3"><article class="indicador-lab"><span>Registros de peças</span><strong>{{ painel.cobertura.pecas }}</strong><small class="texto-apoio d-block">{{ painel.cobertura.pecas_efetivas }} efetivas · {{ painel.cobertura.pecas_placeholder }} placeholders · {{ painel.cobertura.paginas_com_peca }} páginas</small></article></div>
     <div class="col-6 col-md-3"><article class="indicador-lab"><span>Com campos estruturados</span><strong>{{ painel.cobertura.com_campo }}</strong></article></div>
     <div class="col-6 col-md-3"><article class="indicador-lab"><span>Com valor financeiro</span><strong>{{ painel.cobertura.com_valor }}</strong></article></div>
     <div class="col-6 col-md-3"><article class="indicador-lab"><span>Vinculadas ao plano</span><strong>{{ painel.cobertura.vinculadas }}</strong></article></div>
@@ -48,7 +48,7 @@
 <details class="secao-peca">
     <summary><strong>Páginas inspecionadas na amostra</strong></summary>
     <div class="secao-corpo">
-        <p class="texto-apoio">A inspeção não entra na execução identificada nem confirma pagamento.</p>
+        <p class="texto-apoio">A inspeção complementar não altera a classificação do inventário, não entra na execução identificada e não confirma pagamento.</p>
         <table class="table table-sm">
             <thead><tr><th>Página</th><th>Qualidade</th><th>Tipo lido</th><th>Sinais</th><th>Revisão</th></tr></thead>
             <tbody>

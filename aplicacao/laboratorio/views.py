@@ -113,11 +113,22 @@ class LaboratorioLoteView(PerfilExigidoMixin, View):
         lote = _lote_visivel(request, lote_pk)
         relatorio = montar_relatorio(lote)
         paginas = filtrar_paginas(lote, request.GET)
+        from aplicacao.laboratorio.models import RevisaoLaboratorio
+
+        inspecionadas = set(
+            RevisaoLaboratorio.objects.filter(lote=lote, alvo="descoberta_pagina", acao="inspecao_ocr").values_list(
+                "alvo_id", flat=True
+            )
+        )
+        peca_busca = (request.GET.get("peca") or "").strip()
+        peca_busca_id = int(peca_busca) if peca_busca.isdigit() else None
         linhas = [
             {
                 "pagina": pagina,
                 "resumo": resumo_pagina(pagina),
-                "pecas": [r for r in pagina.regioes.all() if r.tipo_documental != "outros_nao_classificados"],
+                "pecas": list(pagina.regioes.all()),
+                "inspecao": pagina.numero_fisico in inspecionadas,
+                "peca_busca": peca_busca_id,
             }
             for pagina in paginas
         ]
@@ -131,12 +142,14 @@ class LaboratorioLoteView(PerfilExigidoMixin, View):
                 "relatorio": relatorio,
                 "catalogo": CATALOGO_TIPOS,
                 "filtros": {
+                    "peca": request.GET.get("peca", ""),
                     "pagina": request.GET.get("pagina", ""),
                     "tipo": request.GET.get("tipo", ""),
                     "classificacao": request.GET.get("classificacao", ""),
                     "qualidade": request.GET.get("qualidade", ""),
                     "tecnica": request.GET.get("tecnica", ""),
                     "revisao": request.GET.get("revisao", ""),
+                    "inspecao": request.GET.get("inspecao", ""),
                 },
                 "tipos_filtro": escolhas_tipo(),
                 "qualidades": QualidadeExtracao.choices,
@@ -163,7 +176,10 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
             ]
         peca_id = request.GET.get("peca")
         peca_selecionada = None
-        if peca_id and str(peca_id).isdigit():
+        if peca_id and str(peca_id).isdigit() and pagina is not None:
+            pedida = pagina.regioes.prefetch_related("campos", "rubricas").filter(pk=int(peca_id)).first()
+            if pedida is not None and pedida not in regioes:
+                regioes.append(pedida)
             peca_selecionada = next((r for r in regioes if r.pk == int(peca_id)), None)
         if peca_selecionada is None and regioes:
             peca_selecionada = regioes[0]

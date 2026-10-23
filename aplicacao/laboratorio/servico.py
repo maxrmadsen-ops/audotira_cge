@@ -6,7 +6,7 @@ import hashlib
 import time
 from pathlib import Path
 
-from django.db import models, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from aplicacao.auditoria.models import RegistroAuditoria
@@ -449,16 +449,12 @@ def _recomendar(pagina: dict) -> str:
 
 def montar_relatorio(lote: LoteLaboratorio) -> dict:
     """Indicadores verificáveis. Inventário ≠ classificação integral."""
+    from aplicacao.laboratorio.apresentacao import eh_placeholder
+
     paginas = list(lote.paginas.all())
-    regioes = list(
-        lote.regioes.exclude(tipo_documental="outros_nao_classificados").exclude(
-            metodo_deteccao="pagina_inteira_inconclusiva"
-        )
-    )
-    placeholders = lote.regioes.filter(
-        models.Q(tipo_documental="outros_nao_classificados")
-        | models.Q(metodo_deteccao="pagina_inteira_inconclusiva")
-    ).count()
+    todas = list(lote.regioes.all())
+    regioes = [regiao for regiao in todas if not eh_placeholder(regiao)]
+    placeholders = len(todas) - len(regioes)
     campos = CampoExtraido.objects.filter(regiao__lote=lote, regiao__in=regioes)
     campos_uteis = campos.exclude(valor_original="").exclude(chave="titulo").exclude(chave="observacao")
     tipos = {}
@@ -493,8 +489,10 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
         "paginas_ilegiveis": ilegiveis,
         "tipos_encontrados": tipos,
         "pecas_identificadas": len(regioes),
+        "pecas_efetivas": len(regioes),
         "pecas_placeholder": placeholders,
-        "pecas_total": len(regioes),
+        "pecas_registros": len(todas),
+        "pecas_total": len(todas),
         "pecas_confirmadas": sum(1 for r in regioes if r.estado_classificacao == EstadoClassificacao.CONFIRMADO),
         "pecas_sugeridas": sum(1 for r in regioes if r.estado_classificacao == EstadoClassificacao.PROPOSTO),
         "pecas_pendentes": sum(1 for r in regioes if r.estado_revisao == EstadoRevisao.PENDENTE),
@@ -512,8 +510,10 @@ def montar_relatorio(lote: LoteLaboratorio) -> dict:
         "hash_sha256": lote.hash_sha256,
         "nome_original": lote.documento.nome_original,
         "aviso_inventario": (
+            "Registro de peça é toda região gravada. "
+            "Peça efetiva exclui placeholder: menção sem documento ou página inteira inconclusiva. "
             "O inventário de páginas não equivale à classificação integral. "
-            "Classificação tipada só conta páginas com candidato documental identificado."
+            "O inventário não transforma inspeção complementar em classificação."
         ),
     }
 

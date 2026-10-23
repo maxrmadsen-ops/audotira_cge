@@ -229,7 +229,7 @@ class TesteCoberturaEDescoberta(TestCase):
                 revisoes = RevisaoLaboratorio.objects.filter(lote=lote).count()
                 resposta = self.client.get(reverse("laboratorio:conferencia_integrada", kwargs={"lote_pk": lote.pk}))
                 self.assertEqual(resposta.status_code, 200)
-                self.assertContains(resposta, "Peças classificadas")
+                self.assertContains(resposta, "Registros de peças")
                 self.assertContains(resposta, "Não é percentual de execução financeira do plano.")
                 self.assertEqual(list(CadeiaConciliacao.objects.filter(lote=lote).values_list("codigo", "estado")), antes)
                 self.assertEqual(RevisaoLaboratorio.objects.filter(lote=lote).count(), revisoes)

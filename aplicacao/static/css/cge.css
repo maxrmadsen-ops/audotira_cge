@@ -237,6 +237,13 @@ body {
     background: currentColor;
 }
 
+.tabela-inventario { width: 100%; }
+.tabela-inventario th,
+.tabela-inventario td { vertical-align: top; }
+.tabela-inventario .col-classificacao { width: 9.5rem; white-space: normal; }
+.tabela-inventario .col-classificacao .estado { width: auto; white-space: nowrap; }
+.tabela-inventario .col-classificacao .texto-apoio { display: block; max-width: 11rem; white-space: normal; }
+
 .estado-operacional { color: var(--cge-operacional); background: #e8f6ef; border-color: #b7e0cb; }
 .estado-indisponivel { color: var(--cge-indisponivel); background: #fdecec; border-color: #f0c2c2; }
 .estado-nao-configurado, .estado-aguardando { color: var(--cge-neutro); background: #f6f1e6; border-color: #e4d3ae; }

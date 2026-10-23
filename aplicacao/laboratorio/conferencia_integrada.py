@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
+from aplicacao.laboratorio.apresentacao import eh_placeholder
 from aplicacao.laboratorio.catalogo import rotulo_tipo
 from aplicacao.laboratorio.escolhas import EstadoCampo, EstadoVinculo
 from aplicacao.laboratorio.extracao import texto_moeda
@@ -93,6 +94,7 @@ _CHAVES_FINANCEIRAS = {
 def montar_cobertura(lote) -> dict:
     """Conta o que já foi lido. Não é percentual de execução do plano."""
     regioes = list(lote.regioes.prefetch_related("campos"))
+    efetivas = sum(1 for regiao in regioes if not eh_placeholder(regiao))
     com_campo = 0
     com_valor = 0
     pendentes = 0
@@ -114,6 +116,8 @@ def montar_cobertura(lote) -> dict:
     sem_ocr = lote.paginas.filter(tecnica_utilizada="nativo", quantidade_caracteres__lte=40).count()
     return {
         "pecas": len(regioes),
+        "pecas_efetivas": efetivas,
+        "pecas_placeholder": len(regioes) - efetivas,
         "paginas_com_peca": lote.regioes.values("pagina_id").distinct().count(),
         "com_campo": com_campo,
         "com_valor": com_valor,
