@@ -60,8 +60,22 @@ def tipo_principal(candidatos: list[dict], texto: str) -> dict | None:
     if not candidatos:
         return None
     baixo = _normalizar(texto)
-    if "total de proventos" in baixo or "holerite" in baixo:
-        return candidatos[0]
+    if "comprovante de pagamento de darf" in baixo or "darf/darf" in baixo or "convenio rfb-darf" in baixo or "convênio rfb-darf" in baixo:
+        darf_pago = next((item for item in candidatos if item["tipo"] == "comprovante_darf"), None)
+        if darf_pago is not None:
+            return darf_pago
+    if "documento de arrecada" in baixo or "receitas federais" in baixo:
+        guia = next((item for item in candidatos if item["tipo"] == "darf"), None)
+        if guia is not None:
+            return guia
+    if "total de proventos" in baixo or "demonstrativo de pagamento" in baixo or "holerite" in baixo:
+        holerite = next((item for item in candidatos if item["tipo"] == "holerite"), None)
+        if holerite is not None:
+            return holerite
+    if "comprovante de transferencia" in baixo or "comprovante de transferência" in baixo or "transferido para" in baixo:
+        transferencia = next((item for item in candidatos if item["tipo"] == "comprovante_transferencia"), None)
+        if transferencia is not None:
+            return transferencia
     recolhimento = ("fgts" in baixo or "grf" in baixo) and (
         "comprovante de pagamento" in baixo or "valor deposito" in baixo or "valor depósito" in baixo or "guia de recolhimento" in baixo
     )
@@ -116,6 +130,8 @@ def candidatos_da_peca(candidatos: list[dict], texto: str) -> list[dict]:
         mantidos = [item for item in mantidos if item["tipo"] != "comunicacao_dispensa"]
         if ("termo de quitação" in baixo or "termo de quitacao" in baixo) and not titulo_trct:
             mantidos = [item for item in mantidos if item["tipo"] != "termo_rescisao"]
+    if any(sinal in baixo for sinal in ("comprovante de pagamento de darf", "darf/darf", "convenio rfb-darf", "documento de arrecada")):
+        mantidos = [item for item in mantidos if item["tipo"] != "comprovante_transferencia"]
     if mencao_administrativa(texto):
         mantidos = [
             item
@@ -144,6 +160,26 @@ def dividir_dispensa_e_transferencia(texto: str, palavras: list[dict]) -> float 
         if inicio_transferencia - 0.08 <= y < inicio_transferencia:
             corte = min(corte, y - 0.012)
     if corte <= 0.2 or corte >= 0.85:
+        return None
+    return round(corte, 4)
+
+
+def dividir_transferencia_e_holerite(texto: str, palavras: list[dict]) -> float | None:
+    """Corte relativo quando o comprovante e o holerite estão no mesmo recorte."""
+    baixo = _normalizar(texto)
+    if "transfer" not in baixo:
+        return None
+    if "demonstrativo de pagamento" not in baixo and "total de proventos" not in baixo and "total líquido" not in baixo:
+        return None
+    alturas = [
+        float(palavra["y"])
+        for palavra in palavras
+        if re.search(r"demonstrativo|proventos|funcion", palavra.get("texto") or "", flags=re.IGNORECASE)
+    ]
+    if not alturas:
+        return None
+    corte = min(alturas) - 0.02
+    if corte <= 0.12 or corte >= 0.88:
         return None
     return round(corte, 4)
 
@@ -184,6 +220,8 @@ def segmentar_regioes(texto: str, candidatos: list[dict]) -> list[dict]:
     prioridade = {
         "comprovante_transferencia": 0,
         "holerite": 1,
+        "darf": 0,
+        "comprovante_darf": 1,
         "guia_fgts": 0,
         "comprovante_fgts": 1,
         "termo_rescisao": 0,

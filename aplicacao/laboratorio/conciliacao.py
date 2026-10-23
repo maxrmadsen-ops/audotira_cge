@@ -222,19 +222,41 @@ def _cadeias_folha(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
     propostas = []
     for holerite in holerites:
         liquido = _valor(holerite, "valor_liquido")
+        calculado = _valor(holerite, "liquido_calculado")
         trabalhador = _texto(holerite, "funcionario")
         candidatas = []
         for transferencia in transferencias:
             valor = _valor(transferencia, "valor")
-            if liquido is None or valor is None or liquido != valor:
-                continue
             nome = _nome_proximo(trabalhador, _texto(transferencia, "beneficiario"))
             mesma = holerite.pagina_id == transferencia.pagina_id
-            if nome or mesma:
-                candidatas.append((0 if mesma else 1, transferencia))
-        candidatas.sort(key=lambda item_ord: item_ord[0])
-        transferencia = candidatas[0][1] if candidatas else None
+            valor_lido = liquido is not None and valor is not None and liquido == valor
+            valor_calculado = (
+                liquido is None
+                and calculado is not None
+                and valor is not None
+                and calculado == valor
+                and mesma
+                and nome
+            )
+            if not valor_lido and not valor_calculado:
+                continue
+            if not (nome or mesma):
+                continue
+            candidatas.append((0 if mesma else 1, 0 if valor_lido else 1, transferencia, valor_calculado, valor))
+        candidatas.sort(key=lambda item_ord: (item_ord[0], item_ord[1]))
+        transferencia = candidatas[0][2] if candidatas else None
+        usou_calculo = bool(candidatas and candidatas[0][3])
         verificacoes = verificar_folha(holerite, transferencia)
+        if usou_calculo:
+            for item_v in verificacoes:
+                if item_v["codigo"] != "liquido_e_transferencia":
+                    continue
+                item_v["situacao"] = "pendente"
+                item_v["detalhe"] = (
+                    f"O líquido impresso não foi lido. Proventos menos descontos resultam em {_moeda(calculado)}. "
+                    f"A transferência da mesma página é {_moeda(candidatas[0][4])}. "
+                    "A coincidência com o valor calculado não comprova o pagamento."
+                )
         matematica = next(item_v["situacao"] for item_v in verificacoes if item_v["codigo"] == "liquido_calculado")
         verificacoes.append(
             {
@@ -256,6 +278,78 @@ def _cadeias_folha(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
                 "apoio": None,
                 "verificacoes": verificacoes,
                 "separacao": _separacao(matematica, transferencia is not None),
+                "confianca": "sugerida",
+            }
+        )
+    return propostas
+
+
+def _cadeias_darf(lote, regioes: list[RegiaoDocumental]) -> list[dict]:
+    guias = [regiao for regiao in regioes if regiao.tipo_documental == "darf"]
+    comprovantes = [regiao for regiao in regioes if regiao.tipo_documental == "comprovante_darf"]
+    item, criterio = _item_por_texto(lote, "inss")
+    if item is None:
+        item, criterio = _item_por_texto(lote, "encarg")
+    if item is None:
+        item, criterio = _item_por_texto(lote, "previd")
+    usadas: set[int] = set()
+    propostas = []
+    for guia in guias:
+        total = _valor(guia, "total")
+        comprovante = None
+        for candidato in comprovantes:
+            if candidato.pk in usadas:
+                continue
+            outro = _valor(candidato, "valor")
+            if total is None or outro is None or total != outro:
+                continue
+            if abs(candidato.pagina.numero_fisico - guia.pagina.numero_fisico) > 8:
+                continue
+            comprovante = candidato
+            usadas.add(candidato.pk)
+            break
+        codigo_receita = _texto(guia, "codigo_receita")
+        periodo = _texto(guia, "periodo_apuracao")
+        verificacoes = [
+            {
+                "codigo": "total_darf",
+                "titulo": "Total do DARF",
+                "situacao": "pendente" if total is not None else "nao_verificavel",
+                "detalhe": (
+                    f"Total lido {_moeda(total)}. Código {codigo_receita or 'não extraído'}. "
+                    f"Período {periodo or 'não extraído'}. A leitura permanece pendente de revisão humana."
+                    if total is not None
+                    else "O total do DARF não foi lido. Nenhum valor foi estimado."
+                ),
+                "evidencias": [_evidencia(guia, "total", "Total do DARF")],
+            },
+            {
+                "codigo": "darf_e_comprovante",
+                "titulo": "DARF e comprovante bancário",
+                "situacao": "pendente" if comprovante is not None else "nao_verificavel",
+                "detalhe": (
+                    f"O total {_moeda(total)} coincide com o comprovante da página {comprovante.pagina.numero_fisico}. "
+                    "A coincidência não comprova o pagamento."
+                    if comprovante is not None
+                    else "Não há comprovante com o mesmo valor nesta amostra. A ausência não é irregularidade."
+                ),
+                "evidencias": [
+                    _evidencia(guia, "total", "Total do DARF"),
+                    *([_evidencia(comprovante, "valor", "Valor do comprovante")] if comprovante is not None else []),
+                ],
+            },
+        ]
+        propostas.append(
+            {
+                "codigo": f"darf-{guia.pk}",
+                "titulo": f"DARF · {codigo_receita or 'receita não extraída'} · página {guia.pagina.numero_fisico}",
+                "item_plano": item,
+                "criterio_item": criterio,
+                "execucao": guia,
+                "comprovante": comprovante,
+                "apoio": None,
+                "verificacoes": verificacoes,
+                "separacao": _separacao("nao_verificavel", comprovante is not None),
                 "confianca": "sugerida",
             }
         )
@@ -646,6 +740,7 @@ def sincronizar_cadeias(lote) -> list[CadeiaConciliacao]:
     propostas.extend(_cadeias_folha(lote, regioes))
     propostas.extend(_cadeias_rescisao(lote, regioes))
     propostas.extend(_cadeias_fgts(lote, regioes))
+    propostas.extend(_cadeias_darf(lote, regioes))
     codigos = {proposta["codigo"] for proposta in propostas}
     existentes = {cadeia.codigo: cadeia for cadeia in lote.cadeias.all()}
     gravadas = []

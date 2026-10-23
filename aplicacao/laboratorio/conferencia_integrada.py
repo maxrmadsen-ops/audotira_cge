@@ -16,6 +16,7 @@ _CHAVES_OBRIGACAO = {
     "folha_pagamento": "valor_liquido",
     "termo_rescisao": "total_liquido",
     "guia_fgts": "valor_recolhimento",
+    "darf": "total",
 }
 _SITUACOES = {
     "sem_execucao": "Sem execução identificada nesta amostra",
@@ -88,6 +89,8 @@ _CHAVES_FINANCEIRAS = {
     "base_recolhimento",
     "saldo_inicial",
     "saldo_final",
+    "total",
+    "principal",
 }
 
 

@@ -58,6 +58,10 @@ CHAVES_MOEDA = {
     "total_liquido",
     "valor_quitado",
     "valor_recolhimento",
+    "principal",
+    "multa",
+    "juros",
+    "total",
     "liquido_calculado",
     "base_recolhimento",
     "encargos",
@@ -117,6 +121,7 @@ CHAVES_DATA = {
     "data_comunicacao",
     "data",
     "data_recebimento",
+    "data_pagamento",
 }
 
 
@@ -155,6 +160,9 @@ def extrair_campos(tipo: str, texto: str, numero_pagina: int, metodo: str) -> li
                         _moeda_para_decimal(mapeados.get("total_proventos", "")),
                         _moeda_para_decimal(mapeados.get("total_descontos", "")),
                     )
+                    if decimal is not None:
+                        mapeados["liquido_calculado__metodo"] = "calculo"
+                        mapeados["liquido_calculado__confianca"] = "calculo"
                 original = texto_moeda(decimal) if decimal is not None else ""
             normalizado = str(decimal) if decimal is not None else ""
         campos.append(
@@ -927,6 +935,65 @@ def _extrair_fgts(texto: str) -> dict[str, str]:
     }
 
 
+def _moeda_rotulada(texto: str, rotulo: str) -> str:
+    return _buscar(
+        (rf"{rotulo}\s*[:\-]?\s*(R\$\s*[0-9]{{1,3}}(?:\.[0-9]{{3}})*,[0-9]{{2}}|[0-9]{{1,3}}(?:\.[0-9]{{3}})*,[0-9]{{2}})",),
+        texto,
+    )
+
+
+def _extrair_darf(texto: str) -> dict[str, str]:
+    return {
+        "contribuinte": _buscar(
+            (r"(?:raz[aã]o social|contribuinte)\s*[:\-]?\s*([^\n]{5,120})", r"(APAE[^\n]{5,80})"),
+            texto,
+        ),
+        "cnpj": _buscar((r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",), texto),
+        "codigo_receita": _buscar((r"\b(1082|8301)\b", r"c[oó]digo(?:\s+de\s+receita)?\s*[:\-]?\s*(\d{4})"), texto),
+        "periodo_apuracao": _buscar(
+            (
+                r"(?:per[ií]odo de apura[cç][aã]o|pa)\s*[:\-]?\s*([0-9]{2}/[0-9]{4}|[A-Za-zçÇ]+/[0-9]{4})",
+                r"\b((?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)/[0-9]{4})\b",
+            ),
+            texto,
+        ),
+        "vencimento": _buscar((r"(?:vencimento|pagar este documento at[eé]|pagar at[eé])\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
+        "principal": _moeda_rotulada(texto, "principal"),
+        "multa": _moeda_rotulada(texto, "multa"),
+        "juros": _moeda_rotulada(texto, "juros"),
+        "total": _buscar(
+            (
+                r"valor total do documento\s*[:\-]?\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
+                r"\bvalor\s*[:\-]\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
+                r"totais\s+([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
+            ),
+            texto,
+        ),
+        "numero_documento": _buscar((r"(?:n[uú]mero(?:\s+do\s+documento)?|n[ºo])\s*[:\-]?\s*([0-9][0-9.\-]{8,})",), texto),
+        "codigo_barras": _buscar((r"\b((?:\d{11}\s+){3}\d{11})\b", r"\b(\d{11}\s+\d{11}\s+\d{11}\s+\d{11})\b"), texto),
+    }
+
+
+def _extrair_comprovante_darf(texto: str) -> dict[str, str]:
+    return {
+        "instituicao": "Banco do Brasil" if re.search(r"banco do brasil", texto or "", flags=re.IGNORECASE) else _buscar((r"(banco\s+[^\n]+)",), texto),
+        "data_pagamento": _buscar((r"data do pagamento\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
+        "valor": _buscar(
+            (
+                r"valor total\s*[:\-]?\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
+                r"valor do principal\s*[:\-]?\s*([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",
+            ),
+            texto,
+        ),
+        "codigo_receita": _buscar((r"c[oó]digo de receita\s*[:\-]?\s*(\d{4})",), texto),
+        "periodo_apuracao": _buscar((r"per[ií]odo de apura[cç][aã]o\s*[:\-]?\s*([0-9]{1,2}[/.\-][0-9]{1,2}[/.\-][0-9]{2,4})",), texto),
+        "cnpj": _buscar((r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",), texto),
+        "numero_documento": _buscar((r"(?:n[uú]mero do documento|documento)\s*[:\-]?\s*([0-9][0-9.\-]{4,})",), texto),
+        "autenticacao": _buscar((r"autentica[cç][aã]o(?:\s+sisbb)?\s*[:\-]?\s*([0-9A-Za-z](?:\.\s?[0-9A-Za-z]{2,4}){3,8})",), texto),
+        "referencia": _buscar((r"(darf(?:\s*/\s*darf\s+simples)?|conv[eê]nio\s+rfb-darf)",), texto),
+    }
+
+
 def _extrair_generico(texto: str) -> dict[str, str]:
     linhas = [linha.strip() for linha in (texto or "").splitlines() if linha.strip()]
     titulo = linhas[0][:120] if linhas else ""
@@ -939,6 +1006,8 @@ _extratores = {
     "termo_rescisao": _extrair_rescisao,
     "termo_quitacao": _extrair_quitacao,
     "comunicacao_dispensa": _extrair_dispensa,
+    "darf": _extrair_darf,
+    "comprovante_darf": _extrair_comprovante_darf,
     "guia_fgts": _extrair_fgts,
     "comprovante_fgts": _extrair_fgts,
     "extrato_bancario": lambda texto: {

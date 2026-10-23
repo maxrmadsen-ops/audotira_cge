@@ -115,6 +115,32 @@ CATALOGO_TIPOS: tuple[TipoDocumentalCatalogo, ...] = (
         ("comprovante de recolhimento", "autenticação bancária", "autenticacao bancaria", "fgts pago"),
     ),
     TipoDocumentalCatalogo(
+        "darf",
+        "DARF",
+        "Documento de arrecadação de receitas federais.",
+        "darf",
+        (
+            "documento de arrecadação",
+            "documento de arrecadacao",
+            "receitas federais",
+            "código da receita",
+            "codigo da receita",
+        ),
+    ),
+    TipoDocumentalCatalogo(
+        "comprovante_darf",
+        "Comprovante bancário de DARF",
+        "Comprovante de pagamento de DARF ou DARF Simples.",
+        "comprovante_darf",
+        (
+            "comprovante de pagamento de darf",
+            "pagamento de darf",
+            "darf/darf simples",
+            "convenio rfb-darf",
+            "convênio rfb-darf",
+        ),
+    ),
+    TipoDocumentalCatalogo(
         "extrato_bancario",
         "Extrato bancário",
         "Extrato da conta bancária da parceria.",
