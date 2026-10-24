@@ -48,7 +48,7 @@ from aplicacao.laboratorio.extracao import (
     normalizar_pontuacao_monetaria,
 )
 from aplicacao.laboratorio.localizacao import (
-    caixa_da_rubrica,
+    caixa_da_linha_rubrica,
     caixa_do_valor,
     faixa_abaixo,
     faixa_do_rotulo,
@@ -1201,10 +1201,13 @@ def _gravar_rubricas(regiao, texto: str, palavras: list[dict], faixa: dict, text
     else:
         fonte = estruturar_rubricas(texto)
     for ordem, item in enumerate(fonte, start=1):
-        if regiao.tipo_documental == "termo_rescisao":
-            caixa = caixa_da_rubrica(palavras, item["codigo"], item["valor_original"])
-        else:
-            caixa = caixa_do_valor(palavras, item["trecho_evidencia"]) or caixa_do_valor(palavras, item["valor_original"])
+        caixa = caixa_da_linha_rubrica(
+            palavras,
+            item.get("codigo") or "",
+            item.get("descricao") or "",
+            item.get("valor_original") or "",
+            item.get("trecho_evidencia") or "",
+        )
         coords = projetar_pagina(caixa, faixa) if caixa else {}
         linhas.append(
             RubricaExtraida(

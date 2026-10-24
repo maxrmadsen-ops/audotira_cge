@@ -2,8 +2,68 @@
 
 from __future__ import annotations
 
+import re
+
 from aplicacao.laboratorio.escolhas import EstadoClassificacao, EstadoRevisao, EstadoVinculo
 from aplicacao.laboratorio.models import InventarioPagina
+
+
+def _pagina_informada(numero, pagina_peca) -> int:
+    for candidato in (numero, pagina_peca):
+        try:
+            valor = int(candidato or 0)
+        except (TypeError, ValueError):
+            continue
+        if valor > 0:
+            return valor
+    return 0
+
+
+def _coordenadas_utilizaveis(obj) -> bool:
+    try:
+        largura = float(obj.evidencia_largura)
+        altura = float(obj.evidencia_altura)
+        float(obj.evidencia_x)
+        float(obj.evidencia_y)
+    except (TypeError, ValueError):
+        return False
+    if largura <= 0 or altura <= 0:
+        return False
+    return not (largura > 0.9 and altura > 0.2)
+
+
+def _valor_so_zero(valor: str) -> bool:
+    digitos = re.sub(r"\D", "", valor or "")
+    return bool(digitos) and set(digitos) <= {"0"}
+
+
+def _linha_da_rubrica_identificada(obj) -> bool:
+    """Rubrica de valor zero só destaca se o código ou a descrição estão no trecho."""
+    codigo = (getattr(obj, "codigo", "") or "").strip()
+    if not codigo:
+        return True
+    trecho = getattr(obj, "trecho_evidencia", "") or ""
+    descricao = (getattr(obj, "descricao", "") or "").strip()
+    return codigo in trecho or bool(descricao and descricao[:12] in trecho)
+
+
+def nivel_de_rastreio(obj, pagina_peca=None) -> str:
+    """exata, aproximada, pagina, calculo ou nenhuma. Não promove coincidência textual."""
+    metodo = (getattr(obj, "metodo", "") or "").strip()
+    confianca = (getattr(obj, "estado_confianca", "") or "").strip()
+    if metodo == "calculo" or confianca == "calculo":
+        return "calculo"
+    valor = (getattr(obj, "valor_original", "") or "").strip()
+    pagina = _pagina_informada(getattr(obj, "numero_pagina", None), pagina_peca)
+    if not valor:
+        return "pagina" if pagina else "nenhuma"
+    if _valor_so_zero(valor) and not _linha_da_rubrica_identificada(obj):
+        return "pagina" if pagina else "nenhuma"
+    if _coordenadas_utilizaveis(obj):
+        if getattr(obj, "localizacao_precisa", False):
+            return "exata"
+        return "aproximada"
+    return "pagina" if pagina else "nenhuma"
 
 
 def eh_placeholder(regiao) -> bool:

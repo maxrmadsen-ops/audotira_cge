@@ -200,7 +200,7 @@ class TesteRevisaoIndividual(TesteCiclo602Conferencia):
         self.assertNotContains(resposta, "Rubricas de proventos")
         self.assertNotContains(resposta, "Rubricas de descontos")
         self.assertContains(resposta, "Soma das rubricas de proventos")
-        self.assertContains(resposta, "Localização precisa indisponível")
+        self.assertContains(resposta, "Página de origem")
         self.assertContains(resposta, "<details class=\"secao-peca\">")
         self.assertNotContains(resposta, "secao-peca\" open")
         self.lote.refresh_from_db()

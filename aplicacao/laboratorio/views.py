@@ -12,6 +12,7 @@ from aplicacao.laboratorio.apresentacao import (
     campos_conferencia,
     comparar_pagina,
     filtrar_paginas,
+    nivel_de_rastreio,
     resumo_pagina,
     resumo_peca,
     secoes_da_peca,
@@ -196,6 +197,11 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
             regiao.resumo = resumo_peca(regiao)
         campos = campos_conferencia(peca_selecionada) if peca_selecionada else []
         rubricas = list(peca_selecionada.rubricas.all()) if peca_selecionada else []
+        pagina_peca = pagina.numero_fisico if pagina is not None else None
+        for campo in campos:
+            campo.nivel_rastreio = nivel_de_rastreio(campo, pagina_peca=pagina_peca)
+        for rubrica in rubricas:
+            rubrica.nivel_rastreio = nivel_de_rastreio(rubrica, pagina_peca=pagina_peca)
         secoes = (
             secoes_da_peca(peca_selecionada.tipo_documental, campos, rubricas_estruturadas=bool(rubricas))
             if peca_selecionada

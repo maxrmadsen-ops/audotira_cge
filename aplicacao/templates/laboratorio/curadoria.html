@@ -170,7 +170,7 @@
             </details>
 
             {% if rubricas %}
-            <details class="secao-peca">
+            <details class="secao-peca" id="rubricas-da-peca">
                 <summary>{% if peca.tipo_documental == "holerite" %}Rubricas do holerite{% else %}Rubricas da peça{% endif %}{% if pendentes_rubrica %} · {{ pendentes_rubrica }} pendente{{ pendentes_rubrica|pluralize }}{% endif %}</summary>
                 <div class="secao-corpo">
                     <p class="texto-apoio">Cada rubrica é conferida individualmente. O texto integral da região permanece em Evidências e revisão.</p>
@@ -178,8 +178,9 @@
                         <div class="rubrica-cabeca"><span>Código</span><span>Rubrica</span><span>Referência</span><span>Provento</span><span>Desconto</span><span>Situação</span></div>
                         {% for rubrica in rubricas %}
                         <details class="rubrica-linha"
-                            data-precisa="{% if rubrica.localizacao_precisa or rubrica.evidencia_x is not None %}1{% else %}0{% endif %}"
-                            data-aproximada="{% if not rubrica.localizacao_precisa and rubrica.evidencia_x is not None %}1{% else %}0{% endif %}"
+                            data-nivel="{{ rubrica.nivel_rastreio }}"
+                            data-precisa="{% if rubrica.nivel_rastreio == 'exata' or rubrica.nivel_rastreio == 'aproximada' %}1{% else %}0{% endif %}"
+                            data-aproximada="{% if rubrica.nivel_rastreio == 'aproximada' %}1{% else %}0{% endif %}"
                             data-x="{{ rubrica.evidencia_x|coordenada }}"
                             data-y="{{ rubrica.evidencia_y|coordenada }}"
                             data-w="{{ rubrica.evidencia_largura|coordenada }}"
@@ -196,13 +197,18 @@
                                 <p class="rotulo-evidencia">Evidência — página {{ pagina.numero_fisico }}:</p>
                                 <p class="evidencia-campo">{{ rubrica.trecho_evidencia }}</p>
                                 <p class="texto-apoio mb-1">Técnica: {{ rubrica.metodo }} · {{ rubrica.estado_confianca }}</p>
-                                {% if rubrica.localizacao_precisa or rubrica.evidencia_x is not None %}
+                                {% if rubrica.nivel_rastreio == "exata" or rubrica.nivel_rastreio == "aproximada" %}
                                 <button class="btn btn-outline-secondary btn-sm localizar-evidencia" type="button">Mostrar no PDF</button>
-                                {% if not rubrica.localizacao_precisa %}
+                                {% if rubrica.nivel_rastreio == "aproximada" %}
                                 <p class="texto-apoio mb-1">Destaque aproximado da faixa lida, não do valor isolado.</p>
                                 {% endif %}
+                                {% elif rubrica.nivel_rastreio == "pagina" %}
+                                <button class="btn btn-outline-secondary btn-sm abrir-pagina-origem" type="button">Página de origem</button>
+                                <p class="texto-apoio mb-1">A página física está identificada. Não há coordenadas para destacar a rubrica.</p>
+                                {% elif rubrica.nivel_rastreio == "calculo" %}
+                                <button class="btn btn-outline-secondary btn-sm ver-evidencias-origem" type="button" data-fontes="total_bruto,deducoes,total_proventos,total_descontos">Ver evidências de origem</button>
                                 {% else %}
-                                <p class="texto-apoio mb-1">Localização precisa indisponível</p>
+                                <p class="texto-apoio mb-1">Sem evidência de origem verificável.</p>
                                 {% endif %}
                                 {% if rubrica.estado_confianca == "ambiguo" or rubrica.estado_confianca == "parcial" %}
                                 <p class="texto-apoio">Leitura incompleta. A conferência manual desta rubrica não altera as outras.</p>
@@ -239,8 +245,9 @@
                     {% for campo in secao.campos %}
                     <div class="campo-extraido border-bottom py-2"
                         data-chave="{{ campo.chave }}"
-                        data-precisa="{% if campo.localizacao_precisa or campo.evidencia_x is not None %}1{% else %}0{% endif %}"
-                        data-aproximada="{% if not campo.localizacao_precisa and campo.evidencia_x is not None %}1{% else %}0{% endif %}"
+                        data-nivel="{{ campo.nivel_rastreio }}"
+                        data-precisa="{% if campo.nivel_rastreio == 'exata' or campo.nivel_rastreio == 'aproximada' %}1{% else %}0{% endif %}"
+                        data-aproximada="{% if campo.nivel_rastreio == 'aproximada' %}1{% else %}0{% endif %}"
                         data-x="{{ campo.evidencia_x|coordenada }}"
                         data-y="{{ campo.evidencia_y|coordenada }}"
                         data-w="{{ campo.evidencia_largura|coordenada }}"
@@ -262,13 +269,19 @@
                         <p class="mb-0 texto-apoio">Técnica: {{ campo.metodo|default:"—" }} · {{ campo.estado_confianca|default:"—" }}</p>
                         <p class="rotulo-evidencia">Evidência — página {{ campo.numero_pagina }}:</p>
                         <p class="evidencia-campo">{{ campo.trecho_evidencia|default:"Sem trecho localizado nesta região." }}</p>
-                        {% if campo.localizacao_precisa or campo.evidencia_x is not None %}
+                        {% if campo.nivel_rastreio == "exata" or campo.nivel_rastreio == "aproximada" %}
                         <button class="btn btn-outline-secondary btn-sm localizar-evidencia" type="button">Mostrar no PDF</button>
-                        {% if not campo.localizacao_precisa %}
+                        {% if campo.nivel_rastreio == "aproximada" %}
                         <p class="texto-apoio">Destaque aproximado da faixa lida, não do valor isolado.</p>
                         {% endif %}
+                        {% elif campo.nivel_rastreio == "pagina" %}
+                        <button class="btn btn-outline-secondary btn-sm abrir-pagina-origem" type="button">Página de origem</button>
+                        <p class="texto-apoio">A página física está identificada. Não há coordenadas para destacar o campo.</p>
+                        {% elif campo.nivel_rastreio == "calculo" %}
+                        <button class="btn btn-outline-secondary btn-sm ver-evidencias-origem" type="button" data-fontes="total_bruto,deducoes,total_proventos,total_descontos">Ver evidências de origem</button>
+                        <p class="texto-apoio">Valor calculado. A conferência usa as rubricas e os totais lidos, sem um trecho literal deste número.</p>
                         {% else %}
-                        <p class="texto-apoio">Localização precisa indisponível</p>
+                        <p class="texto-apoio">Sem evidência de origem verificável.</p>
                         {% endif %}
                         {% if campo.estado_confianca == "ambiguo" %}
                         <p class="texto-apoio">Leitura ambígua. Confira o recorte no PDF e registre a revisão manual.</p>
@@ -408,7 +421,7 @@
                 var pedido = new URLSearchParams(window.location.search).get("destaque") || "";
                 if (/^[a-z0-9_]+$/.test(pedido)) {
                     var origemPedido = document.querySelector('[data-chave="' + pedido + '"]');
-                    var botaoPedido = origemPedido && origemPedido.querySelector(".localizar-evidencia");
+                    var botaoPedido = origemPedido && origemPedido.querySelector(".localizar-evidencia, .abrir-pagina-origem, .ver-evidencias-origem");
                     if (botaoPedido) botaoPedido.click();
                 }
             });
@@ -592,6 +605,33 @@
             botao.classList.add("ativo");
             botao.setAttribute("aria-pressed", "true");
             aplicarDestaque(origem, true);
+        });
+    });
+    document.querySelectorAll(".abrir-pagina-origem").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            var origem = botao.closest("[data-nivel]");
+            var secao = origem && origem.closest("details");
+            if (secao) secao.open = true;
+            limparDestaque();
+            if (tela) tela.scrollIntoView({ block: "center", inline: "nearest" });
+        });
+    });
+    document.querySelectorAll(".ver-evidencias-origem").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+            limparDestaque();
+            var rubricas = document.getElementById("rubricas-da-peca");
+            if (rubricas) rubricas.open = true;
+            var fontes = (botao.getAttribute("data-fontes") || "").split(",");
+            var primeiro = null;
+            fontes.forEach(function (chave) {
+                var campo = document.querySelector('[data-chave="' + chave.trim() + '"]');
+                if (!campo) return;
+                var secao = campo.closest("details");
+                if (secao) secao.open = true;
+                if (!primeiro) primeiro = campo;
+            });
+            if (primeiro) primeiro.scrollIntoView({ block: "nearest" });
+            else if (rubricas) rubricas.scrollIntoView({ block: "center" });
         });
     });
     var limpar = document.getElementById("pdf-limpar-destaque");
