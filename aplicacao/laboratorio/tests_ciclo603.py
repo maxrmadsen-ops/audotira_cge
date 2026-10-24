@@ -239,6 +239,8 @@ class TesteRevisaoIndividual(TesteCiclo602Conferencia):
             )
         self.assertContains(resposta, "Carregando a página do PDF")
         self.assertContains(resposta, "disableAutoFetch: true")
+        self.assertContains(resposta, "disableStream: true")
+        self.assertContains(resposta, "rangeChunkSize: 1048576")
         self.assertContains(resposta, 'data-x="0.212300"')
         self.assertContains(resposta, 'data-w="0.124600"')
         self.assertNotContains(resposta, 'data-x="0,2123')

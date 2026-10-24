@@ -58,6 +58,15 @@ def _lote_visivel(request, lote_pk: int) -> LoteLaboratorio:
     return lote
 
 
+def _url_do_pdf(lote) -> str:
+    """A versão na URL invalida o cache do navegador quando o arquivo muda."""
+    url = reverse("documentos:arquivo", kwargs={"pk": lote.documento_id})
+    identidade = lote.documento.hash_sha256
+    if identidade:
+        return f"{url}?v={identidade}"
+    return url
+
+
 def _registrar_revisao(lote, usuario, alvo, alvo_id, acao, justificativa="", detalhe=None):
     RevisaoLaboratorio.objects.create(
         lote=lote,
@@ -227,7 +236,7 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
                 "form_pendencia": FormularioPendencia(),
                 "form_ilegivel": FormularioIlegibilidade(),
                 "form_reprocessar": FormularioReprocessamento(),
-                "arquivo_url": reverse("documentos:arquivo", kwargs={"pk": lote.documento_id}),
+                "arquivo_url": _url_do_pdf(lote),
                 "total_paginas": lote.quantidade_paginas,
                 "resumo_pagina": resumo_pagina(pagina) if pagina else "",
             },

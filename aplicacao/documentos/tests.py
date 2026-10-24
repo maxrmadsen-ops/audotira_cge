@@ -151,6 +151,45 @@ class TesteDocumentos(TestCase):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("documentos:arquivo", kwargs={"pk": documento.pk})).status_code, 302)
 
+    def test_intervalo_entrega_so_os_bytes_pedidos_e_exige_autorizacao(self):
+        conteudo = pdf_com_texto([FRASE, FRASE])
+        self.enviar("intervalo.pdf", conteudo)
+        documento = Documento.objects.get(nome_original="intervalo.pdf")
+        url = reverse("documentos:arquivo", kwargs={"pk": documento.pk})
+        faixa = self.client.get(url, HTTP_RANGE="bytes=0-7")
+        self.assertEqual(faixa.status_code, 206)
+        self.assertEqual(faixa.getvalue(), conteudo[:8])
+        self.assertEqual(faixa["Content-Range"], f"bytes 0-7/{len(conteudo)}")
+        self.assertEqual(faixa["Accept-Ranges"], "bytes")
+        self.assertEqual(faixa["ETag"], f'"{documento.hash_sha256}"')
+        self.assertIn("private", faixa["Cache-Control"])
+        repetida = self.client.get(url, HTTP_RANGE="bytes=0-7")
+        self.assertEqual(repetida.status_code, 206)
+        self.assertEqual(repetida.getvalue(), conteudo[:8])
+        cauda = self.client.get(url, HTTP_RANGE="bytes=-4")
+        self.assertEqual(cauda.status_code, 206)
+        self.assertEqual(cauda.getvalue(), conteudo[-4:])
+        self.assertEqual(self.client.get(url, HTTP_RANGE="bytes=999999-999999").status_code, 416)
+        self.assertEqual(
+            self.client.get(url, HTTP_IF_NONE_MATCH=f'"{documento.hash_sha256}"').status_code,
+            304,
+        )
+        completo = self.client.get(url)
+        self.assertEqual(completo.status_code, 200)
+        self.assertEqual(completo.getvalue(), conteudo)
+        outro = Usuario.objects.create_user(
+            username="analista-outro-doc",
+            password="Isolada-apenas-no-teste",
+            perfil=Usuario.Perfil.ANALISTA,
+        )
+        PrestacaoContas.objects.create(numero_processo="DEMO-DOC-OUTRO", analista_responsavel=outro)
+        self.client.force_login(outro)
+        negado = self.client.get(url, HTTP_RANGE="bytes=0-7")
+        self.assertEqual(negado.status_code, 403)
+        self.assertFalse(negado.content.startswith(b"%PDF"))
+        self.client.logout()
+        self.assertEqual(self.client.get(url, HTTP_RANGE="bytes=0-7").status_code, 302)
+
     def test_pdf_sem_texto_aciona_ocr(self):
         conteudo = pdf_somente_imagem("RECIBO SINTETICO")
         self.enviar("recibo_imagem_sintetica.pdf", conteudo)

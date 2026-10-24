@@ -420,7 +420,8 @@
         url: tela.dataset.arquivo,
         withCredentials: true,
         disableAutoFetch: true,
-        disableStream: true
+        disableStream: true,
+        rangeChunkSize: 1048576
     }).promise.then(function (pdf) {
         pdfDoc = pdf;
         if (paginaAtual < 1 || paginaAtual > pdf.numPages) {

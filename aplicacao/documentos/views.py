@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -179,6 +179,63 @@ class DetalheDocumentoView(LoginRequiredMixin, View):
         return _documento_visivel(request, pk, ativos=not pode_administrar(request.user))
 
 
+class _TrechoArquivo:
+    """Lê só o intervalo pedido e encerra, sem percorrer o restante do PDF."""
+
+    def __init__(self, arquivo, quantidade: int):
+        self._arquivo = arquivo
+        self._restante = quantidade
+
+    def read(self, tamanho: int = -1) -> bytes:
+        if self._restante <= 0:
+            return b""
+        if tamanho is None or tamanho < 0:
+            tamanho = self._restante
+        dados = self._arquivo.read(min(tamanho, self._restante))
+        self._restante -= len(dados)
+        return dados
+
+    def close(self) -> None:
+        self._arquivo.close()
+
+
+def _etiqueta_documento(documento, caminho) -> str:
+    if documento.hash_sha256:
+        return f'"{documento.hash_sha256}"'
+    estado = caminho.stat()
+    return f'W/"{estado.st_size:x}-{int(estado.st_mtime)}"'
+
+
+def _intervalo_bytes(cabecalho: str, tamanho: int) -> tuple[int, int] | None:
+    """Um único intervalo. Vários intervalos continuam no arquivo completo."""
+    if not cabecalho or not cabecalho.startswith("bytes=") or tamanho <= 0:
+        return None
+    especificado = cabecalho.removeprefix("bytes=").strip()
+    if not especificado or "," in especificado:
+        return None
+    if especificado.startswith("-"):
+        sufixo = int(especificado[1:])
+        if sufixo <= 0:
+            raise ValueError(cabecalho)
+        return max(tamanho - sufixo, 0), tamanho - 1
+    inicio_texto, separador, fim_texto = especificado.partition("-")
+    if not separador or not inicio_texto:
+        raise ValueError(cabecalho)
+    inicio = int(inicio_texto)
+    fim = int(fim_texto) if fim_texto else tamanho - 1
+    if inicio < 0 or fim < inicio:
+        raise ValueError(cabecalho)
+    return inicio, min(fim, tamanho - 1)
+
+
+def _marcar_arquivo(resposta, etiqueta: str) -> None:
+    resposta["Accept-Ranges"] = "bytes"
+    resposta["Cache-Control"] = "private, max-age=86400"
+    resposta["ETag"] = etiqueta
+    resposta["Content-Disposition"] = "inline"
+    resposta["X-Content-Type-Options"] = "nosniff"
+
+
 class ArquivoDocumentoView(LoginRequiredMixin, View):
     def get(self, request, pk):
         documento = _documento_visivel(request, pk)
@@ -186,9 +243,44 @@ class ArquivoDocumentoView(LoginRequiredMixin, View):
             caminho = ler_arquivo(documento.nome_armazenado)
         except ErroArmazenamento as exc:
             raise Http404(exc.mensagem) from exc
-        resposta = FileResponse(caminho.open("rb"), content_type="application/pdf")
-        resposta["Content-Disposition"] = "inline"
-        resposta["X-Content-Type-Options"] = "nosniff"
+        tamanho = caminho.stat().st_size
+        etiqueta = _etiqueta_documento(documento, caminho)
+        intervalo = request.headers.get("Range")
+        condicao = request.headers.get("If-Range")
+        if request.headers.get("If-None-Match") == etiqueta and not intervalo:
+            resposta = HttpResponse(status=304)
+            _marcar_arquivo(resposta, etiqueta)
+            return resposta
+        faixa = None
+        if intervalo and (not condicao or condicao == etiqueta):
+            try:
+                faixa = _intervalo_bytes(intervalo, tamanho)
+            except ValueError:
+                faixa = None
+                resposta = HttpResponse(status=416)
+                resposta["Content-Range"] = f"bytes */{tamanho}"
+                _marcar_arquivo(resposta, etiqueta)
+                return resposta
+        if faixa is None:
+            resposta = FileResponse(caminho.open("rb"), content_type="application/pdf")
+            _marcar_arquivo(resposta, etiqueta)
+            return resposta
+        inicio, fim = faixa
+        if inicio >= tamanho:
+            resposta = HttpResponse(status=416)
+            resposta["Content-Range"] = f"bytes */{tamanho}"
+            _marcar_arquivo(resposta, etiqueta)
+            return resposta
+        arquivo = caminho.open("rb")
+        arquivo.seek(inicio)
+        resposta = FileResponse(
+            _TrechoArquivo(arquivo, fim - inicio + 1),
+            content_type="application/pdf",
+            status=206,
+        )
+        resposta["Content-Length"] = str(fim - inicio + 1)
+        resposta["Content-Range"] = f"bytes {inicio}-{fim}/{tamanho}"
+        _marcar_arquivo(resposta, etiqueta)
         return resposta
 
 
