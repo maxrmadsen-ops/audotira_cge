@@ -1024,6 +1024,9 @@ mark.trecho-origem { background: #f3e2a4; color: inherit; }
     z-index: 30;
     box-sizing: border-box;
 }
+.destaque-evidencia.aproximado::after {
+    content: "Faixa aproximada";
+}
 .destaque-evidencia::after {
     content: "Evidência";
     position: absolute;

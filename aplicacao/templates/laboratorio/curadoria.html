@@ -178,7 +178,8 @@
                         <div class="rubrica-cabeca"><span>Código</span><span>Rubrica</span><span>Referência</span><span>Provento</span><span>Desconto</span><span>Situação</span></div>
                         {% for rubrica in rubricas %}
                         <details class="rubrica-linha"
-                            data-precisa="{% if rubrica.localizacao_precisa %}1{% else %}0{% endif %}"
+                            data-precisa="{% if rubrica.localizacao_precisa or rubrica.evidencia_x is not None %}1{% else %}0{% endif %}"
+                            data-aproximada="{% if not rubrica.localizacao_precisa and rubrica.evidencia_x is not None %}1{% else %}0{% endif %}"
                             data-x="{{ rubrica.evidencia_x|coordenada }}"
                             data-y="{{ rubrica.evidencia_y|coordenada }}"
                             data-w="{{ rubrica.evidencia_largura|coordenada }}"
@@ -195,8 +196,11 @@
                                 <p class="rotulo-evidencia">Evidência — página {{ pagina.numero_fisico }}:</p>
                                 <p class="evidencia-campo">{{ rubrica.trecho_evidencia }}</p>
                                 <p class="texto-apoio mb-1">Técnica: {{ rubrica.metodo }} · {{ rubrica.estado_confianca }}</p>
-                                {% if rubrica.localizacao_precisa %}
+                                {% if rubrica.localizacao_precisa or rubrica.evidencia_x is not None %}
                                 <button class="btn btn-outline-secondary btn-sm localizar-evidencia" type="button">Mostrar no PDF</button>
+                                {% if not rubrica.localizacao_precisa %}
+                                <p class="texto-apoio mb-1">Destaque aproximado da faixa lida, não do valor isolado.</p>
+                                {% endif %}
                                 {% else %}
                                 <p class="texto-apoio mb-1">Localização precisa indisponível</p>
                                 {% endif %}
@@ -235,7 +239,8 @@
                     {% for campo in secao.campos %}
                     <div class="campo-extraido border-bottom py-2"
                         data-chave="{{ campo.chave }}"
-                        data-precisa="{% if campo.localizacao_precisa %}1{% else %}0{% endif %}"
+                        data-precisa="{% if campo.localizacao_precisa or campo.evidencia_x is not None %}1{% else %}0{% endif %}"
+                        data-aproximada="{% if not campo.localizacao_precisa and campo.evidencia_x is not None %}1{% else %}0{% endif %}"
                         data-x="{{ campo.evidencia_x|coordenada }}"
                         data-y="{{ campo.evidencia_y|coordenada }}"
                         data-w="{{ campo.evidencia_largura|coordenada }}"
@@ -257,8 +262,11 @@
                         <p class="mb-0 texto-apoio">Técnica: {{ campo.metodo|default:"—" }} · {{ campo.estado_confianca|default:"—" }}</p>
                         <p class="rotulo-evidencia">Evidência — página {{ campo.numero_pagina }}:</p>
                         <p class="evidencia-campo">{{ campo.trecho_evidencia|default:"Sem trecho localizado nesta região." }}</p>
-                        {% if campo.localizacao_precisa %}
+                        {% if campo.localizacao_precisa or campo.evidencia_x is not None %}
                         <button class="btn btn-outline-secondary btn-sm localizar-evidencia" type="button">Mostrar no PDF</button>
+                        {% if not campo.localizacao_precisa %}
+                        <p class="texto-apoio">Destaque aproximado da faixa lida, não do valor isolado.</p>
+                        {% endif %}
                         {% else %}
                         <p class="texto-apoio">Localização precisa indisponível</p>
                         {% endif %}
@@ -546,6 +554,7 @@
         var visH = Math.min(Math.max(pxH + 6, 34), pxH + 16);
         var left = Math.max(0, Math.min(larguraPagina - visW, centroX - visW / 2));
         var top = Math.max(0, Math.min(alturaPagina - visH, centroY - visH / 2));
+        destaque.classList.toggle("aproximado", origem.dataset.aproximada === "1");
         destaque.hidden = false;
         destaque.style.left = (left / larguraPagina * 100) + "%";
         destaque.style.top = (top / alturaPagina * 100) + "%";
@@ -562,7 +571,10 @@
     }
     function limparDestaque() {
         destaqueAtivo = null;
-        if (destaque) destaque.hidden = true;
+        if (destaque) {
+            destaque.hidden = true;
+            destaque.classList.remove("aproximado");
+        }
         document.querySelectorAll(".localizar-evidencia.ativo").forEach(function (item) {
             item.classList.remove("ativo");
             item.setAttribute("aria-pressed", "false");
@@ -572,6 +584,8 @@
         botao.addEventListener("click", function () {
             var origem = botao.closest("[data-precisa]");
             if (!origem || origem.dataset.precisa !== "1") return;
+            var secao = origem.closest("details");
+            if (secao) secao.open = true;
             limparDestaque();
             destaqueAtivo = origem;
             botao.classList.add("ativo");

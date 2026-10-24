@@ -44,6 +44,118 @@ def caixa_da_rubrica(palavras: list[dict], codigo: str, valor: str = "") -> dict
     return _unir(palavras[inicio : fim + 1])
 
 
+def caixa_de_digitos(palavras: list[dict], digitos_alvo: str) -> dict | None:
+    """Caixa do montante só quando ele aparece uma única vez e não ocupa a linha inteira."""
+    alvo = re.sub(r"\D", "", digitos_alvo or "")
+    if len(alvo) < 3:
+        return None
+    hits = [palavra for palavra in palavras if re.sub(r"\D", "", palavra.get("texto") or "") == alvo]
+    if len(hits) > 1:
+        return None
+    if len(hits) == 1:
+        caixa = _unir(hits)
+        return caixa if caixa["largura"] <= 0.4 else None
+    spans = []
+    for inicio, palavra in enumerate(palavras):
+        acumulado = ""
+        grupo = []
+        y = float(palavra["y"])
+        for outra in palavras[inicio : inicio + 6]:
+            if abs(float(outra["y"]) - y) > 0.35:
+                break
+            if grupo and float(outra["x"]) + 0.01 < float(grupo[-1]["x"]):
+                break
+            acumulado += re.sub(r"\D", "", outra.get("texto") or "")
+            grupo.append(outra)
+            if acumulado == alvo:
+                spans.append(grupo)
+                break
+            if len(acumulado) > len(alvo):
+                break
+    if len(spans) != 1:
+        return None
+    caixa = _unir(spans[0])
+    return caixa if caixa["largura"] <= 0.4 else None
+
+
+def projetar_faixa_vertical(caixa: dict, y0: float, y1: float) -> dict:
+    """Projeta uma caixa do recorte horizontal para a página. O recorte ocupa a largura toda."""
+    altura = y1 - y0
+    return {
+        "evidencia_x": round(float(caixa["x"]), 4),
+        "evidencia_y": round(y0 + float(caixa["y"]) * altura, 4),
+        "evidencia_largura": round(float(caixa["largura"]), 4),
+        "evidencia_altura": round(max(float(caixa["altura"]) * altura, 0.008), 4),
+    }
+
+
+def faixa_total_aproximada(y0: float, y1: float) -> dict:
+    """A faixa efetivamente lida, sem fingir que o valor foi isolado."""
+    return {
+        "evidencia_x": 0.0,
+        "evidencia_y": round(y0, 4),
+        "evidencia_largura": 1.0,
+        "evidencia_altura": round(y1 - y0, 4),
+        "localizacao_precisa": False,
+    }
+
+
+def caixa_de_digitos(palavras: list[dict], digitos_alvo: str) -> dict | None:
+    """Caixa do montante só quando ele aparece uma única vez e não ocupa a linha inteira."""
+    alvo = re.sub(r"\D", "", digitos_alvo or "")
+    if len(alvo) < 3:
+        return None
+    hits = [palavra for palavra in palavras if re.sub(r"\D", "", palavra.get("texto") or "") == alvo]
+    if len(hits) > 1:
+        return None
+    if len(hits) == 1:
+        caixa = _unir(hits)
+        return caixa if caixa["largura"] <= 0.4 else None
+    spans = []
+    for inicio, palavra in enumerate(palavras):
+        acumulado = ""
+        grupo = []
+        y = float(palavra["y"])
+        for outra in palavras[inicio : inicio + 6]:
+            if abs(float(outra["y"]) - y) > 0.35:
+                break
+            if grupo and float(outra["x"]) + 0.01 < float(grupo[-1]["x"]):
+                break
+            acumulado += re.sub(r"\D", "", outra.get("texto") or "")
+            grupo.append(outra)
+            if acumulado == alvo:
+                spans.append(grupo)
+                break
+            if len(acumulado) > len(alvo):
+                break
+    if len(spans) != 1:
+        return None
+    caixa = _unir(spans[0])
+    return caixa if caixa["largura"] <= 0.4 else None
+
+
+def projetar_faixa_vertical(caixa: dict, y0: float, y1: float) -> dict:
+    """Projeta uma caixa do recorte horizontal para a página. O recorte ocupa a largura toda."""
+    altura = y1 - y0
+    return {
+        "evidencia_x": round(float(caixa["x"]), 4),
+        "evidencia_y": round(y0 + float(caixa["y"]) * altura, 4),
+        "evidencia_largura": round(float(caixa["largura"]), 4),
+        "evidencia_altura": round(max(float(caixa["altura"]) * altura, 0.008), 4),
+    }
+
+
+def faixa_total_aproximada(y0: float, y1: float) -> dict:
+    """A faixa efetivamente lida, sem fingir que o valor foi isolado."""
+    return {
+        "evidencia_x": 0.0,
+        "evidencia_y": round(y0, 4),
+        "evidencia_largura": 1.0,
+        "evidencia_altura": round(y1 - y0, 4),
+        "localizacao_precisa": False,
+    }
+
+
 def caixa_do_valor(palavras: list[dict], consulta: str) -> dict | None:
     """Devolve uma caixa só quando a consulta aparece uma única vez."""
     tokens = [_norm(parte) for parte in re.split(r"\s+", (consulta or "").strip())]

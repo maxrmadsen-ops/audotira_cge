@@ -761,6 +761,8 @@ _FAIXAS_TOTAIS_TRCT = (
     ("deducoes", "dedu", 0.866, 0.930, "6"),
     ("total_liquido", "quido", 0.896, 0.932, "4"),
 )
+_FRASE_LOCAL_EXATA = "Localização exata: token único do valor na faixa sombreada."
+_FRASE_LOCAL_APROXIMADA = "Localização aproximada: faixa sombreada lida, sem token único do valor."
 
 
 def _valor_apos_rotulo(texto: str, rotulo: str) -> str:
@@ -778,6 +780,105 @@ def _valor_apos_rotulo(texto: str, rotulo: str) -> str:
             continue
         return valor.group(0)
     return ""
+
+
+def _palavras_do_ocr(dados: dict, largura: int, altura: int) -> list[dict]:
+    palavras = []
+    for indice, palavra in enumerate(dados.get("text", [])):
+        if not str(palavra).strip() or largura <= 0 or altura <= 0:
+            continue
+        palavras.append(
+            {
+                "texto": str(palavra),
+                "x": int(dados["left"][indice]) / largura,
+                "y": int(dados["top"][indice]) / altura,
+                "largura": max(int(dados["width"][indice]) / largura, 0.001),
+                "altura": max(int(dados["height"][indice]) / altura, 0.001),
+            }
+        )
+    return palavras
+
+
+def _localizacao_do_total(dados: dict, tamanho: tuple[int, int], valor: str, y0: float, y1: float) -> dict:
+    import re
+
+    from aplicacao.laboratorio.localizacao import caixa_de_digitos, faixa_total_aproximada, projetar_faixa_vertical
+
+    largura, altura = tamanho
+    caixa = caixa_de_digitos(_palavras_do_ocr(dados, largura, altura), re.sub(r"\D", "", valor or ""))
+    if caixa is None:
+        return faixa_total_aproximada(y0, y1)
+    projetada = projetar_faixa_vertical(caixa, y0, y1)
+    projetada["localizacao_precisa"] = True
+    return projetada
+
+
+def _com_proveniencia(trecho: str, precisa: bool) -> str:
+    frase = _FRASE_LOCAL_EXATA if precisa else _FRASE_LOCAL_APROXIMADA
+    texto = (trecho or "").replace(_FRASE_LOCAL_EXATA, "").replace(_FRASE_LOCAL_APROXIMADA, "").strip()
+    return f"{texto} {frase}".strip()[:500]
+
+
+def atualizar_localizacao_totais(regiao) -> list[str]:
+    """Preenche a caixa dos totais já gravados. Não altera valor, rubrica, cadeia nem revisão."""
+    from pdf2image import convert_from_path
+
+    import pytesseract
+
+    from aplicacao.documentos.armazenamento import ler_arquivo
+
+    chaves = {item[0]: item for item in _FAIXAS_TOTAIS_TRCT}
+    campos = [
+        campo
+        for campo in regiao.campos.filter(chave__in=chaves, metodo="ocr_totais_trct")
+        if (campo.valor_original or "").strip()
+    ]
+    if not campos:
+        return []
+    caminho = ler_arquivo(regiao.lote.documento.nome_armazenado)
+    numero = regiao.pagina.numero_fisico
+    imagem = convert_from_path(str(caminho), dpi=110, first_page=numero, last_page=numero)[0]
+    largura, altura = imagem.size
+    atualizados = []
+    for campo in campos:
+        _chave, _rotulo, y0, y1, psm = chaves[campo.chave]
+        recorte = imagem.crop((0, int(altura * y0), largura, int(altura * y1))).convert("L")
+        ampliado = recorte.resize((recorte.size[0] * 3, max(recorte.size[1] * 3, 1)))
+        try:
+            dados = pytesseract.image_to_data(
+                ampliado,
+                lang="por",
+                config=f"--psm {psm}",
+                output_type=pytesseract.Output.DICT,
+            )
+        except Exception:
+            dados = {"text": [], "left": [], "top": [], "width": [], "height": []}
+        local = _localizacao_do_total(dados, ampliado.size, campo.valor_original, y0, y1)
+        aplicar_localizacao_campo(campo, local)
+        atualizados.append(campo.chave)
+    return atualizados
+
+
+def aplicar_localizacao_campo(campo, localizacao: dict) -> None:
+    """Grava só a caixa. Valor, confiança, revisão e método permanecem."""
+    precisa = bool(localizacao.get("localizacao_precisa"))
+    campo.evidencia_x = localizacao["evidencia_x"]
+    campo.evidencia_y = localizacao["evidencia_y"]
+    campo.evidencia_largura = localizacao["evidencia_largura"]
+    campo.evidencia_altura = localizacao["evidencia_altura"]
+    campo.localizacao_precisa = precisa
+    campo.trecho_evidencia = _com_proveniencia(campo.trecho_evidencia, precisa)
+    campo.save(
+        update_fields=[
+            "evidencia_x",
+            "evidencia_y",
+            "evidencia_largura",
+            "evidencia_altura",
+            "localizacao_precisa",
+            "trecho_evidencia",
+            "atualizado_em",
+        ]
+    )
 
 
 def _completar_totais_trct(campos: list[dict], caminho, numero: int) -> None:
@@ -816,20 +917,26 @@ def _completar_totais_trct(campos: list[dict], caminho, numero: int) -> None:
         ampliado = recorte.resize((recorte.size[0] * 3, max(recorte.size[1] * 3, 1)))
         try:
             texto = pytesseract.image_to_string(ampliado, lang="por", config=f"--psm {psm}") or ""
+            dados = pytesseract.image_to_data(
+                ampliado,
+                lang="por",
+                config=f"--psm {psm}",
+                output_type=pytesseract.Output.DICT,
+            )
         except Exception:
             return
         valor = _valor_apos_rotulo(texto, rotulo)
         decimal = _moeda_para_decimal(valor)
         if decimal is None:
             return
-        encontrados[chave] = (valor, decimal)
+        encontrados[chave] = (valor, decimal, _localizacao_do_total(dados, ampliado.size, valor, y0, y1))
         evidencias[chave] = " ".join(texto.split())[:180]
     bruto = encontrados["total_bruto"][1]
     deducoes = encontrados["deducoes"][1]
     liquido = encontrados["total_liquido"][1]
     if bruto - deducoes != liquido:
         return
-    for chave, (_valor, decimal) in encontrados.items():
+    for chave, (_valor, decimal, _local) in encontrados.items():
         atual = atuais[chave]
         existente = _moeda_para_decimal(atual.get("valor_original") or "")
         if existente is not None and atual.get("metodo") != "ocr_recorte" and existente != decimal:
@@ -839,16 +946,20 @@ def _completar_totais_trct(campos: list[dict], caminho, numero: int) -> None:
         f"{encontrados['total_bruto'][0]} − {encontrados['deducoes'][0]} = {encontrados['total_liquido'][0]}. "
         "Revisão humana pendente."
     )
-    for chave, (valor, decimal) in encontrados.items():
+    for chave, (valor, decimal, local) in encontrados.items():
         atual = atuais[chave]
         if atual.get("valor_original") and atual.get("metodo") != "ocr_recorte":
             continue
         atual["valor_original"] = valor
         atual["valor_normalizado"] = str(decimal)
-        atual["trecho_evidencia"] = f"{nota} {evidencias[chave]}"[:500]
+        atual["trecho_evidencia"] = _com_proveniencia(f"{nota} {evidencias[chave]}", local["localizacao_precisa"])
         atual["metodo"] = "ocr_totais_trct"
         atual["estado_confianca"] = "parcial"
-        atual["localizacao_precisa"] = False
+        atual["localizacao_precisa"] = local["localizacao_precisa"]
+        atual["evidencia_x"] = local["evidencia_x"]
+        atual["evidencia_y"] = local["evidencia_y"]
+        atual["evidencia_largura"] = local["evidencia_largura"]
+        atual["evidencia_altura"] = local["evidencia_altura"]
 
 
 def _completar_liquido_lido(campos: list[dict], recorte) -> None:
