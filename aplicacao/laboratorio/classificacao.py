@@ -156,6 +156,18 @@ def dividir_dispensa_e_transferencia(texto: str, palavras: list[dict]) -> float 
     if not alturas:
         return None
     inicio_transferencia = min(alturas)
+    if inicio_transferencia <= 0.4:
+        dispensas = [
+            float(palavra["y"])
+            for palavra in palavras
+            if "dispens" in (palavra.get("texto") or "").lower() and float(palavra["y"]) > inicio_transferencia + 0.12
+        ]
+        if not dispensas:
+            return None
+        corte = min(dispensas) - 0.02
+        if corte <= inicio_transferencia or corte <= 0.25 or corte >= 0.8:
+            return None
+        return round(corte, 4)
     corte = inicio_transferencia - 0.03
     for palavra in palavras:
         if not re.search(r"banco", palavra.get("texto") or "", flags=re.IGNORECASE):

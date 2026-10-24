@@ -666,6 +666,7 @@ def reprocessar_pagina_por_imagem(lote_id: int, numero: int, usuario=None) -> di
                 if texto_tabela:
                     _aplicar_rubricas_na_verba(campos, peca["texto"], texto_tabela)
                 _completar_liquido_lido(campos, peca["recorte"])
+                _completar_totais_trct(campos, caminho, numero)
             if regiao.tipo_documental in {"termo_quitacao", "termo_rescisao"}:
                 _completar_traco_quitacao(campos, imagem, peca["palavras"], faixa)
             if regiao.tipo_documental == "comunicacao_dispensa":
@@ -753,6 +754,101 @@ def _reler_campos_dificeis(campos: list[dict], recorte, palavras: list[dict], te
         faixa_recebi = {"x": 0.0, "y": 0.86, "largura": 0.72, "altura": 0.12}
     if faixa_recebi:
         aplicar_em_campos(campos, "data_recebimento", decidir_data(reler_faixa(recorte, faixa_recebi, idioma)))
+
+
+_FAIXAS_TOTAIS_TRCT = (
+    ("total_bruto", "bruto", 0.708, 0.748, "6"),
+    ("deducoes", "dedu", 0.866, 0.930, "6"),
+    ("total_liquido", "quido", 0.896, 0.932, "4"),
+)
+
+
+def _valor_apos_rotulo(texto: str, rotulo: str) -> str:
+    """Primeiro valor monetário depois do rótulo. Ignora zero e percentual."""
+    import re
+
+    achado = re.search(rotulo, texto or "", flags=re.IGNORECASE)
+    if not achado:
+        return ""
+    trecho = (texto or "")[achado.end() : achado.end() + 70]
+    for valor in re.finditer(r"\d{1,3}(?:\.\d{3})*,\d{2}", trecho):
+        if valor.group(0) in {"0,00", "0,0"}:
+            continue
+        if "%" in trecho[valor.end() : valor.end() + 2]:
+            continue
+        return valor.group(0)
+    return ""
+
+
+def _completar_totais_trct(campos: list[dict], caminho, numero: int) -> None:
+    """Lê as três faixas sombreadas do TRCT. Só grava quando bruto − deduções = líquido."""
+    from pdf2image import convert_from_path
+
+    import pytesseract
+
+    from aplicacao.laboratorio.extracao import _moeda_para_decimal
+
+    chaves = ("total_bruto", "deducoes", "total_liquido")
+    atuais = {chave: next((campo for campo in campos if campo["chave"] == chave), None) for chave in chaves}
+    if any(campo is None for campo in atuais.values()):
+        return
+    ja_lidos = {}
+    for chave in chaves:
+        decimal = _moeda_para_decimal(atuais[chave].get("valor_original") or "")
+        if decimal is not None and atuais[chave].get("metodo") != "ocr_recorte":
+            ja_lidos[chave] = decimal
+    if len(ja_lidos) == 3 and ja_lidos["total_bruto"] - ja_lidos["deducoes"] == ja_lidos["total_liquido"]:
+        return
+    try:
+        imagens = convert_from_path(str(caminho), dpi=110, first_page=numero, last_page=numero)
+    except Exception:
+        return
+    if not imagens:
+        return
+    imagem = imagens[0]
+    largura, altura = imagem.size
+    if altura < 200:
+        return
+    encontrados = {}
+    evidencias = {}
+    for chave, rotulo, y0, y1, psm in _FAIXAS_TOTAIS_TRCT:
+        recorte = imagem.crop((0, int(altura * y0), largura, int(altura * y1))).convert("L")
+        ampliado = recorte.resize((recorte.size[0] * 3, max(recorte.size[1] * 3, 1)))
+        try:
+            texto = pytesseract.image_to_string(ampliado, lang="por", config=f"--psm {psm}") or ""
+        except Exception:
+            return
+        valor = _valor_apos_rotulo(texto, rotulo)
+        decimal = _moeda_para_decimal(valor)
+        if decimal is None:
+            return
+        encontrados[chave] = (valor, decimal)
+        evidencias[chave] = " ".join(texto.split())[:180]
+    bruto = encontrados["total_bruto"][1]
+    deducoes = encontrados["deducoes"][1]
+    liquido = encontrados["total_liquido"][1]
+    if bruto - deducoes != liquido:
+        return
+    for chave, (_valor, decimal) in encontrados.items():
+        atual = atuais[chave]
+        existente = _moeda_para_decimal(atual.get("valor_original") or "")
+        if existente is not None and atual.get("metodo") != "ocr_recorte" and existente != decimal:
+            return
+    nota = (
+        "Faixa sombreada do TRCT, 110 dpi, ampliação 3x. "
+        f"{encontrados['total_bruto'][0]} − {encontrados['deducoes'][0]} = {encontrados['total_liquido'][0]}. "
+        "Revisão humana pendente."
+    )
+    for chave, (valor, decimal) in encontrados.items():
+        atual = atuais[chave]
+        if atual.get("valor_original") and atual.get("metodo") != "ocr_recorte":
+            continue
+        atual["valor_original"] = valor
+        atual["valor_normalizado"] = str(decimal)
+        atual["trecho_evidencia"] = f"{nota} {evidencias[chave]}"[:500]
+        atual["metodo"] = "ocr_totais_trct"
+        atual["estado_confianca"] = "parcial"
+        atual["localizacao_precisa"] = False
 
 
 def _completar_liquido_lido(campos: list[dict], recorte) -> None:

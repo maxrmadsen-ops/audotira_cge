@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from decimal import Decimal, InvalidOperation
 
 from aplicacao.laboratorio.escolhas import EstadoVinculo
@@ -62,12 +63,24 @@ def _evidencia(regiao: RegiaoDocumental, chave: str, rotulo: str) -> dict:
     }
 
 
+def _sem_acento(texto: str) -> str:
+    base = unicodedata.normalize("NFKD", texto or "")
+    return "".join(caractere for caractere in base if not unicodedata.combining(caractere))
+
+
 def _nome_proximo(esquerda: str, direita: str) -> bool:
-    a = " ".join((esquerda or "").upper().split())
-    b = " ".join((direita or "").upper().split())
+    a = " ".join(_sem_acento(esquerda).upper().split())
+    b = " ".join(_sem_acento(direita).upper().split())
     if len(a) < 5 or len(b) < 5:
         return False
-    return a in b or b in a
+    if a in b or b in a:
+        return True
+    tokens_a = [token for token in a.split() if len(token) >= 4]
+    tokens_b = [token for token in b.split() if len(token) >= 4]
+    if len(tokens_a) < 3 or len(tokens_b) < 3:
+        return False
+    menor, maior = (tokens_a, tokens_b) if len(tokens_a) <= len(tokens_b) else (tokens_b, tokens_a)
+    return set(menor).issubset(maior)
 
 
 def _situacao_numeros(esperado: Decimal | None, obtido: Decimal | None) -> str:

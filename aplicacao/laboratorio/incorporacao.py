@@ -1,8 +1,16 @@
-"""Incorpora a amostra dos ciclos 6.1.5-B a 6.1.5-E sem reprocessar páginas preservadas."""
+"""Incorpora a amostra dos ciclos 6.1.5-B a 6.1.5-F sem reprocessar páginas preservadas."""
 
 from __future__ import annotations
 
-from aplicacao.laboratorio.conciliacao import _cadeias_darf, _cadeias_fgts, _cadeias_folha, _texto, _valor
+from aplicacao.laboratorio.conciliacao import (
+    _cadeias_darf,
+    _cadeias_fgts,
+    _cadeias_folha,
+    _cadeias_rescisao,
+    _sem_acento,
+    _texto,
+    _valor,
+)
 from aplicacao.laboratorio.escolhas import EstadoCampo, EstadoClassificacao, EstadoRevisao, EstadoVinculo
 from aplicacao.laboratorio.extracao import extrair_campos
 from aplicacao.laboratorio.models import CadeiaConciliacao, CampoExtraido, RegiaoDocumental
@@ -12,16 +20,28 @@ PAGINAS_615B = (16, 18, 50, 110, 112, 115, 117)
 PAGINAS_615C = (109, 113, 114, 118, 119, 120, 121, 122)
 PAGINAS_615D = (123, 124, 125, 129, 131, 132, 134)
 PAGINAS_615E = (12, 20, 28, 46, 52)
-PAGINAS_AMOSTRA = PAGINAS_615B + PAGINAS_615C + PAGINAS_615D + PAGINAS_615E
+PAGINAS_615F = (88, 89, 90, 94, 95, 96)
+PAGINAS_AMOSTRA = PAGINAS_615B + PAGINAS_615C + PAGINAS_615D + PAGINAS_615E + PAGINAS_615F
 PAGINAS_PRESERVADAS = frozenset({17, 91, 92, 93, 111, 116})
 VERSAO_AMOSTRA = "6.1.5-b"
 VERSAO_615C = "6.1.5-c"
 VERSAO_615D = "6.1.5-d"
 VERSAO_615E = "6.1.5-e"
+VERSAO_615F = "6.1.5-f"
 
 
 class ErroIncorporacao(Exception):
     """A página pedida sai da amostra controlada."""
+
+
+def _paginas_da_versao(versao: str) -> tuple[int, ...]:
+    return {
+        VERSAO_AMOSTRA: PAGINAS_615B,
+        VERSAO_615C: PAGINAS_615C,
+        VERSAO_615D: PAGINAS_615D,
+        VERSAO_615E: PAGINAS_615E,
+        VERSAO_615F: PAGINAS_615F,
+    }.get(versao, ())
 
 
 def incorporar_amostra(lote, numeros=PAGINAS_615B, versao=VERSAO_AMOSTRA) -> list[dict]:
@@ -29,7 +49,8 @@ def incorporar_amostra(lote, numeros=PAGINAS_615B, versao=VERSAO_AMOSTRA) -> lis
     bloqueadas = sorted(set(pedidos) & PAGINAS_PRESERVADAS)
     if bloqueadas:
         raise ErroIncorporacao(f"Páginas preservadas fora da amostra: {bloqueadas}.")
-    fora = sorted(numero for numero in pedidos if numero not in PAGINAS_AMOSTRA)
+    permitidas = _paginas_da_versao(versao)
+    fora = sorted(numero for numero in pedidos if numero not in permitidas)
     if fora:
         raise ErroIncorporacao(f"Páginas fora da amostra controlada: {fora}.")
     relatorio = []
@@ -143,25 +164,68 @@ def _identidade_folha(regiao) -> tuple[str, str, str] | None:
     return nome, competencia, str(liquido)
 
 
+def _totais_rescisao_conferem(regiao) -> bool:
+    """A obrigação só existe quando os três totais foram lidos e a conta fecha."""
+    if regiao is None or regiao.tipo_documental != "termo_rescisao":
+        return False
+    bruto = _valor(regiao, "total_bruto")
+    deducoes = _valor(regiao, "deducoes")
+    liquido = _valor(regiao, "total_liquido")
+    if bruto is None or deducoes is None or liquido is None:
+        return False
+    return bruto - deducoes == liquido
+
+
+def _identidade_rescisao(regiao) -> tuple[str, str, str] | None:
+    if regiao is None or regiao.tipo_documental != "termo_rescisao":
+        return None
+    nome = " ".join(_sem_acento(_texto(regiao, "trabalhador")).upper().split())
+    desligamento = _texto(regiao, "data_desligamento")
+    liquido = _valor(regiao, "total_liquido")
+    if not nome or not desligamento or liquido is None:
+        return None
+    return nome, desligamento, str(liquido)
+
+
 def _gravar_cadeias_novas(lote) -> list[str]:
     regioes = list(lote.regioes.select_related("pagina").prefetch_related("campos", "rubricas"))
     existentes = set(lote.cadeias.values_list("codigo", flat=True))
+    cadeias_atuais = list(lote.cadeias.select_related("execucao"))
     identidades = {
         _identidade_folha(cadeia.execucao)
-        for cadeia in lote.cadeias.select_related("execucao")
+        for cadeia in cadeias_atuais
         if cadeia.execucao_id and cadeia.execucao.tipo_documental == "holerite"
     }
+    identidades_rescisao = {
+        _identidade_rescisao(cadeia.execucao)
+        for cadeia in cadeias_atuais
+        if cadeia.execucao_id and cadeia.execucao.tipo_documental == "termo_rescisao"
+    }
+    identidades_rescisao.discard(None)
     criadas = []
-    for proposta in _cadeias_folha(lote, regioes) + _cadeias_darf(lote, regioes) + _cadeias_fgts(lote, regioes):
+    propostas = (
+        _cadeias_folha(lote, regioes)
+        + _cadeias_darf(lote, regioes)
+        + _cadeias_fgts(lote, regioes)
+        + _cadeias_rescisao(lote, regioes)
+    )
+    for proposta in propostas:
         if proposta["codigo"] in existentes:
             continue
         if proposta["execucao"].pagina.numero_fisico not in PAGINAS_AMOSTRA:
+            continue
+        if proposta["codigo"].startswith("rescisao-") and not _totais_rescisao_conferem(proposta["execucao"]):
             continue
         identidade = _identidade_folha(proposta["execucao"])
         if identidade is not None and identidade in identidades:
             continue
         if identidade is not None:
             identidades.add(identidade)
+        identidade_rescisao = _identidade_rescisao(proposta["execucao"]) if proposta["codigo"].startswith("rescisao-") else None
+        if identidade_rescisao is not None and identidade_rescisao in identidades_rescisao:
+            continue
+        if identidade_rescisao is not None:
+            identidades_rescisao.add(identidade_rescisao)
         cadeia = CadeiaConciliacao(lote=lote, estado=EstadoVinculo.SUGERIDO)
         for campo, valor in proposta.items():
             setattr(cadeia, campo, valor)
