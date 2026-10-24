@@ -259,14 +259,18 @@ class DetalhePrestacaoView(LoginRequiredMixin, View):
             from aplicacao.documentos.views import contexto_aba
 
             contexto.update(contexto_aba(request, prestacao))
+            from aplicacao.laboratorio.acesso import pode_abrir_laboratorio
             from aplicacao.laboratorio.models import LoteLaboratorio
             from aplicacao.laboratorio.servico import montar_relatorio
 
-            lotes = list(
-                LoteLaboratorio.objects.filter(prestacao_parceria=prestacao)
-                .select_related("documento")
-                .order_by("-importado_em")
-            )
+            contexto["pode_laboratorio"] = pode_abrir_laboratorio(request.user)
+            lotes = []
+            if contexto["pode_laboratorio"]:
+                lotes = list(
+                    LoteLaboratorio.objects.filter(prestacao_parceria=prestacao)
+                    .select_related("documento")
+                    .order_by("-importado_em")
+                )
             contexto["lotes_laboratorio"] = [
                 {"lote": lote, "relatorio": montar_relatorio(lote)} for lote in lotes
             ]

@@ -48,6 +48,8 @@ services:
     hostname: cge_web
     env_file:
       - .env
+    environment:
+      LABORATORIO_HABILITADO: ${LABORATORIO_HABILITADO:-false}
     volumes:
       - cge_static:/app/staticfiles
       - cge_arquivos:/app/arquivos
@@ -76,6 +78,8 @@ services:
     hostname: cge_worker
     env_file:
       - .env
+    environment:
+      LABORATORIO_HABILITADO: ${LABORATORIO_HABILITADO:-false}
     volumes:
       - cge_arquivos:/app/arquivos
     networks:
@@ -100,6 +104,8 @@ services:
     hostname: cge_agendador
     env_file:
       - .env
+    environment:
+      LABORATORIO_HABILITADO: ${LABORATORIO_HABILITADO:-false}
     volumes:
       - cge_celery_agenda:/app/celery
     networks:

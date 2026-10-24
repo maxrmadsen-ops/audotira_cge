@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from django.urls import reverse
 
+from aplicacao.laboratorio.acesso import pode_abrir_laboratorio
 from aplicacao.usuarios.acesso import pode_administrar
 from aplicacao.usuarios.models import Usuario
 
@@ -71,7 +72,7 @@ def construir_menu(usuario, prestacao=None) -> list[ItemMenu]:
     if prestacao is None:
         itens.extend(_itens_sem_processo())
     else:
-        itens.extend(_itens_do_processo(prestacao))
+        itens.extend(_itens_do_processo(prestacao, usuario))
         itens.extend(_atalhos_globais("governanca"))
     itens.extend(_governanca(usuario))
     return itens
@@ -133,14 +134,14 @@ def _item_conciliacao(prestacao) -> list[ItemMenu]:
     ]
 
 
-def _itens_do_processo(prestacao) -> list[ItemMenu]:
+def _itens_do_processo(prestacao, usuario) -> list[ItemMenu]:
     pk = prestacao.pk
     detalhe = reverse("prestacoes_contas:detalhe", kwargs={"pk": pk})
 
     def aba(codigo: str) -> str:
         return f"{detalhe}?aba={codigo}"
 
-    return [
+    itens = [
         ItemMenu("Identificação dos Envolvidos", aba("geral"), True, "prestacoes-de-contas", "preparacao", chave="geral", descricao="Concedente, beneficiário, instrumento e valores com proveniência."),
         ItemMenu("Instrumento", reverse("instrumentos:instrumento", kwargs={"pk": pk}), True, "documentos", "preparacao", chave="instrumento", descricao="Termo e campos extraídos. A conferência humana não é automática."),
         ItemMenu("Base Normativa", reverse("instrumentos:base_normativa", kwargs={"pk": pk}), True, "normas", "preparacao", chave="base", descricao="Normas vinculadas a este processo."),
@@ -163,6 +164,10 @@ def _itens_do_processo(prestacao) -> list[ItemMenu]:
         ItemMenu("Minha fila", "/pendencias/", True, "pendencias", "fila", descricao="Pendências de revisão, informações ausentes e divergências. Ausência de evidência não é irregularidade."),
         ItemMenu("Base Normativa Institucional", "/normas/", True, "normas", "institucional", descricao="Normas institucionais. Cadastro, conferência, vigência e aplicabilidade ao processo são decisões distintas."),
     ]
+    if pode_abrir_laboratorio(usuario):
+        return itens
+    ocultos = {"laboratorio", "conferencia_integrada", "conciliacao"}
+    return [item for item in itens if item.chave not in ocultos]
 
 
 def _atalhos_globais(grupo: str) -> list[ItemMenu]:

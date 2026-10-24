@@ -162,6 +162,10 @@ ANTHROPIC_API_KEY = _ambiente("ANTHROPIC_API_KEY")
 OPENAI_HABILITADO = _ambiente_bool("OPENAI_HABILITADO", False)
 ANTHROPIC_HABILITADO = _ambiente_bool("ANTHROPIC_HABILITADO", False)
 IA_INTEGRACAO = _ambiente("IA_INTEGRACAO", "desligada") or "desligada"
+# Desligado até decisão explícita. Superusuário não contorna este valor.
+LABORATORIO_HABILITADO = _ambiente_bool("LABORATORIO_HABILITADO", False)
+# Cache privado do PDF. Zero revalida cada pedido; o navegador ainda pode guardar bytes já recebidos.
+DOCUMENTO_CACHE_MAX_AGE = int(os.environ.get("DOCUMENTO_CACHE_MAX_AGE", "86400"))
 IA_MAX_TENTATIVAS = int(os.environ.get("IA_MAX_TENTATIVAS", "2"))
 IA_MAX_CARACTERES_CONTEXTO = int(os.environ.get("IA_MAX_CARACTERES_CONTEXTO", "12000"))
 
@@ -185,6 +189,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "test":
     CELERY_TASK_EAGER_PROPAGATES = True
     DATABASES["default"]["CONN_MAX_AGE"] = 0
     IA_INTEGRACAO = "desligada"
+    LABORATORIO_HABILITADO = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

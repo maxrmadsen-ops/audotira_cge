@@ -229,8 +229,12 @@ def _intervalo_bytes(cabecalho: str, tamanho: int) -> tuple[int, int] | None:
 
 
 def _marcar_arquivo(resposta, etiqueta: str) -> None:
+    from django.conf import settings
+
+    idade = int(getattr(settings, "DOCUMENTO_CACHE_MAX_AGE", 86400))
     resposta["Accept-Ranges"] = "bytes"
-    resposta["Cache-Control"] = "private, max-age=86400"
+    resposta["Cache-Control"] = f"private, max-age={idade}"
+    resposta["Vary"] = "Cookie"
     resposta["ETag"] = etiqueta
     resposta["Content-Disposition"] = "inline"
     resposta["X-Content-Type-Options"] = "nosniff"

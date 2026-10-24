@@ -7,5 +7,6 @@ from aplicacao.usuarios.models import Usuario
 class UsuarioAdmin(admin.ModelAdmin):
     list_display = ("username", "first_name", "perfil", "is_active", "is_staff", "last_login")
     list_filter = ("perfil", "is_active", "is_staff")
+    filter_horizontal = ("groups",)
     search_fields = ("username", "first_name", "email")
     ordering = ("username",)

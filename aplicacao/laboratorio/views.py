@@ -47,10 +47,12 @@ from aplicacao.laboratorio.models import (
 )
 from aplicacao.laboratorio.servico import montar_relatorio, processar_lote
 from aplicacao.prestacoes_contas.models import PrestacaoContas
-from aplicacao.usuarios.acesso import PERFIS_OPERACIONAIS, PerfilExigidoMixin, exigir_atuar_na_prestacao, exigir_ver_prestacao
+from aplicacao.laboratorio.acesso import AcessoLaboratorioMixin, exigir_laboratorio
+from aplicacao.usuarios.acesso import PERFIS_OPERACIONAIS, exigir_atuar_na_prestacao, exigir_ver_prestacao
 
 
 def _lote_visivel(request, lote_pk: int) -> LoteLaboratorio:
+    exigir_laboratorio(request.user)
     lote = get_object_or_404(
         LoteLaboratorio.objects.select_related("prestacao_parceria", "documento"),
         pk=lote_pk,
@@ -93,7 +95,7 @@ def _curadoria_url(lote, numero_pagina: int, peca: int | None = None) -> str:
     return url
 
 
-class LaboratorioProcessoView(PerfilExigidoMixin, View):
+class LaboratorioProcessoView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, pk):
@@ -116,7 +118,7 @@ class LaboratorioProcessoView(PerfilExigidoMixin, View):
         )
 
 
-class LaboratorioLoteView(PerfilExigidoMixin, View):
+class LaboratorioLoteView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, lote_pk):
@@ -168,7 +170,7 @@ class LaboratorioLoteView(PerfilExigidoMixin, View):
         )
 
 
-class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
+class LaboratorioCuradoriaView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, lote_pk):
@@ -249,7 +251,7 @@ class LaboratorioCuradoriaView(PerfilExigidoMixin, View):
         )
 
 
-class RevisarRegiaoView(PerfilExigidoMixin, View):
+class RevisarRegiaoView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, regiao_pk):
@@ -300,7 +302,7 @@ class RevisarRegiaoView(PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, pagina.numero_fisico, regiao.pk))
 
 
-class AjustarRegiaoView(PerfilExigidoMixin, View):
+class AjustarRegiaoView(AcessoLaboratorioMixin, View):
     """Grava o retângulo arrastado sem confirmar a classificação nem a extração."""
 
     perfis_permitidos = PERFIS_OPERACIONAIS
@@ -338,7 +340,7 @@ class AjustarRegiaoView(PerfilExigidoMixin, View):
         return JsonResponse({"ok": True, "revisao": "pendente"})
 
 
-class RevisarCampoView(PerfilExigidoMixin, View):
+class RevisarCampoView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, campo_pk):
@@ -402,7 +404,7 @@ class RevisarCampoView(PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, campo.numero_pagina, campo.regiao_id))
 
 
-class RevisarRubricaView(PerfilExigidoMixin, View):
+class RevisarRubricaView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, rubrica_pk):
@@ -465,7 +467,7 @@ class RevisarRubricaView(PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, rubrica.regiao.pagina.numero_fisico, rubrica.regiao_id))
 
 
-class RevisarVinculoView(PerfilExigidoMixin, View):
+class RevisarVinculoView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, vinculo_pk):
@@ -496,7 +498,7 @@ class RevisarVinculoView(PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, vinculo.origem.pagina.numero_fisico, vinculo.origem_id))
 
 
-class CriarPendenciaView(PerfilExigidoMixin, View):
+class CriarPendenciaView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk):
@@ -528,7 +530,7 @@ class CriarPendenciaView(PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, numero, regiao.pk if regiao else None))
 
 
-class MarcarIlegivelView(PerfilExigidoMixin, View):
+class MarcarIlegivelView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, pagina_pk):
@@ -555,7 +557,7 @@ class MarcarIlegivelView(PerfilExigidoMixin, View):
         return redirect(_curadoria_url(lote, pagina.numero_fisico))
 
 
-class SolicitarReprocessamentoView(PerfilExigidoMixin, View):
+class SolicitarReprocessamentoView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk):
@@ -575,7 +577,7 @@ class SolicitarReprocessamentoView(PerfilExigidoMixin, View):
         return redirect(reverse("laboratorio:lote", kwargs={"lote_pk": lote.pk}))
 
 
-class RelatorioLaboratorioView(PerfilExigidoMixin, View):
+class RelatorioLaboratorioView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, lote_pk):
@@ -591,7 +593,7 @@ class RelatorioLaboratorioView(PerfilExigidoMixin, View):
         )
 
 
-class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
+class ConciliacaoFinanceiraView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def get(self, request, lote_pk):
@@ -641,7 +643,7 @@ class ConciliacaoFinanceiraView(PerfilExigidoMixin, View):
         )
 
 
-class ConferenciaIntegradaView(PerfilExigidoMixin, View):
+class ConferenciaIntegradaView(AcessoLaboratorioMixin, View):
     """Consulta agregada. Abrir a tela não cria nem atualiza cadeias."""
 
     perfis_permitidos = PERFIS_OPERACIONAIS
@@ -663,7 +665,7 @@ class ConferenciaIntegradaView(PerfilExigidoMixin, View):
         )
 
 
-class RevisarCadeiaView(PerfilExigidoMixin, View):
+class RevisarCadeiaView(AcessoLaboratorioMixin, View):
     perfis_permitidos = PERFIS_OPERACIONAIS
 
     def post(self, request, lote_pk, cadeia_pk):

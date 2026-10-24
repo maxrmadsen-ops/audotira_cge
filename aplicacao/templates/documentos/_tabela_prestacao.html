@@ -33,7 +33,7 @@
         <p class="small text-secondary mb-0 mt-2">O processamento ocorre em segundo plano. PDF com texto utilizável não passa por OCR. A classificação é revista depois, separada da origem do arquivo.</p>
     </form>
 {% endif %}
-{% if lotes_laboratorio %}
+{% if pode_laboratorio and lotes_laboratorio %}
 <article class="cartao mb-3">
     <h2>Classificação e Extração</h2>
     <p class="texto-apoio">Acesso direto às páginas inventariadas dos PDFs já importados no laboratório. Não é necessário voltar ao menu.</p>
@@ -91,7 +91,7 @@
                     <td>
                         <a href="{% url 'documentos:detalhe' documento.pk %}">{{ documento.nome_original }}</a>
                         {% if documento.demonstracao %}<span class="estado estado-aguardando ms-1">Dados de demonstração</span>{% endif %}
-                        {% if documento.lote_laboratorio %}
+                        {% if pode_laboratorio and documento.lote_laboratorio %}
                         <div class="mt-1">
                             <a class="btn btn-sm btn-outline-primary" href="{% url 'laboratorio:lote' documento.lote_laboratorio.pk %}">Abrir classificação das páginas</a>
                         </div>
