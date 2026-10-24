@@ -1,8 +1,8 @@
-"""Incorpora a amostra dos ciclos 6.1.5-B, 6.1.5-C e 6.1.5-D sem reprocessar páginas preservadas."""
+"""Incorpora a amostra dos ciclos 6.1.5-B a 6.1.5-E sem reprocessar páginas preservadas."""
 
 from __future__ import annotations
 
-from aplicacao.laboratorio.conciliacao import _cadeias_darf, _cadeias_fgts, _cadeias_folha
+from aplicacao.laboratorio.conciliacao import _cadeias_darf, _cadeias_fgts, _cadeias_folha, _texto, _valor
 from aplicacao.laboratorio.escolhas import EstadoCampo, EstadoClassificacao, EstadoRevisao, EstadoVinculo
 from aplicacao.laboratorio.extracao import extrair_campos
 from aplicacao.laboratorio.models import CadeiaConciliacao, CampoExtraido, RegiaoDocumental
@@ -11,11 +11,13 @@ from aplicacao.laboratorio.servico import reprocessar_pagina_por_imagem
 PAGINAS_615B = (16, 18, 50, 110, 112, 115, 117)
 PAGINAS_615C = (109, 113, 114, 118, 119, 120, 121, 122)
 PAGINAS_615D = (123, 124, 125, 129, 131, 132, 134)
-PAGINAS_AMOSTRA = PAGINAS_615B + PAGINAS_615C + PAGINAS_615D
+PAGINAS_615E = (12, 20, 28, 46, 52)
+PAGINAS_AMOSTRA = PAGINAS_615B + PAGINAS_615C + PAGINAS_615D + PAGINAS_615E
 PAGINAS_PRESERVADAS = frozenset({17, 91, 92, 93, 111, 116})
 VERSAO_AMOSTRA = "6.1.5-b"
 VERSAO_615C = "6.1.5-c"
 VERSAO_615D = "6.1.5-d"
+VERSAO_615E = "6.1.5-e"
 
 
 class ErroIncorporacao(Exception):
@@ -129,15 +131,37 @@ def _reextrair(regiao: RegiaoDocumental) -> None:
     )
 
 
+def _identidade_folha(regiao) -> tuple[str, str, str] | None:
+    """Trabalhador, competência e líquido. Sem os três, não há como reconhecer repetição."""
+    if regiao is None or regiao.tipo_documental != "holerite":
+        return None
+    nome = " ".join(_texto(regiao, "funcionario").upper().split())
+    competencia = _texto(regiao, "competencia")
+    liquido = _valor(regiao, "valor_liquido")
+    if not nome or not competencia or liquido is None:
+        return None
+    return nome, competencia, str(liquido)
+
+
 def _gravar_cadeias_novas(lote) -> list[str]:
     regioes = list(lote.regioes.select_related("pagina").prefetch_related("campos", "rubricas"))
     existentes = set(lote.cadeias.values_list("codigo", flat=True))
+    identidades = {
+        _identidade_folha(cadeia.execucao)
+        for cadeia in lote.cadeias.select_related("execucao")
+        if cadeia.execucao_id and cadeia.execucao.tipo_documental == "holerite"
+    }
     criadas = []
     for proposta in _cadeias_folha(lote, regioes) + _cadeias_darf(lote, regioes) + _cadeias_fgts(lote, regioes):
         if proposta["codigo"] in existentes:
             continue
         if proposta["execucao"].pagina.numero_fisico not in PAGINAS_AMOSTRA:
             continue
+        identidade = _identidade_folha(proposta["execucao"])
+        if identidade is not None and identidade in identidades:
+            continue
+        if identidade is not None:
+            identidades.add(identidade)
         cadeia = CadeiaConciliacao(lote=lote, estado=EstadoVinculo.SUGERIDO)
         for campo, valor in proposta.items():
             setattr(cadeia, campo, valor)

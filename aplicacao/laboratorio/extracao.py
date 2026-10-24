@@ -212,7 +212,11 @@ def _nome_util(nome: str) -> str:
     limpo = " ".join(palavras)
     if len(limpo.split()) < 2 or re.search(r"\d", limpo) or "APAE" in limpo.upper():
         return ""
-    if re.search(r"funcion|cadastro|descri|provento|desconto|departamento", limpo, flags=re.IGNORECASE):
+    if re.search(
+        r"funcion|cadastro|descri|provento|desconto|departamento|professor|ensino fundamental|data de admiss|data admiss",
+        limpo,
+        flags=re.IGNORECASE,
+    ):
         return ""
     return limpo
 
@@ -226,6 +230,14 @@ def _nome_trabalhador(texto: str) -> str:
     )
     if linha and _nome_util(linha.group(1)):
         return _nome_util(linha.group(1))
+    # O nome às vezes fica na mesma linha do cabeçalho, depois de Departamento.
+    mesma_linha = re.search(
+        r"departamento[ \t]+(?:[A-Z0-9!|]{1,4}[ \t]+)?([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{3,}(?:[ \t]+[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}){1,4})",
+        texto or "",
+        flags=re.IGNORECASE,
+    )
+    if mesma_linha and _nome_util(mesma_linha.group(1)):
+        return _nome_util(mesma_linha.group(1))
     # Holerite escaneado: cabeçalho "Nome do Funcionário" e linha seguinte com o nome.
     apos_rotulo = re.search(
         r"(?:nome\s+do\s+funcion[aá]rio|cadastro)[^\n]{0,120}\n\s*(?:\d{1,6}\s+)?([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç .']{6,70})",
@@ -264,6 +276,19 @@ def _nome_trabalhador(texto: str) -> str:
                 continue
             return nome
     return ""
+
+
+def _liquido_ponto_duplo(texto: str) -> str:
+    """OCR que leu 4.180.91 no lugar de 4.180,91. Só no rótulo do líquido."""
+    achado = re.search(
+        r"total\s+l[ií]quido\s*[:\-]?\s*(\d{1,3}(?:\.\d{3})+\.\d{2})\b",
+        texto or "",
+        flags=re.IGNORECASE,
+    )
+    if not achado:
+        return ""
+    milhar, centavos = achado.group(1).rsplit(".", 1)
+    return f"{milhar},{centavos}"
 
 
 def _moeda_no_contexto(texto: str, rotulos: tuple[str, ...]) -> str:
@@ -344,7 +369,8 @@ def _extrair_holerite(texto: str) -> dict[str, str]:
         or _moeda_no_contexto(texto, ("total\\s+de\\s+proventos", "proventos")),
         "total_descontos": _buscar((r"Total\s+[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}\s+([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})",), texto)
         or _moeda_no_contexto(texto, ("total\\s+de\\s+descontos", "descontos")),
-        "valor_liquido": _moeda_no_contexto(texto, ("total\\s+l[ií]quido", "l[ií]quido\\s+a\\s+receber", "valor\\s+l[ií]quido", "l[ií]quido")),
+        "valor_liquido": _moeda_no_contexto(texto, ("total\\s+l[ií]quido", "l[ií]quido\\s+a\\s+receber", "valor\\s+l[ií]quido", "l[ií]quido"))
+        or _liquido_ponto_duplo(texto),
         "irrf": _valor_rotulo(texto, r"\birrf\b", evitar=(r"base", r"faixa", r"c[aá]lc"), ultimo=True)
         or _valor_rotulo(texto, r"^\s*920\b", ultimo=True),
         "inss": _valor_rotulo(texto, r"\binss\b", evitar=(r"base", r"sal\s*cont", r"c[aá]lc"), ultimo=True),
@@ -423,7 +449,6 @@ def _competencia(texto: str) -> str:
 
 
 def _valor_rotulo(texto: str, padrao: str, evitar: tuple[str, ...] = (), ultimo: bool = False) -> str:
-    moeda = r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}"
     for linha in (texto or "").splitlines():
         achado = re.search(padrao, linha, flags=re.IGNORECASE)
         if not achado:
@@ -433,7 +458,7 @@ def _valor_rotulo(texto: str, padrao: str, evitar: tuple[str, ...] = (), ultimo:
         if re.search(r"certifico|presidente|cpf", linha, flags=re.IGNORECASE):
             continue
         if ultimo:
-            valores = re.findall(moeda, linha)
+            valores = _moedas_sem_percentual(linha)
             if valores:
                 return valores[-1]
             continue
@@ -441,10 +466,14 @@ def _valor_rotulo(texto: str, padrao: str, evitar: tuple[str, ...] = (), ultimo:
         corte = re.search(r"\b(?:sal[aá]rio|sal\s*cont|bas\w*|fgts|faixa|dep)\b", resto, flags=re.IGNORECASE)
         if corte:
             resto = resto[: corte.start()]
-        valores = re.findall(moeda, resto)
+        valores = _moedas_sem_percentual(resto)
         if valores:
             return valores[0]
     return ""
+
+
+def _moedas_sem_percentual(linha: str) -> list[str]:
+    return re.findall(r"([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})(?!\s*%)", linha or "")
 
 
 def _mapa_bases(texto: str) -> dict[str, str]:
