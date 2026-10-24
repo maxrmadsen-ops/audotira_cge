@@ -1,4 +1,4 @@
-"""Incorpora a amostra dos ciclos 6.1.5-B e 6.1.5-C sem reprocessar páginas preservadas."""
+"""Incorpora a amostra dos ciclos 6.1.5-B, 6.1.5-C e 6.1.5-D sem reprocessar páginas preservadas."""
 
 from __future__ import annotations
 
@@ -10,10 +10,12 @@ from aplicacao.laboratorio.servico import reprocessar_pagina_por_imagem
 
 PAGINAS_615B = (16, 18, 50, 110, 112, 115, 117)
 PAGINAS_615C = (109, 113, 114, 118, 119, 120, 121, 122)
-PAGINAS_AMOSTRA = PAGINAS_615B + PAGINAS_615C
+PAGINAS_615D = (123, 124, 125, 129, 131, 132, 134)
+PAGINAS_AMOSTRA = PAGINAS_615B + PAGINAS_615C + PAGINAS_615D
 PAGINAS_PRESERVADAS = frozenset({17, 91, 92, 93, 111, 116})
 VERSAO_AMOSTRA = "6.1.5-b"
 VERSAO_615C = "6.1.5-c"
+VERSAO_615D = "6.1.5-d"
 
 
 class ErroIncorporacao(Exception):
